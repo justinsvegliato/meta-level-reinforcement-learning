@@ -1,0 +1,8 @@
+# changed numpy, scipy versions to ones compatible with python 3.7
+matplotlib==3.5.2
+# numpy==1.22.4
+numpy==1.21.6
+# scipy==1.8.1
+scipy==1.7.3
+termcolor==1.1.0
+# cplex==22.1.0.0
