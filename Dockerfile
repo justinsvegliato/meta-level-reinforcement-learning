@@ -23,3 +23,4 @@ RUN rm -rf tensorflow-tutorials
 
 RUN git clone https://github.com/MattChanTK/gym-maze gym-maze
 RUN cd gym-maze; python setup.py install
+ENV PYTHONPATH="/tf/gym-maze/build/lib:$PYTHONPATH"
