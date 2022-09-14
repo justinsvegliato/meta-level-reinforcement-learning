@@ -12,9 +12,9 @@ class ObjectState(ABC):
     @staticmethod
     @abstractmethod
     def extract_state(env: gym.Env) -> 'ObjectState':
-        """ 
-        A static method to extract the current state of the environment 
-        for later restoring and representation. 
+        """
+        A static method to extract the current state of the environment
+        for later restoring and representation.
         """
         pass
 
@@ -22,7 +22,7 @@ class ObjectState(ABC):
     def set_environment_to_state(self, env: gym.Env):
         """ A method to set the environment to the state of the object. """
         pass
-    
+
     @abstractmethod
     def get_state_vector(self) -> np.array:
         """ Returns a vector representation of the state. """
@@ -31,8 +31,8 @@ class ObjectState(ABC):
 
 class SearchTreeNode:
     """
-    A class to represent a node in the search tree. 
-    The node contains the state of the environment, the action that led to this state, 
+    A class to represent a node in the search tree.
+    The node contains the state of the environment, the action that led to this state,
     the reward received, and the children of the node, and other important data.
     """
 
@@ -125,9 +125,9 @@ class SearchTreeNode:
 class SearchTree:
     """
     A class to represent the search tree.
-    Serves as a wrapper for the root node of the search tree that provides O(1) 
-    access to a list of all nodes. Thereby, the search tree can be used as a data structure 
-    for the meta-environment and computational actions  can be performed on the search 
+    Serves as a wrapper for the root node of the search tree that provides O(1)
+    access to a list of all nodes. Thereby, the search tree can be used as a data structure
+    for the meta-environment and computational actions  can be performed on the search
     tree without having to traverse the tree by indexing nodes in the list with a given action.
     """
 

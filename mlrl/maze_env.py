@@ -6,7 +6,6 @@ import random
 import os
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
-
 import gym
 import gym_maze
 from gym.envs.registration import register
@@ -24,7 +23,7 @@ def make_maze_env(maze_size=(5, 5), mode=None, seed=None) -> 'MazeEnv':
     """
     Args:
         maze_size (tuple): The size of the maze to generate.
-        mode (str): The mode of the maze to generate. Either 'plus' or None. 
+        mode (str): The mode of the maze to generate. Either 'plus' or None.
             Plus mode generates a maze with portals.
         seed (int): The seed to use for the maze generation.
     """
@@ -37,15 +36,15 @@ def make_maze_env(maze_size=(5, 5), mode=None, seed=None) -> 'MazeEnv':
 
 def get_maze_state(env) -> tuple:
     """
-    Returns a tuple containing the necessary information 
-    to reset the environment its current state. 
+    Returns a tuple containing the necessary information
+    to restore the environment its current state.
     """
     return (np.array(env.state.copy()), env.steps_beyond_done, env.done)
 
 
 def set_maze_state(env: 'MazeEnv', state: tuple, update_render=True):
-    """ Sets the environment to the given state. """ 
-    robot_state, steps_beyond_done, done = state 
+    """ Sets the environment to the given state. """
+    robot_state, steps_beyond_done, done = state
 
     if update_render:
         # pylint: disable=protected-access
@@ -81,10 +80,10 @@ def dark_mode_maze(img: np.ndarray,
                    dark_thresh=50) -> np.ndarray:
     """ Transforms the image to a dark mode version. Purely for aesthetic purposes. """
     img_rgb_sum = np.sum(img, axis=-1)
-    light_region = (img_rgb_sum > light_thresh*3)
+    light_region = (img_rgb_sum > light_thresh * 3)
     light_region = np.repeat(light_region[:, :, np.newaxis], 3, axis=-1)
 
-    dark_region = (img_rgb_sum < dark_thresh*3)
+    dark_region = (img_rgb_sum < dark_thresh * 3)
     dark_region = np.repeat(dark_region[:, :, np.newaxis], 3, axis=-1)
 
     other_regions = ~(light_region | dark_region)

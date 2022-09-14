@@ -49,7 +49,7 @@ def hierarchy_pos(graph, root=None, width=1., vert_gap=0.2, vert_loc=0, xcenter=
         pos: a dict saying where all nodes go if they have been assigned
         parent: parent of this branch. - only affects it if non-directed
         '''
-    
+
         if pos is None:
             pos = {root: (x_center, vert_loc)}
         else:

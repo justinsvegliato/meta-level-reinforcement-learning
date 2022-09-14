@@ -5,7 +5,7 @@ import numpy as np
 
 
 class ManhattanQHat(QFunction):
-    
+
     def __init__(self, env: 'MazeEnv', discount: float = 0.99):
         self.env = env
         self.goal_state = env.maze_view.goal
@@ -14,7 +14,7 @@ class ManhattanQHat(QFunction):
         # see source code of gym_maze.envs.maze_env.MazeEnv for hard-coded reward values
         # https://github.com/MattChanTK/gym-maze/blob/master/gym_maze/envs/maze_env.py
         self.goal_reward = 1
-        self.step_reward = -0.1/(env.maze_size[0]*env.maze_size[1])
+        self.step_reward = -0.1 / (env.maze_size[0] * env.maze_size[1])
 
     def get_next_position(self, state: MazeState, action: int) -> np.array:
         """
@@ -24,18 +24,18 @@ class ManhattanQHat(QFunction):
         elapsed_steps = self.env._elapsed_steps
         next_state, *_ = self.env.step(action)
         # ensure that this doesn't count towards time limit in the environment
-        self.env._elapsed_steps = elapsed_steps 
+        self.env._elapsed_steps = elapsed_steps
         return next_state
-        
+
     def compute_q(self, state: MazeState, action: int) -> float:
         """
-        Estimates the 
+        Estimates the Q-value of the given state and action using the Manhattan distance to the goal.
         """
 
         state_pos = state.get_state_vector()
         if np.array_equal(state_pos, self.goal_state):
             return 0
-        
+
         next_state_pos = self.get_next_position(state, action)
         dist = np.abs(next_state_pos - self.goal_state).sum()
 
