@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
+from .search_tree import ObjectState, SearchTree, SearchTreeNode
 
-from mlrl.search_tree import ObjectState, SearchTree, SearchTreeNode
+from abc import ABC, abstractmethod
 
 
 class QFunction(ABC):
@@ -20,7 +20,7 @@ class SimpleSearchBasedQEstimator:
     """
         Assumes a deterministic environment and only uses child nodes to compute Q-values
     """
-    
+
     def __init__(self, q_hat: QFunction, search_tree: SearchTree,
                  n_actions: int = 4,
                  discount: float = 0.99):
@@ -31,7 +31,7 @@ class SimpleSearchBasedQEstimator:
 
     def compute_q(self, search_tree_node: SearchTreeNode, action: int) -> float:
         """
-        Computes the Q-value for a given state and action using the search 
+        Computes the Q-value for a given state and action using the search
         tree and the Q-hat function to evaluate the leaf nodes.
 
         Args:
@@ -40,7 +40,7 @@ class SimpleSearchBasedQEstimator:
         """
         children = search_tree_node.get_children()
         if action in children:
-            child_node = children[action][0] 
+            child_node = children[action][0]
             reward = child_node.get_reward_received()
             return reward + self.discount * self.compute_value(child_node)
 

@@ -6,7 +6,7 @@ import numpy as np
 
 class ManhattanQHat(QFunction):
 
-    def __init__(self, env: 'MazeEnv', discount: float = 0.99):
+    def __init__(self, env, discount: float = 0.99):
         self.env = env
         self.goal_state = env.maze_view.goal
         self.discount = discount

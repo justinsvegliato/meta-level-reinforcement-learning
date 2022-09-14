@@ -1,10 +1,10 @@
+from .q_estimation import QFunction, SimpleSearchBasedQEstimator
+from .search_tree import SearchTree, SearchTreeNode
+
 from typing import Callable, Tuple
 
 import numpy as np
 import gym
-
-from mlrl.q_estimation import QFunction, SimpleSearchBasedQEstimator
-from mlrl.search_tree import SearchTree, SearchTreeNode
 
 
 class MetaEnv(gym.Env):
@@ -22,7 +22,7 @@ class MetaEnv(gym.Env):
         Args:
             env: The object-level environment to wrap
             q_hat: The Q-hat function to use for the search tree at the leaf nodes
-            make_tree: A function that takes an environment and returns a search 
+            make_tree: A function that takes an environment and returns a search
                 tree with the root node set to the current state
             object_state_vec_size: The size of the vector representation of the object state
             max_tree_size: The maximum number of nodes in the search tree
@@ -30,11 +30,11 @@ class MetaEnv(gym.Env):
         self.env = env
         self.q_hat = q_hat
         self.max_tree_size = max_tree_size
-        
+
         self.n_object_actions = self.env.action_space.n
         self.action_space = gym.spaces.Discrete(1 + max_tree_size * self.n_object_actions)
-        
-        self.n_meta_data = 4 # number of meta data features: mask, parent node idx, action, reward
+
+        self.n_meta_data = 4  # number of meta data features: mask, parent node idx, action, reward
         self.observation_space = gym.spaces.Box(
             low=0, high=max_tree_size,
             shape=(max_tree_size, self.n_meta_data + object_state_vec_size),
@@ -79,7 +79,7 @@ class MetaEnv(gym.Env):
         q_est = SimpleSearchBasedQEstimator(self.q_hat, self.tree)
         return max(range(self.env.action_space.n),
                    key=lambda a: q_est.compute_q(self.tree.get_root(), a))
-    
+
     def step(self, computational_action: int) -> Tuple[np.array, float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Any, List, Tuple, Dict
+from typing import Callable, List, Tuple, Dict
 from collections import defaultdict
 
 import gym
@@ -47,7 +47,7 @@ class SearchTreeNode:
                  done: bool):
         """
         Args:
-            node_id: The id of the node. Used to identify the node in the search tree 
+            node_id: The id of the node. Used to identify the node in the search tree
                 and the observation tensor in the meta-environment.
             parent: The parent node of the current node. None if the node is the root.
             state: The state of the environment at the current node.

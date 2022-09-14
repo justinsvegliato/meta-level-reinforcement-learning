@@ -1,15 +1,14 @@
+import random
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
 
-import random
-import os
-os.environ["SDL_VIDEODRIVER"] = "dummy"
-
 import gym
-import gym_maze
 from gym.envs.registration import register
 
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 register(
     id='gym-maze-v0',
@@ -19,7 +18,7 @@ register(
 )
 
 
-def make_maze_env(maze_size=(5, 5), mode=None, seed=None) -> 'MazeEnv':
+def make_maze_env(maze_size=(5, 5), mode=None, seed=None):
     """
     Args:
         maze_size (tuple): The size of the maze to generate.
@@ -42,7 +41,7 @@ def get_maze_state(env) -> tuple:
     return (np.array(env.state.copy()), env.steps_beyond_done, env.done)
 
 
-def set_maze_state(env: 'MazeEnv', state: tuple, update_render=True):
+def set_maze_state(env, state: tuple, update_render=True):
     """ Sets the environment to the given state. """
     robot_state, steps_beyond_done, done = state
 
@@ -56,7 +55,7 @@ def set_maze_state(env: 'MazeEnv', state: tuple, update_render=True):
     if update_render:
         # pylint: disable=protected-access
         env.maze_view._MazeView2D__draw_robot(transparency=255)
-    
+
     env.state = robot_state
     env.steps_beyond_done = steps_beyond_done
     env.done = done

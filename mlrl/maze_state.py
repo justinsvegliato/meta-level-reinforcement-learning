@@ -1,6 +1,6 @@
-import numpy as np
-
 from .search_tree import ObjectState
+
+import numpy as np
 
 
 class MazeState(ObjectState):
@@ -13,7 +13,7 @@ class MazeState(ObjectState):
     __slots__ = ['state_vec', 'gym_state']
 
     @staticmethod
-    def extract_state(env: 'MazeEnv') -> 'MazeState':
+    def extract_state(env) -> 'MazeState':
         """
         A static method to extract the state of the environment
         for later restoring and representation.
@@ -27,7 +27,7 @@ class MazeState(ObjectState):
         self.state_vec = state_vec
         self.gym_state = gym_state
 
-    def set_environment_to_state(self, env: 'MazeEnv'):
+    def set_environment_to_state(self, env):
         robot_pos, steps_beyond_done, done, elapsed_steps = self.gym_state
 
         env.maze_view._MazeView2D__draw_robot(transparency=0)
