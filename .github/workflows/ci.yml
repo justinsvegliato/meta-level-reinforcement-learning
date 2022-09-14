@@ -30,6 +30,3 @@ jobs:
 
       - name: Lint with flake8
         run: flake8  --count --show-source --statistics
-
-      - name: Format with autopep8
-        run: autopep8 . --recursive --diff --exit-code
