@@ -14,13 +14,13 @@ RUN apt install screen -y
 RUN python -m pip install --upgrade pip
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install -r requirements.txt
-CMD ["jupyter", "lab", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]
+CMD ["jupyter", "notebook", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]
 
 ENV LD_LIBRARY_PATH="/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH"
 
 ENV PYTHONPATH="/tf/project:$PYTHONPATH"
 RUN rm -rf tensorflow-tutorials
 
-RUN git clone https://github.com/MattChanTK/gym-maze gym-maze
-RUN cd gym-maze; python setup.py install
-ENV PYTHONPATH="/tf/gym-maze/build/lib:$PYTHONPATH"
+RUN git clone https://github.com/MattChanTK/gym-maze /tmp/gym-maze
+RUN cd /tmp/gym-maze; python setup.py install
+ENV PYTHONPATH="/tmp/gym-maze/build/lib:$PYTHONPATH"
