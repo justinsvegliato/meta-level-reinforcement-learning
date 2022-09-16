@@ -94,18 +94,20 @@ def dark_mode_maze(img: np.ndarray,
     return np.clip(img, 0, 255)
 
 
-def render_maze(env, dark_mode=False, figsize=None, title=None, do_downscale=True):
+def render_maze(env, dark_mode=False, figsize=None, title=None, do_downscale=True, ax=None, show=True):
     """ Renders the maze environment with matplotlib. """
     img = env.render(mode='rgb_array')
     if do_downscale:
         img = downscale(img)
 
-    fig = plt.figure(figsize=figsize)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    if ax is None:
+        fig = plt.figure(figsize=figsize)
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        fig.add_axes(ax)
+    
     ax.set_axis_off()
-    fig.add_axes(ax)
-
     ax.imshow(dark_mode_maze(img) if dark_mode else img)
     ax.set_title(title)
 
-    plt.show()
+    if show:
+        plt.show()

@@ -131,14 +131,25 @@ class SearchTree:
     tree without having to traverse the tree by indexing nodes in the list with a given action.
     """
 
-    def __init__(self, env: gym.Env, extract_state: Callable):
+    def __init__(self, env: gym.Env, extract_state: Callable, deterministic: bool = True):
         self.env = env
-
+        self.deterministic = deterministic
         self.root_node: SearchTreeNode = SearchTreeNode(0, None, extract_state(env), None, 0, False)
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
+    def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
+        """ 
+        Checks whether the given action permits a valid for the given node. 
+        This is only relevant for deterministic environments as we do not want to try the
+        same action multiple times.
+        """
+        return self.deterministic and action not in node.children
+
     def expand(self, node_idx: int, action: int):
         """ Expands the node with the given index by taking the given action. """
+        if node_idx >= len(self.node_list):
+            raise Exception(f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}")
+        
         node = self.node_list[node_idx]
         if node.can_expand():
             child_node = node.expand_node(self.env, action, len(self.node_list))
