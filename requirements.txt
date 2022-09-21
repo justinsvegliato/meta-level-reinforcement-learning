@@ -6,8 +6,7 @@ tensorflow-probability==0.16.0
 tensorflow-datasets==4.5.0
 tensorboard-plugin-profile==2.5.0
 tf-models-official==2.6.1
-tf-agents[reverb]==0.13.0
-dm-reverb[tensorflow]==0.9.0
+tf-agents==0.13.0
 networkx==2.5.1
 pydot==1.4.2
 wandb==0.12.10
@@ -15,4 +14,4 @@ jupyter==1.0.0
 jupyterlab==3.2.9
 plotly==5.5.0
 statsmodels
-imageio-ffmpeg
+imageio-ffmpeg==0.4.7

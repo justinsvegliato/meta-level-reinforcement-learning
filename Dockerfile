@@ -21,6 +21,6 @@ ENV LD_LIBRARY_PATH="/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH"
 ENV PYTHONPATH="/tf/project:$PYTHONPATH"
 RUN rm -rf tensorflow-tutorials
 
-RUN git clone https://github.com/MattChanTK/gym-maze /tmp/gym-maze
+RUN git clone https://github.com/DylanCope/gym-maze /tmp/gym-maze
 RUN cd /tmp/gym-maze; python setup.py install
 ENV PYTHONPATH="/tmp/gym-maze/build/lib:$PYTHONPATH"

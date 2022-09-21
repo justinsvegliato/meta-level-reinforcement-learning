@@ -39,7 +39,7 @@ class SimpleSearchBasedQEstimator:
             action: The action to evaluate
         """
         children = search_tree_node.get_children()
-        if action in children:
+        if action in children and children[action]:
             child_node = children[action][0]
             reward = child_node.get_reward_received()
             return reward + self.discount * self.compute_value(child_node)

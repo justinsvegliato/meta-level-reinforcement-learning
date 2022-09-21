@@ -11,10 +11,8 @@ class ManhattanQHat(QFunction):
         self.goal_state = maze_env.maze_view.goal
         self.discount = discount
 
-        # see source code of gym_maze.envs.maze_env.MazeEnv for hard-coded reward values
-        # https://github.com/MattChanTK/gym-maze/blob/master/gym_maze/envs/maze_env.py
-        self.goal_reward = 1
-        self.step_reward = -0.1 / (maze_env.maze_size[0] * maze_env.maze_size[1])
+        self.goal_reward = maze_env.goal_reward
+        self.step_reward = -maze_env.step_cost
 
     def get_next_position(self, state: MazeState, action: int) -> np.array:
         """

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from this import d
 from typing import Callable, List, Tuple, Dict
 from collections import defaultdict
 
@@ -86,8 +87,11 @@ class SearchTreeNode:
     def get_parent(self) -> 'SearchTreeNode':
         return self.parent
 
+    def is_root(self) -> bool:
+        return self.parent is None
+
     def get_parent_id(self) -> int:
-        if self.parent:
+        if not self.is_root():
             return self.parent.node_id
         return -1
 
@@ -117,9 +121,20 @@ class SearchTreeNode:
     def get_reward_received(self) -> float:
         return self.reward
 
-    def __repr__(self) -> str:
-        return f'action={self.action}, reward={self.reward}, ' \
-               f'state={self.state}, children={self.children}'
+    def __repr__(self, depth=0) -> str:
+        children_str = '\n'.join([
+            c.__repr__(depth + 1) for a in self.children for c in self.children[a]
+        ])
+
+        node_str = f'[{self.state}, {self.can_expand()}]'
+        maybe_newline = '\n' if children_str else ''
+
+        if depth == 0:
+            return f'{node_str}{maybe_newline}{children_str}'
+
+        transition_str = f'|---[{self.action}, {self.reward}]-->'
+
+        return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
 
 
 class SearchTree:

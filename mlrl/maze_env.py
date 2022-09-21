@@ -18,17 +18,18 @@ register(
 )
 
 
-def make_maze_env(maze_size=(5, 5), mode=None, seed=None):
+def make_maze_env(seed=None, **make_kwargs):
     """
     Args:
-        maze_size (tuple): The size of the maze to generate.
-        mode (str): The mode of the maze to generate. Either 'plus' or None.
-            Plus mode generates a maze with portals.
         seed (int): The seed to use for the maze generation.
+        make_kwargs (dict): Additional arguments to pass to gym.make.
+
+    Returns:
+        gym.Env: The maze environment.
     """
     if seed is not None:
         random.seed(seed)
-    env = gym.make("gym-maze-v0", maze_size=maze_size, mode=mode)
+    env = gym.make("gym-maze-v0", **make_kwargs)
     env.reset()
     return env
 
@@ -94,7 +95,13 @@ def dark_mode_maze(img: np.ndarray,
     return np.clip(img, 0, 255)
 
 
-def render_maze(env, dark_mode=False, figsize=None, title=None, do_downscale=True, ax=None, show=True):
+def render_maze(env,
+                dark_mode=False,
+                figsize=None,
+                title=None,
+                do_downscale=True,
+                ax=None,
+                show=True):
     """ Renders the maze environment with matplotlib. """
     img = env.render(mode='rgb_array')
     if do_downscale:
@@ -104,7 +111,7 @@ def render_maze(env, dark_mode=False, figsize=None, title=None, do_downscale=Tru
         fig = plt.figure(figsize=figsize)
         ax = plt.Axes(fig, [0., 0., 1., 1.])
         fig.add_axes(ax)
-    
+
     ax.set_axis_off()
     ax.imshow(dark_mode_maze(img) if dark_mode else img)
     ax.set_title(title)
