@@ -1,6 +1,5 @@
 from IPython.display import HTML, clear_output
 import base64
-import imageio
 
 import io
 import numpy as np
@@ -9,7 +8,17 @@ from tf_agents.policies import TFPolicy
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+import imageio
+import imageio.core.util
+
+
+def silence_imageio_warning(*args, **kwargs):
+    pass
+
+
 sns.set()
+imageio.core.util._precision_warn = silence_imageio_warning
 
 
 def plot_to_array(fig: plt.Figure) -> np.ndarray:

@@ -13,6 +13,10 @@ import seaborn as sns
 sns.set()
 
 
+def mask_invalid_action_constraint_splitter(observation):
+    return observation['search_tree_tokens'], observation['valid_action_mask']
+
+
 class MetaEnv(gym.Env):
     """
     Class that wraps a gym_maze environment and allows for the meta-learning of the search problem
@@ -77,6 +81,9 @@ class MetaEnv(gym.Env):
         self.object_env.reset()
         self.tree = self.get_root_tree()
         self.n_computations = 0
+        self.last_meta_action = None
+        self.last_meta_reward = 0
+        self.last_computational_reward = 0
         return self.get_observation()
 
     def get_root_tree(self) -> SearchTree:
@@ -178,9 +185,9 @@ class MetaEnv(gym.Env):
 
         if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
             # Perform a step in the underlying environment
-            root_state = self.tree.get_root().get_state()
-            root_state.set_environment_to_state(self.object_env)
-            _, self.last_meta_reward, done, info = self.object_env.step(self.get_best_object_action())
+            best_action = self.get_best_object_action()
+            self.set_environment_to_root_state()
+            _, self.last_meta_reward, done, info = self.object_env.step(best_action)
             self.tree = self.get_root_tree()
             return self.get_observation(), self.last_meta_reward, done, info
 
@@ -191,7 +198,7 @@ class MetaEnv(gym.Env):
         # perform a computational action on the search tree
         node_idx = (computational_action - 1) // self.n_object_actions
         object_action = (computational_action - 1) % self.n_object_actions
-        
+
         self.tree.expand(node_idx, object_action)
         self.n_computations += 1
 
@@ -200,7 +207,14 @@ class MetaEnv(gym.Env):
         if self.computational_rewards:
             self.last_meta_reward += self.get_computational_reward(prior_action)
 
+        # Set the environment to the state of the root node for inter-step consistency
+        self.set_environment_to_root_state()
+
         return self.get_observation(), self.last_meta_reward, False, dict()
+
+    def set_environment_to_root_state(self):
+        root_state = self.tree.get_root().get_state()
+        root_state.set_environment_to_state(self.object_env)
 
     def get_action_strings(self) -> Dict[int, str]:
         n = self.n_object_actions
@@ -249,9 +263,8 @@ class MetaEnv(gym.Env):
 
         plt.suptitle(self.get_render_title())
 
-        root_state = self.tree.get_root().get_state()
-        root_state.set_environment_to_state(self.object_env)
-        object_env_img = self.object_env.render(mode='rgb_array')
+        self.set_environment_to_root_state()
+        object_env_img = self.object_env.render(mode=mode)
 
         # Render the underlying environment in left subplot
         axs[0].set_axis_off()

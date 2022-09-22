@@ -3,13 +3,13 @@ from .utils.render_utils import create_policy_eval_video
 
 import json
 import time
-from typing import List, Union, Callable, Dict
+from typing import List, Callable, Dict
 from pathlib import Path
 from collections import defaultdict
 
 import tensorflow as tf
 from tf_agents.agents import TFAgent
-from tf_agents.policy import TFPolicy
+from tf_agents.policies import TFPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 from tf_agents.environments.tf_environment import TFEnvironment
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
@@ -65,17 +65,19 @@ class TrainingRun:
                  collect_steps_per_iteration=1,
                  train_steps_per_epoch=1000,
                  replay_buffer_max_length=100000,
+                 experience_batch_size=64,
                  eval_env: TFEnvironment = None,
                  num_eval_episodes=1,
                  eval_steps=250,
                  initial_collect_steps=500,
+                 video_steps=60,
                  metric_fns: Dict[str, Callable[[TFAgent, TFEnvironment], float]] = None,
                  callbacks: List[tf.keras.callbacks.Callback] = None,
                  run_dir=None,
                  end_wandb=True,
                  verbose=1,
                  wandb_entity='drcope',
-                 wandb_project='project',
+                 wandb_project='mlrl',
                  name='run'):
         """
         Creates a new training run.
@@ -90,6 +92,7 @@ class TrainingRun:
                 training step
             train_steps_per_epoch: The number of training steps per epoch
             replay_buffer_max_length: The maximum length of the replay buffer
+            experience_batch_size: The batch size for training with experience replay
             eval_env: The environment to evaluate the agent in. If None, the training
                 environment is used.
             num_eval_episodes: The number of episodes to run when collecting evaluation 
@@ -98,6 +101,7 @@ class TrainingRun:
                 evaluation statistics.
             initial_collect_steps: The number of steps to collect with a random policy 
                 before training begins.
+            video_steps: The number of steps to run when creating a video of the agent
             metric_fns: A dictionary of metric functions to use when evaluating the agent.
                 The keys are the names of the metrics and the values are the metric
                 functions. The metric functions should take an agent and an environment
@@ -109,14 +113,16 @@ class TrainingRun:
         self.agent = agent
         self.environment = environment
         self.model = model
-        
+
         # Training parameters
         self.train_steps_per_epoch = train_steps_per_epoch
         self.eval_steps = eval_steps
         self.num_eval_episodes = num_eval_episodes
         self.initial_collect_steps = initial_collect_steps
         self.collect_steps_per_iteration = collect_steps_per_iteration
-        
+        self.experience_batch_size = experience_batch_size
+        self.video_steps = video_steps
+
         self.epoch = 0
         self.eval_env = eval_env or environment
 
@@ -125,12 +131,14 @@ class TrainingRun:
         self.metric_fns = metric_fns or dict()
         self.run_dir = run_dir or f'{RUNS_DIR}/{agent.name}/{self.name}-{self.run_id}'
         self.model_weights_dir = f'{self.run_dir}/model_weights'
+        self.videos_dir = f'{self.run_dir}/videos'
 
         self.num_epochs = num_epochs
         self.verbose = verbose
 
         Path(self.run_dir).mkdir(parents=True)
         Path(self.model_weights_dir).mkdir(parents=True)
+        Path(self.videos_dir).mkdir(parents=True)
 
         self.user_given_callbacks = callbacks or []
         self.callbacks = None  # To be defined in pre execution setup due to wandb config
@@ -145,7 +153,8 @@ class TrainingRun:
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=agent.collect_data_spec,
             batch_size=environment.batch_size,
-            max_length=replay_buffer_max_length)
+            max_length=replay_buffer_max_length
+        )
 
         self.experience_dataset = None  # setup in pre-execution
         self.experience_iterator = None  # setup in pre-execution
@@ -162,19 +171,17 @@ class TrainingRun:
         except NotImplementedError:
             model_config = None
 
-        metrics = [str(f) for f in self.metric_fns]
-
         return {
             'name': self.name,
+            'agent_name': self.agent.name,
             'run_dir': self.run_dir,
-            'model_type': self.model_type,
-            'optimiser_config': self._clean_for_json(self.optimiser.get_config()),
+            'optimiser_config': self._clean_for_json(self.agent._optimizer.get_config()),
             'model_config': self._clean_for_json(model_config),
             'max_epochs': self.num_epochs,
-            'loss_fn': str(self.loss_fn),
-            'metrics': metrics,
-            'ds_info': self.ds_info,
-            'train_steps_per_epoch': self.batches_per_epoch,
+            'metrics': list(self.metric_fns.keys()),
+            'train_steps_per_epoch': self.train_steps_per_epoch,
+            'initial_collect_steps': self.initial_collect_steps,
+            'experience_batch_size': self.experience_batch_size,
         }
 
     def training_step(self) -> Dict[str, float]:
@@ -228,7 +235,7 @@ class TrainingRun:
 
         if self.epoch == 0:
             # Evaluate the agent's policy once before training.
-            self.callbacks.on_epoch_begin()
+            self.callbacks.on_epoch_begin(0)
             self.callbacks.on_epoch_end(0, self.get_evaluation_stats())
             self.epoch += 1
 
@@ -236,25 +243,26 @@ class TrainingRun:
             self.callbacks.on_epoch_begin(self.epoch)
 
             self.environment.reset()
+            step_logs = []
             for step in range(self.train_steps_per_epoch):
                 self.callbacks.on_train_batch_begin(step)
                 logs = self.training_step()
-                logs['iteration'] = self.epoch * self.train_steps_per_epoch + step
+                step_logs.append(logs)
                 self.callbacks.on_train_batch_end(step, logs)
 
-            epoch_logs = {
-                'epoch': self.epoch,
-                **self.get_evaluation_stats()
-            }
+            epoch_logs = self.get_evaluation_stats()
+            epoch_logs.update({
+                f'mean_{k}': np.mean([log[k] for log in step_logs])
+                for k in step_logs[0].keys()
+            })
 
             try:
-                video_file = f'{self.videos_dir}/eval_video_step_{self.epoch}.mp4'
+                video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
                 create_policy_eval_video(
-                    self.agent.policy, self.eval_env, 
-                    max_steps=self.eval_steps, filename=video_file
+                    self.agent.policy, self.eval_env,
+                    max_steps=self.video_steps, filename=video_file
                 )
-                print(f'Evaluation video saved to: {video_file}')
-                epoch_logs['eval_video'] = wandb.Video(video_file, format='mp4')
+                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
 
             except Exception as e:
                 print('Failed to create evaluation video:', e)
@@ -274,7 +282,9 @@ class TrainingRun:
             callbacks.append(wandb.keras.WandbCallback(save_weights_only=True))
         if not any(isinstance(c, tf.keras.callbacks.ModelCheckpoint) for c in callbacks):
             callbacks.append(tf.keras.callbacks.ModelCheckpoint(self.run_dir,
+                                                                monitor='eval_return_mean',
                                                                 save_weights_only=True))
+
         self.callbacks = tf.keras.callbacks.CallbackList(
             callbacks,
             add_history=True,
@@ -282,7 +292,7 @@ class TrainingRun:
             model=self.model,
             verbose=self.verbose,
             epochs=self.num_epochs,
-            steps=self.batches_per_epoch
+            steps=self.train_steps_per_epoch
         )
 
     def _pre_execute_setup(self):
@@ -297,7 +307,7 @@ class TrainingRun:
 
         self.experience_dataset = self.replay_buffer.as_dataset(
             num_parallel_calls=3,
-            sample_batch_size=self.batch_size,
+            sample_batch_size=self.experience_batch_size,
             num_steps=2
         ).prefetch(3)
 
@@ -358,8 +368,10 @@ class TrainingRun:
         elif isinstance(item, tuple):
             return tuple([TrainingRun._clean_for_json(x) for x in item])
         elif type(item) in [dict, defaultdict]:
-            return {TrainingRun._clean_for_json(k): TrainingRun._clean_for_json(v)
-                    for k, v in item.items()}
+            return {
+                TrainingRun._clean_for_json(k): TrainingRun._clean_for_json(v)
+                for k, v in item.items()
+            }
 
         try:
             return str(item)

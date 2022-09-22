@@ -1,5 +1,9 @@
 data
 
+# TODO: add version control for these
+runs
+wandb
+
 # IDE
 .vscode
 

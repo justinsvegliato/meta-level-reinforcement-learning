@@ -72,7 +72,6 @@ class SearchTreeNode:
             raise Exception('Cannot expand a terminal node')
 
         self.state.set_environment_to_state(env)
-
         obs, reward, done, *_ = env.step(action)
         next_state: ObjectState = self.state.extract_state(env)
 
@@ -152,7 +151,7 @@ class SearchTree:
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
     def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
-        """ 
+        """
         Checks whether the given action permits a valid for the given node. 
         This is only relevant for deterministic environments as we do not want to try the
         same action multiple times.
@@ -163,7 +162,7 @@ class SearchTree:
         """ Expands the node with the given index by taking the given action. """
         if node_idx >= len(self.node_list):
             raise Exception(f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}")
-        
+
         node = self.node_list[node_idx]
         if node.can_expand():
             child_node = node.expand_node(self.env, action, len(self.node_list))

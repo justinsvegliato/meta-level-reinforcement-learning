@@ -20,7 +20,16 @@ class MazeState(ObjectState):
         """
         state_vec = np.array(env.maze_view._MazeView2D__robot.copy(),
                              dtype=np.int32)
-        gym_state = (state_vec, env.steps_beyond_done, env.done, env._elapsed_steps)
+
+        if hasattr(env, '_elapsed_steps'):
+            gym_state = (
+                state_vec, env.steps_beyond_done, env.done, env._elapsed_steps
+            )
+        else:
+            gym_state = (
+                state_vec, env.steps_beyond_done, env.done
+            )
+
         return MazeState(state_vec, gym_state)
 
     def __init__(self, state_vec: np.array, gym_state: tuple):
@@ -28,7 +37,7 @@ class MazeState(ObjectState):
         self.gym_state = gym_state
 
     def set_environment_to_state(self, env):
-        robot_pos, steps_beyond_done, done, elapsed_steps = self.gym_state
+        robot_pos, steps_beyond_done, done, *_ = self.gym_state
 
         env.maze_view._MazeView2D__draw_robot(transparency=0)
         env.maze_view._MazeView2D__robot = robot_pos.copy()
@@ -37,10 +46,12 @@ class MazeState(ObjectState):
         env.state = robot_pos.copy()
         env.steps_beyond_done = steps_beyond_done
         env.done = done
-        env._elapsed_steps = elapsed_steps
+
+        if hasattr(env, '_elapsed_steps'):
+            env._elapsed_steps = self.gym_state[3]
 
     def get_state_vector(self) -> np.array:
         return np.array(self.state_vec, dtype=np.float32)
 
     def __repr__(self) -> str:
-        return str(tuple(map(int, self.state_vec)))
+        return f'MazeState(pos={tuple(map(int, self.state_vec))})'

@@ -19,10 +19,7 @@ class ManhattanQHat(QFunction):
         Uses the environment to simulate taking the action and return the next state position
         """
         state.set_environment_to_state(self.maze_env)
-        elapsed_steps = self.maze_env._elapsed_steps
         next_state, *_ = self.maze_env.step(action)
-        # ensure that this doesn't count towards time limit in the environment
-        self.maze_env._elapsed_steps = elapsed_steps
         return next_state
 
     def distance_to_goal_after_taking_action(self, state: MazeState, action: int) -> float:
