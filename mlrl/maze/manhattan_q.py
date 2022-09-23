@@ -1,5 +1,5 @@
-from mlrl.maze_state import MazeState
-from mlrl.q_estimation import QFunction
+from .maze_state import MazeState
+from ..meta.q_estimation import QFunction
 
 import numpy as np
 

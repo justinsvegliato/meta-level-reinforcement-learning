@@ -1,7 +1,7 @@
 from .q_estimation import QFunction, SimpleSearchBasedQEstimator
 from .search_tree import SearchTree, SearchTreeNode
-from .utils.plot_search_tree import plot_tree
-from .utils.render_utils import plot_to_array
+from ..utils.plot_search_tree import plot_tree
+from ..utils.render_utils import plot_to_array
 
 from typing import Callable, Tuple, Dict
 

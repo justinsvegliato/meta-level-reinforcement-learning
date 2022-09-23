@@ -1,10 +1,10 @@
 from ..run import TrainingRun
-from ..maze_env import make_maze_env
-from ..maze_state import MazeState
-from ..search_tree import SearchTree
-from ..meta_env import MetaEnv, mask_invalid_action_constraint_splitter
-from ..manhattan_q import ManhattanQHat
-from ..search_q_model import SearchQModel
+from ..maze.maze_env import make_maze_env
+from ..maze.maze_state import MazeState
+from ..maze.manhattan_q import ManhattanQHat
+from ..meta.search_tree import SearchTree
+from ..meta.meta_env import MetaEnv, mask_invalid_action_constraint_splitter
+from ..meta.search_q_model import SearchQModel
 
 import argparse
 
@@ -76,7 +76,7 @@ def parse_args():
                         help='Learning rate for the optimiser.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to use.')
-    parser.add_argument('--num_epochs', type=int, default=10,
+    parser.add_argument('--num_epochs', type=int, default=20,
                         help='Number of epochs to run for.')
     parser.add_argument('--steps_per_epoch', type=int, default=1000,
                         help='Number of epochs to run for.')

@@ -1,4 +1,4 @@
-from .search_tree import ObjectState
+from ..meta.search_tree import ObjectState
 
 import numpy as np
 

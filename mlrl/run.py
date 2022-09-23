@@ -239,7 +239,7 @@ class TrainingRun:
             self.callbacks.on_epoch_end(0, self.get_evaluation_stats())
             self.epoch += 1
 
-        while self.epoch < self.num_epochs:
+        while self.epoch <= self.num_epochs:
             self.callbacks.on_epoch_begin(self.epoch)
 
             self.environment.reset()
@@ -255,22 +255,28 @@ class TrainingRun:
                 f'mean_{k}': np.mean([log[k] for log in step_logs])
                 for k in step_logs[0].keys()
             })
-
-            try:
-                video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
-                create_policy_eval_video(
-                    self.agent.policy, self.eval_env,
-                    max_steps=self.video_steps, filename=video_file
-                )
-                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
-
-            except Exception as e:
-                print('Failed to create evaluation video:', e)
+            self.create_evaluation_video()
 
             self.callbacks.on_epoch_end(self.epoch, epoch_logs)
             self.epoch += 1
 
         self.callbacks.on_train_end()
+
+    def create_evaluation_video(self):
+        """
+        Creates a video of the agent's policy in action. Saves the video to the
+        videos directory and uploads it to wandb if wandb is enabled.
+        """
+        try:
+            video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
+            create_policy_eval_video(
+                self.agent.policy, self.eval_env,
+                max_steps=self.video_steps, filename=video_file
+            )
+            wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
+
+        except Exception as e:
+            print('Failed to create evaluation video:', e)
 
     def _setup_callbacks(self):
         self.wandb_run = wandb.init(project=self.wandb_project,
