@@ -1,4 +1,5 @@
 from ..meta.search_tree import ObjectState
+from ..utils import one_hot
 
 import numpy as np
 
@@ -52,6 +53,17 @@ class MazeState(ObjectState):
 
     def get_state_vector(self) -> np.array:
         return np.array(self.state_vec, dtype=np.float32)
+
+    def get_actions(self) -> list:
+        return [0, 1, 2, 3]
+
+    def get_action_vector(self, action: int) -> np.array:
+        _, _, done, *_ = self.gym_state
+
+        if not done:
+            return one_hot(action, 4)
+
+        return np.zeros((4,))
 
     def __repr__(self) -> str:
         return f'MazeState(pos={tuple(map(int, self.state_vec))})'

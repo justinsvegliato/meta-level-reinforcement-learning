@@ -6,6 +6,9 @@ import numpy as np
 from tf_agents.environments import TFEnvironment
 from tf_agents.policies import TFPolicy
 
+import chess
+import chess.svg
+
 import cairosvg
 from PIL import Image
 from io import BytesIO
@@ -31,8 +34,29 @@ def plot_to_array(fig: plt.Figure) -> np.ndarray:
     return img_arr
 
 
+def render_chess_board(board, shape=(500, 500)):
+    try:
+        lastmove = board.peek()
+    except IndexError:
+        lastmove = None
+
+    svg = chess.svg.board(board, lastmove=lastmove)
+    return svg_to_array(svg, shape=shape)
+
+
 def svg_to_array(svg: str, shape=(128, 128)) -> np.ndarray:
-    png = cairosvg.svg2png(bytestring=svg, output_width=shape[0], output_height=shape[1])
+    """
+    Converts an SVG string to a numpy array.
+
+    Args:
+        svg (str): A string containing the SVG to convert.
+
+    Returns:
+        np.ndarray: A numpy array containing the rasterised image.
+    """
+    png = cairosvg.svg2png(bytestring=svg, 
+                           output_width=shape[0], 
+                           output_height=shape[1])
     img = Image.open(BytesIO(png))
     return np.array(img)
 

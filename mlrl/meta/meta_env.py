@@ -1,9 +1,10 @@
 from .q_estimation import QFunction, SimpleSearchBasedQEstimator
 from .search_tree import SearchTree, SearchTreeNode
+from ..utils import one_hot
 from ..utils.plot_search_tree import plot_tree
 from ..utils.render_utils import plot_to_array
 
-from typing import Callable, Tuple, Dict
+from typing import Callable, Tuple, Dict, Any
 
 import numpy as np
 import gym
@@ -25,19 +26,21 @@ class MetaEnv(gym.Env):
     def __init__(self,
                  env: gym.Env,
                  q_hat: QFunction,
-                 make_tree: Callable[[gym.Env], SearchTree],
+                 initial_tree: SearchTree,
                  cost_of_computation: float = 0.001,
                  computational_rewards: bool = True,
-                 object_state_vec_size: int = 2,
                  max_tree_size: int = 10,
+                 object_action_to_string: Callable[[Any], str] = None,
+                 object_reward_min: float = 0.0,
+                 object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99):
         """
         Args:
             env: The object-level environment to wrap
             q_hat: The Q-hat function to use for the search tree at the leaf nodes
-            make_tree: A function that takes an environment and returns a search
-                tree with the root node set to the current state
-            object_state_vec_size: The size of the vector representation of the object state
+            initial_tree: The initial search tree to use, this should be a tree with a root node.
+            cost_of_computation: The cost of computing a node in the search tree
+            computational_rewards: Whether to give computational reward
             max_tree_size: The maximum number of nodes in the search tree
         """
         self.object_env = env
@@ -47,32 +50,38 @@ class MetaEnv(gym.Env):
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
 
+        self.tree = initial_tree
+        self.n_computations = 0
+
         # Setup gym spaces
 
-        self.n_object_actions = self.object_env.action_space.n
+        object_state = initial_tree.get_root().get_state()
+        self.n_object_actions = object_state.get_maximum_number_of_actions()
         self.action_space = gym.spaces.Discrete(1 + max_tree_size * self.n_object_actions)
 
         self.n_meta_data = 2  # number of meta data features: reward, can node expand
-        self.tree_token_size = self.n_meta_data + object_state_vec_size + self.max_tree_size + self.n_object_actions
+        state_vec_dim = object_state.get_state_vector_dim()
+        action_vec_dim = object_state.get_action_vector_dim()
+        self.tree_token_size = self.n_meta_data + self.max_tree_size + state_vec_dim + action_vec_dim
         tree_token_space = gym.spaces.Box(
-            low=-env.step_cost, high=env.goal_reward,
+            low=object_reward_min, high=object_reward_max,
             shape=(max_tree_size, self.tree_token_size),
             dtype=np.float32
         )
+
+        self.object_reward_min = object_reward_min
+        self.object_reward_max = object_reward_max
 
         self.observation_space = gym.spaces.Dict({
             'search_tree_tokens': tree_token_space,
             'valid_action_mask': gym.spaces.Box(low=0, high=1, shape=(self.action_space.n,), dtype=np.int32)
         })
 
-        self.make_tree = make_tree
-        self.tree = None
-        self.n_computations = 0
-
         # Variables for rendering
         self.last_meta_action = None
         self.last_meta_reward = 0
         self.last_computational_reward = 0
+        self.object_action_to_string = object_action_to_string or (lambda a: str(a))
         self.meta_action_strings = self.get_action_strings()
 
         self.reset()
@@ -88,17 +97,22 @@ class MetaEnv(gym.Env):
 
     def get_root_tree(self) -> SearchTree:
         """ Creates a new tree with the root node set to the current state of the environment """
-        return self.make_tree(self.object_env)
+        old_root_node = self.tree.get_root()
+        new_root_state = old_root_node.get_state().extract_state(self.object_env)
+        return SearchTree(self.object_env, new_root_state, deterministic=self.tree.deterministic)
 
     def tokenise_node(self, node: SearchTreeNode) -> np.array:
-        parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
-        action_vec = np.zeros((self.n_object_actions,), dtype=np.float32)
-        if not node.is_root():
-            parent_id_vec[node.get_parent_id()] = 1
-            action_vec[node.get_action()] = 1
+        state = node.get_state()
+
+        if node.is_root():
+            parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
+            action_vec = np.zeros((state.get_action_vector_dim(),), dtype=np.float32)
+        else:
+            parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
+            action_vec = state.get_action_vector(node.get_action())
 
         meta_features = np.array([node.reward, node.can_expand()], dtype=np.float32)
-        return np.concatenate([parent_id_vec, action_vec, meta_features, node.state.get_state_vector()])
+        return np.concatenate([parent_id_vec, action_vec, meta_features, state.get_state_vector()])
 
     def get_observation(self) -> Dict[str, np.array]:
         """
@@ -128,9 +142,9 @@ class MetaEnv(gym.Env):
         action_mask = np.zeros((self.action_space.n,), dtype=np.int32)
         action_mask[0] = 1
         for node in self.tree.node_list:
-            for action in range(self.n_object_actions):
+            for action_idx, action in enumerate(node.get_state().get_actions()):
                 if self.tree.is_action_valid(node, action):
-                    action_mask[node.get_id() * self.n_object_actions + action + 1] = 1
+                    action_mask[node.get_id() * self.n_object_actions + action_idx + 1] = 1
 
         return {
             'search_tree_tokens': search_tokens,
@@ -138,17 +152,18 @@ class MetaEnv(gym.Env):
         }
 
     def get_best_object_action(self) -> int:
-        q_est = SimpleSearchBasedQEstimator(self.q_hat, self.tree,
-                                            self.n_object_actions, self.object_env_discount)
-        return max(range(self.object_env.action_space.n),
-                   key=lambda a: q_est.compute_q(self.tree.get_root(), a))
+        q_est = SimpleSearchBasedQEstimator(self.q_hat, self.tree, self.object_env_discount)
+        actions = self.tree.get_root().get_state().get_actions()
+        action_idx, _ = max(enumerate(actions),
+                            key=lambda item: q_est.compute_q(self.tree.get_root(), item[1]))
+        return action_idx
 
     def root_q_distribution(self) -> np.array:
-        q_est = SimpleSearchBasedQEstimator(self.q_hat, self.tree,
-                                            self.n_object_actions, self.object_env_discount)
+        q_est = SimpleSearchBasedQEstimator(self.q_hat, self.tree, self.object_env_discount)
+        root_state = self.tree.get_root().get_state()
         return np.array([
             q_est.compute_q(self.tree.get_root(), a)
-            for a in range(self.n_object_actions)
+            for a in root_state.get_actions()
         ])
 
     def get_computational_reward(self, prior_action: int) -> float:
@@ -185,10 +200,15 @@ class MetaEnv(gym.Env):
 
         if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
             # Perform a step in the underlying environment
-            best_action = self.get_best_object_action()
+            best_action_idx = self.get_best_object_action()
+            root_state = self.tree.get_root().get_state()
+            action = root_state.get_actions()[best_action_idx]
+
             self.set_environment_to_root_state()
-            _, self.last_meta_reward, done, info = self.object_env.step(best_action)
+            _, self.last_meta_reward, done, info = self.object_env.step(action)
+
             self.tree = self.get_root_tree()
+
             return self.get_observation(), self.last_meta_reward, done, info
 
         if self.computational_rewards:
@@ -221,7 +241,7 @@ class MetaEnv(gym.Env):
         return {
             0: 'Terminate Search',
             **{
-                i: f'Expand Node {(i - 1) // n} with Action ' + self.object_env.ACTION[(i - 1) % n]
+                i: f'Expand Node {(i - 1) // n} with Action ' + self.object_action_to_string((i - 1) % n)
                 for i in range(1, self.action_space.n)
             }
         }
@@ -242,7 +262,7 @@ class MetaEnv(gym.Env):
 
         return f'Meta-action: [{action_string}] | '\
                f'Meta-Reward: {self.last_meta_reward:.3f} | '\
-               f'Best Object-action: {self.object_env.ACTION[curr_best_object_action]} | '\
+               f'Best Object-action: {self.object_action_to_string(curr_best_object_action)} | '\
                f'Computational-Reward: {computational_reward:.3f}'
 
     def render(self, mode: str = 'rgb_array', plt_show: bool = False) -> np.ndarray:
@@ -272,15 +292,18 @@ class MetaEnv(gym.Env):
         axs[0].set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=axs[1], show=False)
+        plot_tree(self.tree, ax=axs[1], show=False,
+                  object_action_to_string=self.object_action_to_string)
 
         # Render the Q-distribution in the right subplot
         q_dist = self.root_q_distribution()
 
         sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=axs[2])
-        axs[2].set_ylim([0, self.object_env.goal_reward])  # replace later
+        axs[2].set_ylim([self.object_reward_min, self.object_reward_max])
         axs[2].set_title('Root Q-Distribution')
-        axs[2].set_xticklabels(self.object_env.ACTION)
+
+        actions = self.tree.get_root().get_state().get_actions()
+        axs[2].set_xticklabels([self.object_action_to_string(a) for a in actions])
         axs[2].yaxis.set_label_position('right')
         axs[2].yaxis.tick_right()
         plt.tight_layout(rect=[0, 0.03, 1, .9])

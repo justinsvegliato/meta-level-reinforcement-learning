@@ -6,23 +6,33 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 
-def construct_tree(tree: nx.DiGraph, node: SearchTreeNode, env):
-    tree.add_node(hash(node), state=str(node.state))
+def construct_tree(tree: nx.DiGraph,
+                   node: SearchTreeNode,
+                   env,
+                   object_action_to_string):
+
+    tree.add_node(
+        hash(node),
+        state=tuple(node.get_state().get_state_vector())
+    )
+
     for action, children in node.get_children().items():
         for child in children:
-            construct_tree(tree, child, env)
+            construct_tree(tree, child, env, object_action_to_string)
             tree.add_edge(hash(node), hash(child),
-                          action=env.ACTION[action],
+                          action=object_action_to_string(action),
                           reward=child.get_reward_received(),
                           id=child.get_id()),
 
 
 def plot_tree(search_tree: SearchTree, figsize=(20, 20),
               show_reward=False, show_id=False, ax=None,
+              object_action_to_string=None,
               show=True, title='Search Tree'):
 
     nx_tree = nx.DiGraph()
-    construct_tree(nx_tree, search_tree.get_root(), search_tree.env)
+    object_action_to_string = object_action_to_string or (lambda x: str(x))
+    construct_tree(nx_tree, search_tree.get_root(), search_tree.env, object_action_to_string)
 
     pos = hierarchy_pos_large_tree(nx_tree, hash(search_tree.get_root()), width=250, height=250)
     edge_labels = {
@@ -30,13 +40,10 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
         for n1, n2, data in nx_tree.edges(data=True)
     }
 
-    def get_node_label(node):
-        vec = tuple(nx_tree.nodes.get(node)['state'].get_state_vector())
-        if show_id:
-            return f'{vec} - {nx_tree.nodes.get(node)["state"].get_id()}'
-        return str(vec)
-
-    node_labels = {node: get_node_label(node) for node in nx_tree.nodes()}
+    node_labels = {
+        node: str(node) if len(str(node)) < 10 else ''
+        for node in nx_tree.nodes()
+    }
 
     if ax is None:
         fig = plt.figure(figsize=figsize)

@@ -28,6 +28,41 @@ class ObjectState(ABC):
         """ Returns a vector representation of the state. """
         pass
 
+    @abstractmethod
+    def get_actions(self) -> list:
+        """ Returns a list of actions that can be taken from the current state. """
+        pass
+
+    @abstractmethod
+    def get_action_vector(self, action) -> np.array:
+        """ Returns a vector representation of the action. """
+        pass
+
+    def get_action_vector_dim(self) -> int:
+        """
+        Computes the dimension of the action vectors for the problem domain.
+        This should be the same for all actions.
+        """
+        actions = self.get_actions()
+        if actions:
+            return self.get_action_vector(actions[0]).shape[0]
+
+        raise Exception('Cannot determine action vector dimension: No actions available for this state')
+
+    def get_state_vector_dim(self) -> int:
+        """
+        Computes the dimension of the state vectors for the problem domain.
+        This should be the same for all states.
+        """
+        return self.get_state_vector().shape[0]
+
+    def get_maximum_number_of_actions(self):
+        """
+        Returns the maximum number of actions that can be taken from any state.
+        If the number of actions is not fixed, this should be overriden.
+        """
+        return len(self.get_actions())
+
 
 class SearchTreeNode:
     """
@@ -63,7 +98,7 @@ class SearchTreeNode:
         self.done = done
         self.children: Dict[int, List['SearchTreeNode']] = defaultdict(list)
 
-    def expand_node(self, env: gym.Env, action: int, new_node_id: int) -> 'SearchTreeNode':
+    def expand_node(self, env: gym.Env, action_idx: int, new_node_id: int) -> 'SearchTreeNode':
         """
         Expands the node by "simulating" taking the given action in the environment
         from the node's state and creating a new child node.
@@ -72,11 +107,12 @@ class SearchTreeNode:
             raise Exception('Cannot expand a terminal node')
 
         self.state.set_environment_to_state(env)
-        obs, reward, done, *_ = env.step(action)
+        object_action = self.state.get_actions()[action_idx]
+        _, reward, done, *_ = env.step(object_action)
         next_state: ObjectState = self.state.extract_state(env)
 
-        child_node = SearchTreeNode(new_node_id, self, next_state, action, reward, done)
-        self.children[action].append(child_node)
+        child_node = SearchTreeNode(new_node_id, self, next_state, object_action, reward, done)
+        self.children[object_action].append(child_node)
         return child_node
 
     def get_id(self) -> int:
@@ -144,10 +180,10 @@ class SearchTree:
     tree without having to traverse the tree by indexing nodes in the list with a given action.
     """
 
-    def __init__(self, env: gym.Env, extract_state: Callable, deterministic: bool = True):
+    def __init__(self, env: gym.Env, root_state: ObjectState, deterministic: bool = True):
         self.env = env
         self.deterministic = deterministic
-        self.root_node: SearchTreeNode = SearchTreeNode(0, None, extract_state(env), None, 0, False)
+        self.root_node: SearchTreeNode = SearchTreeNode(0, None, root_state, None, 0, False)
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
     def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:

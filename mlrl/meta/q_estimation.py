@@ -22,9 +22,7 @@ class SimpleSearchBasedQEstimator:
     """
 
     def __init__(self, q_hat: QFunction, search_tree: SearchTree,
-                 n_actions: int = 4,
                  discount: float = 0.99):
-        self.n_actions = n_actions
         self.discount = discount
         self.q_hat = q_hat
         self.search_tree = search_tree
@@ -48,4 +46,5 @@ class SimpleSearchBasedQEstimator:
 
     def compute_value(self, search_tree_node: SearchTreeNode) -> float:
         """ Computes the value of a given state using the search tree and the Q-hat function """
-        return max(self.compute_q(search_tree_node, action) for action in range(self.n_actions))
+        actions = search_tree_node.get_state().get_actions()
+        return max(self.compute_q(search_tree_node, action) for action in actions)
