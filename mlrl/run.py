@@ -95,11 +95,11 @@ class TrainingRun:
             experience_batch_size: The batch size for training with experience replay
             eval_env: The environment to evaluate the agent in. If None, the training
                 environment is used.
-            num_eval_episodes: The number of episodes to run when collecting evaluation 
+            num_eval_episodes: The number of episodes to run when collecting evaluation
                 statistics.
-            eval_steps: The maximum number of steps to run per episode when collecting 
+            eval_steps: The maximum number of steps to run per episode when collecting
                 evaluation statistics.
-            initial_collect_steps: The number of steps to collect with a random policy 
+            initial_collect_steps: The number of steps to collect with a random policy
                 before training begins.
             video_steps: The number of steps to run when creating a video of the agent
             metric_fns: A dictionary of metric functions to use when evaluating the agent.

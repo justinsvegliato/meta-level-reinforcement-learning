@@ -1,5 +1,5 @@
 from .hierarchical_pos import hierarchy_pos_large_tree
-from ..search_tree import SearchTree, SearchTreeNode
+from ..meta.search_tree import SearchTree, SearchTreeNode
 
 import networkx as nx
 
@@ -29,9 +29,14 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
         (n1, n2): '{}{}'.format(data['action'], '-' + data['reward'] if show_reward else '')
         for n1, n2, data in nx_tree.edges(data=True)
     }
-    node_labels = {
-        node: nx_tree.nodes.get(node)['state'] for node in nx_tree.nodes()
-    }
+
+    def get_node_label(node):
+        vec = tuple(nx_tree.nodes.get(node)['state'].get_state_vector())
+        if show_id:
+            return f'{vec} - {nx_tree.nodes.get(node)["state"].get_id()}'
+        return str(vec)
+
+    node_labels = {node: get_node_label(node) for node in nx_tree.nodes()}
 
     if ax is None:
         fig = plt.figure(figsize=figsize)

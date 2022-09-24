@@ -13,7 +13,6 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"
 register(
     id='gym-maze-v0',
     entry_point='gym_maze.envs:MazeEnv',
-    # max_episode_steps=2000,
     nondeterministic=False
 )
 

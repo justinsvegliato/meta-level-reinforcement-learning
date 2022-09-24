@@ -6,19 +6,16 @@ import numpy as np
 from tf_agents.environments import TFEnvironment
 from tf_agents.policies import TFPolicy
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+import cairosvg
+from PIL import Image
+from io import BytesIO
 import imageio
 import imageio.core.util
 
 
-def silence_imageio_warning(*args, **kwargs):
-    pass
-
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 sns.set()
-imageio.core.util._precision_warn = silence_imageio_warning
 
 
 def plot_to_array(fig: plt.Figure) -> np.ndarray:
@@ -32,6 +29,12 @@ def plot_to_array(fig: plt.Figure) -> np.ndarray:
                          newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
     io_buf.close()
     return img_arr
+
+
+def svg_to_array(svg: str, shape=(128, 128)) -> np.ndarray:
+    png = cairosvg.svg2png(bytestring=svg, output_width=shape[0], output_height=shape[1])
+    img = Image.open(BytesIO(png))
+    return np.array(img)
 
 
 def embed_mp4(filename: str, clear_before=True) -> HTML:
