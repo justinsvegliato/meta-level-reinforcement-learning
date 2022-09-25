@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List, Tuple, Dict
+from typing import List, Tuple, Dict
 from collections import defaultdict
 
 import gym
@@ -47,7 +47,10 @@ class ObjectState(ABC):
         if actions:
             return self.get_action_vector(actions[0]).shape[0]
 
-        raise Exception('Cannot determine action vector dimension: No actions available for this state')
+        raise Exception(
+            'Cannot determine action vector dimension: '
+            'No actions available for this state'
+        )
 
     def get_state_vector_dim(self) -> int:
         """
@@ -63,6 +66,23 @@ class ObjectState(ABC):
         """
         return len(self.get_actions())
 
+    def get_state_string(self) -> str:
+        """ Returns a string representation of the state. """
+        return str(self.get_state_vector())
+
+
+class QFunction(ABC):
+    """
+    Abstract class for a Q-function
+    """
+
+    @abstractmethod
+    def compute_q(self, state: ObjectState, action: int) -> float:
+        pass
+
+    def __call__(self, state: ObjectState, action: int) -> float:
+        return self.compute_q(state, action)
+
 
 class SearchTreeNode:
     """
@@ -71,7 +91,10 @@ class SearchTreeNode:
     the reward received, and the children of the node, and other important data.
     """
 
-    __slots__ = ['parent', 'node_id', 'state', 'action', 'reward', 'children', 'done']
+    __slots__ = [
+        'parent', 'node_id', 'state', 'action',
+        'reward', 'children', 'done', 'q_function'
+    ]
 
     def __init__(self,
                  node_id: int,
@@ -79,7 +102,8 @@ class SearchTreeNode:
                  state: ObjectState,
                  action: int,
                  reward: float,
-                 done: bool):
+                 done: bool,
+                 q_function: QFunction):
         """
         Args:
             node_id: The id of the node. Used to identify the node in the search tree
@@ -97,8 +121,12 @@ class SearchTreeNode:
         self.reward = reward
         self.done = done
         self.children: Dict[int, List['SearchTreeNode']] = defaultdict(list)
+        self.q_function = q_function
 
-    def expand_node(self, env: gym.Env, action_idx: int, new_node_id: int) -> 'SearchTreeNode':
+    def expand_node(self,
+                    env: gym.Env,
+                    action_idx: int,
+                    new_node_id: int) -> 'SearchTreeNode':
         """
         Expands the node by "simulating" taking the given action in the environment
         from the node's state and creating a new child node.
@@ -111,9 +139,15 @@ class SearchTreeNode:
         _, reward, done, *_ = env.step(object_action)
         next_state: ObjectState = self.state.extract_state(env)
 
-        child_node = SearchTreeNode(new_node_id, self, next_state, object_action, reward, done)
+        child_node = SearchTreeNode(
+            new_node_id, self, next_state, object_action,
+            reward, done, self.q_function
+        )
         self.children[object_action].append(child_node)
         return child_node
+
+    def get_q_value(self, action: int) -> float:
+        return self.q_function(self.state, action)
 
     def get_id(self) -> int:
         return self.node_id
@@ -157,7 +191,8 @@ class SearchTreeNode:
 
     def __repr__(self, depth=0) -> str:
         children_str = '\n'.join([
-            c.__repr__(depth + 1) for a in self.children for c in self.children[a]
+            c.__repr__(depth + 1) 
+            for a in self.children for c in self.children[a]
         ])
 
         node_str = f'[{self.state}, {self.can_expand()}]'
@@ -180,15 +215,22 @@ class SearchTree:
     tree without having to traverse the tree by indexing nodes in the list with a given action.
     """
 
-    def __init__(self, env: gym.Env, root_state: ObjectState, deterministic: bool = True):
+    def __init__(self,
+                 env: gym.Env,
+                 root_state: ObjectState,
+                 q_function: QFunction,
+                 deterministic: bool = True):
         self.env = env
         self.deterministic = deterministic
-        self.root_node: SearchTreeNode = SearchTreeNode(0, None, root_state, None, 0, False)
+        self.q_function = q_function
+        self.root_node: SearchTreeNode = SearchTreeNode(
+            0, None, root_state, None, 0, False, q_function
+        )
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
     def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
         """
-        Checks whether the given action permits a valid for the given node. 
+        Checks whether the given action permits a valid for the given node.
         This is only relevant for deterministic environments as we do not want to try the
         same action multiple times.
         """
@@ -197,7 +239,9 @@ class SearchTree:
     def expand(self, node_idx: int, action: int):
         """ Expands the node with the given index by taking the given action. """
         if node_idx >= len(self.node_list):
-            raise Exception(f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}")
+            raise Exception(
+                f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}"
+            )
 
         node = self.node_list[node_idx]
         if node.can_expand():

@@ -1,30 +1,13 @@
-from .search_tree import ObjectState, SearchTree, SearchTreeNode
-
-from abc import ABC, abstractmethod
-
-
-class QFunction(ABC):
-    """
-    Abstract class for a Q-function
-    """
-
-    @abstractmethod
-    def compute_q(self, state: ObjectState, action: int) -> float:
-        pass
-
-    def __call__(self, state: ObjectState, action: int) -> float:
-        return self.compute_q(state, action)
+from .search_tree import SearchTree, SearchTreeNode
 
 
 class SimpleSearchBasedQEstimator:
     """
-        Assumes a deterministic environment and only uses child nodes to compute Q-values
+    Assumes a deterministic environment and only uses child nodes to compute Q-values
     """
 
-    def __init__(self, q_hat: QFunction, search_tree: SearchTree,
-                 discount: float = 0.99):
+    def __init__(self, search_tree: SearchTree, discount: float = 0.99):
         self.discount = discount
-        self.q_hat = q_hat
         self.search_tree = search_tree
 
     def compute_q(self, search_tree_node: SearchTreeNode, action: int) -> float:
@@ -42,9 +25,11 @@ class SimpleSearchBasedQEstimator:
             reward = child_node.get_reward_received()
             return reward + self.discount * self.compute_value(child_node)
 
-        return self.q_hat(search_tree_node.get_state(), action)
+        return search_tree_node.get_q_value(action)
 
     def compute_value(self, search_tree_node: SearchTreeNode) -> float:
-        """ Computes the value of a given state using the search tree and the Q-hat function """
+        """
+        Computes the value of a given state using the search tree and the Q-hat function
+        """
         actions = search_tree_node.get_state().get_actions()
         return max(self.compute_q(search_tree_node, action) for action in actions)

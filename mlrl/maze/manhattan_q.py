@@ -1,5 +1,5 @@
 from .maze_state import MazeState
-from ..meta.q_estimation import QFunction
+from ..meta.search_tree import QFunction
 
 import numpy as np
 

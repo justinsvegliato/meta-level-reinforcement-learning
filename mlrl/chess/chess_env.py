@@ -5,6 +5,7 @@ import random
 
 import chess
 import gym_chess
+import badgyal
 
 
 class ChessVsAgent(gym_chess.envs.Chess):
@@ -29,4 +30,19 @@ class ChessVsAgent(gym_chess.envs.Chess):
 class ChessVsRandom(ChessVsAgent):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(lambda board: random.choice(list(board.legal_moves)), *args, **kwargs)
+        super().__init__(self.get_action, *args, **kwargs)
+
+    def get_action(self, board: chess.Board) -> chess.Move:
+        return random.choice(list(board.legal_moves))
+
+
+class ChessVsSimpleNetwork(ChessVsAgent):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(self.get_action, *args, **kwargs)
+        self.network = badgyal.BGNet(cuda=True)
+
+    def get_action(self, board: chess.Board) -> chess.Move:
+        policy, *_ = self.network.eval(board)
+        action = random.choices(list(policy), weights=list(policy.values()))[0]
+        return chess.Move.from_uci(action)

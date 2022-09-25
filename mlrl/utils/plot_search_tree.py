@@ -13,7 +13,7 @@ def construct_tree(tree: nx.DiGraph,
 
     tree.add_node(
         hash(node),
-        state=tuple(node.get_state().get_state_vector())
+        state=node.get_state().get_state_string()
     )
 
     for action, children in node.get_children().items():
@@ -41,8 +41,8 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
     }
 
     node_labels = {
-        node: str(node) if len(str(node)) < 10 else ''
-        for node in nx_tree.nodes()
+        node: data['state'] if len(data['state']) < 10 else ''
+        for node, data in nx_tree.nodes(data=True)
     }
 
     if ax is None:

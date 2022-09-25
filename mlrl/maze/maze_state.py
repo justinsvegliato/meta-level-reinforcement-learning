@@ -65,5 +65,8 @@ class MazeState(ObjectState):
 
         return np.zeros((4,))
 
+    def get_state_string(self) -> str:
+        return f'{tuple(map(int, self.state_vec))}'
+
     def __repr__(self) -> str:
-        return f'MazeState(pos={tuple(map(int, self.state_vec))})'
+        return f'MazeState(pos={self.get_state_string()})'
