@@ -45,13 +45,18 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
         for node, data in nx_tree.nodes(data=True)
     }
 
+    if all([len(node_labels[node]) == 0 for node in node_labels]):
+        node_size = 180
+    else:
+        node_size = 1800
+
     if ax is None:
         fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot()
 
     ax.set_title(title)
 
-    nx.draw(nx_tree, pos, node_size=1800, ax=ax)
+    nx.draw(nx_tree, pos, node_size=node_size, ax=ax)
 
     nx.draw_networkx_edge_labels(nx_tree, pos, edge_labels=edge_labels, ax=ax)
     nx.draw_networkx_labels(nx_tree, pos, labels=node_labels, ax=ax, font_color='white')
