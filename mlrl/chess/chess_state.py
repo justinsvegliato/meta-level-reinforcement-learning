@@ -48,25 +48,30 @@ class ChessState(ObjectState):
         # Extended Position Description of the board for later restoring
         board_epd = env._board.epd()
 
-        return ChessState(board_epd)
+        return ChessState(board_epd, env._ready)
 
-    def __init__(self, board_epd: str):
+    def __init__(self, board_epd: str, ready: bool):
         self.board_epd = board_epd
+        self.ready = ready
 
         board_embedder = ChessBoardEmbedder()
         board = chess.Board(self.board_epd)
         self.state_vec = board_embedder.embed(board)
 
-        policy, _ = board_embedder.network.eval(board)
-        sorted_policy = sorted(policy.items(), key=lambda x: -x[1])
-        n = self.get_maximum_number_of_actions()
-        self.actions = [
-            chess.Move.from_uci(action_uci)
-            for action_uci, _ in sorted_policy[:n]
-        ]
+        if board.legal_moves:
+            policy, _ = board_embedder.network.eval(board)
+            sorted_policy = sorted(policy.items(), key=lambda x: -x[1])
+            n = self.get_maximum_number_of_actions()
+            self.actions = [
+                chess.Move.from_uci(action_uci)
+                for action_uci, _ in sorted_policy[:n]
+            ]
+        else:
+            self.actions = []
 
     def set_environment_to_state(self, env):
         env._board.set_epd(self.board_epd)
+        env._ready = self.ready
 
     def get_state_vector(self) -> np.array:
         return self.state_vec
@@ -105,6 +110,9 @@ class ChessQFunction(QFunction):
 
     def compute_q(self, state: ChessState, action: chess.Move) -> float:
         board = chess.Board()
-        board.set_epd(state.board_epd)
-        policy, _ = self.network.eval(board, softmax_temp=1.61)
-        return policy[action.uci()]
+        if action in list(board.legal_moves):
+            board.set_epd(state.board_epd)
+            policy, _ = self.network.eval(board, softmax_temp=1.61)
+            return policy[action.uci()]
+
+        return 0

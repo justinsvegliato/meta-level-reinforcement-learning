@@ -3,6 +3,7 @@ data
 # TODO: add version control for these
 runs
 wandb
+stockfish
 
 # IDE
 .vscode

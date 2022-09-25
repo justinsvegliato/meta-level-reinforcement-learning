@@ -59,10 +59,10 @@ class MetaEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(action_space_size)
 
         self.n_meta_data = 2  # number of meta data features: reward, can node expand
-        state_vec_dim = object_state.get_state_vector_dim()
-        action_vec_dim = object_state.get_action_vector_dim()
+        self.state_vec_dim = object_state.get_state_vector_dim()
+        self.action_vec_dim = object_state.get_action_vector_dim()
         self.tree_token_size = self.n_meta_data + \
-            self.max_tree_size + state_vec_dim + action_vec_dim
+            self.max_tree_size + self.state_vec_dim + self.action_vec_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -115,7 +115,7 @@ class MetaEnv(gym.Env):
 
         if node.is_root():
             parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
-            action_vec = np.zeros((state.get_action_vector_dim(),), dtype=np.float32)
+            action_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
         else:
             parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
             action_vec = state.get_action_vector(node.get_action())
@@ -171,7 +171,8 @@ class MetaEnv(gym.Env):
         actions = self.tree.get_root().get_state().get_actions()
         action_idx, _ = max(
             enumerate(actions),
-            key=lambda item: q_est.compute_q(self.tree.get_root(), item[1])
+            key=lambda item: q_est.compute_q(self.tree.get_root(), item[1]),
+            default=(None, None)
         )
         return action_idx
 
@@ -319,16 +320,18 @@ class MetaEnv(gym.Env):
                   object_action_to_string=self.object_action_to_string)
 
         # Render the Q-distribution in the right subplot
-        q_dist = self.root_q_distribution()
+        actions = self.tree.get_root().get_state().get_actions()
+        if actions:
+            q_dist = self.root_q_distribution()
 
-        sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=axs[2])
+            sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=axs[2])
+
+            axs[2].set_xticklabels([
+                self.object_action_to_string(a) for a in actions
+            ])
+
         axs[2].set_ylim([self.object_reward_min, self.object_reward_max])
         axs[2].set_title('Root Q-Distribution')
-
-        actions = self.tree.get_root().get_state().get_actions()
-        axs[2].set_xticklabels([
-            self.object_action_to_string(a) for a in actions
-        ])
         axs[2].yaxis.set_label_position('right')
         axs[2].yaxis.tick_right()
         plt.tight_layout(rect=[0, 0.03, 1, .9])
