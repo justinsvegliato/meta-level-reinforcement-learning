@@ -71,6 +71,7 @@ class TrainingRun:
                  eval_steps=250,
                  initial_collect_steps=500,
                  video_steps=60,
+                 video_freq=1,
                  metric_fns: Dict[str, Callable[[TFAgent, TFEnvironment], float]] = None,
                  callbacks: List[tf.keras.callbacks.Callback] = None,
                  run_dir=None,
@@ -121,10 +122,18 @@ class TrainingRun:
         self.initial_collect_steps = initial_collect_steps
         self.collect_steps_per_iteration = collect_steps_per_iteration
         self.experience_batch_size = experience_batch_size
-        self.video_steps = video_steps
 
+        # Video parameters
+        self.video_steps = video_steps
+        self.video_freq = video_freq
+
+        # Run parameters
         self.epoch = 0
         self.eval_env = eval_env or environment
+        self.num_epochs = num_epochs
+        self.verbose = verbose
+        self.user_given_callbacks = callbacks or []
+        self.callbacks = None  # To be defined in pre execution setup due to wandb config
 
         # Data tracking
 
@@ -133,15 +142,9 @@ class TrainingRun:
         self.model_weights_dir = f'{self.run_dir}/model_weights'
         self.videos_dir = f'{self.run_dir}/videos'
 
-        self.num_epochs = num_epochs
-        self.verbose = verbose
-
         Path(self.run_dir).mkdir(parents=True)
         Path(self.model_weights_dir).mkdir(parents=True)
         Path(self.videos_dir).mkdir(parents=True)
-
-        self.user_given_callbacks = callbacks or []
-        self.callbacks = None  # To be defined in pre execution setup due to wandb config
 
         # Wandb variables
         self.end_wandb = end_wandb
@@ -255,11 +258,13 @@ class TrainingRun:
                 f'mean_{k}': np.mean([log[k] for log in step_logs])
                 for k in step_logs[0].keys()
             })
-            self.create_evaluation_video()
+            if self.video_freq and self.epoch % self.video_freq == 0:
+                self.create_evaluation_video()
 
             self.callbacks.on_epoch_end(self.epoch, epoch_logs)
             self.epoch += 1
 
+        self.create_evaluation_video()
         self.callbacks.on_train_end()
 
     def create_evaluation_video(self):

@@ -50,6 +50,7 @@ def create_training_run(
         eval_steps=args['eval_steps'],
         initial_collect_steps=args['initial_collect_steps'],
         video_steps=args['video_steps'],
+        video_freq=args['video_freq'],
         name=name
     )
 
@@ -72,6 +73,8 @@ def create_parser():
     parser.add_argument('--initial_collect_steps', type=int, default=500,
                         help='Number of steps to collect before training.')
     parser.add_argument('--video_steps', type=int, default=60,
+                        help='Number of steps to record a video for.')
+    parser.add_argument('--video_freq', type=int, default=5,
                         help='Number of steps to record a video for.')
     parser.add_argument('--max_tree_size', type=int, default=10,
                         help='Maximum number of nodes in the search tree.')
