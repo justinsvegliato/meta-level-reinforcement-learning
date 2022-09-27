@@ -12,10 +12,11 @@ from tf_agents.environments.tf_py_environment import TFPyEnvironment
 
 def create_dqn_agent(tf_env: TFPyEnvironment,
                      q_net: tf.keras.Model,
-                     args: dict) -> DqnAgent:
+                     learning_rate=1e-3,
+                     **_) -> DqnAgent:
     """ Creates a DQN agent. """
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args['learning_rate'])
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     train_step_counter = tf.Variable(0)
 

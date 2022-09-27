@@ -3,7 +3,7 @@ from .utils.render_utils import create_policy_eval_video
 
 import json
 import time
-from typing import List, Callable, Dict
+from typing import List, Callable, Dict, Union
 from pathlib import Path
 from collections import defaultdict
 
@@ -56,6 +56,19 @@ class TrainingRun:
     """
     Class to handle training and an agent
     """
+
+    @staticmethod
+    def from_save(cls,
+                  save_dir: Union[Path, str],
+                  agent: TFAgent,
+                  environment: TFEnvironment,
+                  model: tf.keras.Model):
+
+        save_dir = Path(save_dir)
+        with open(save_dir / 'config.json', 'r') as f:
+            config = json.load(f)
+
+        return cls(**config)
 
     def __init__(self,
                  agent: TFAgent,

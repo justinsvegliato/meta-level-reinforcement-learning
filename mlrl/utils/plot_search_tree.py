@@ -46,9 +46,9 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
     }
 
     if all([len(node_labels[node]) == 0 for node in node_labels]):
-        node_size = 180
+        node_size = 150
     else:
-        node_size = 1800
+        node_size = 1200
 
     if ax is None:
         fig = plt.figure(figsize=figsize)

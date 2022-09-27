@@ -58,15 +58,15 @@ class MetaEnv(gym.Env):
         action_space_size = 1 + max_tree_size * self.n_object_actions
         self.action_space = gym.spaces.Discrete(action_space_size)
 
-        self.n_meta_data = 2  # number of meta data features: reward, can node expand
+        self.n_meta_data = 2  # number of meta data features: can expand, reward
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
         self.tree_token_size = self.n_meta_data + \
-            self.max_tree_size + self.state_vec_dim + self.action_vec_dim
+            self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
-            shape=(max_tree_size, self.tree_token_size),
+            shape=(max_tree_size * self.n_object_actions, self.tree_token_size),
             dtype=np.float32
         )
 
@@ -110,19 +110,25 @@ class MetaEnv(gym.Env):
             deterministic=self.tree.deterministic
         )
 
-    def tokenise_node(self, node: SearchTreeNode) -> np.array:
+    def tokenise_node(self, node: SearchTreeNode, action: Any) -> np.array:
         state = node.get_state()
 
         if node.is_root():
             parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
-            action_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
+            action_taken_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
         else:
             parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
-            action_vec = state.get_action_vector(node.get_action())
+            action_taken_vec = state.get_action_vector(node.get_action())
 
-        meta_features = np.array([node.reward, node.can_expand()], dtype=np.float32)
+        meta_features = np.array([
+            self.tree.is_action_valid(node, action), node.reward
+        ], dtype=np.float32)
+
+        action_vec = state.get_action_vector(action)
+        state_vec = state.get_state_vector()
+
         return np.concatenate([
-            parent_id_vec, action_vec, meta_features, state.get_state_vector()
+            meta_features, parent_id_vec, action_taken_vec, action_vec, state_vec
         ])
 
     def get_observation(self) -> Dict[str, np.array]:
@@ -147,10 +153,12 @@ class MetaEnv(gym.Env):
         corresponding to a valid computational action.
         """
         obs = np.array([
-            self.tokenise_node(node)
+            self.tokenise_node(node, action)
             for node in self.tree.node_list
+            for action in node.get_state().get_actions()
         ])
-        padding = np.zeros((self.max_tree_size - obs.shape[0], obs.shape[1]))
+        n_tokens = self.max_tree_size * self.n_object_actions
+        padding = np.zeros((n_tokens - obs.shape[0], obs.shape[1]))
         search_tokens = np.concatenate([obs, padding], axis=0)
 
         action_mask = np.zeros((self.action_space.n,), dtype=np.int32)

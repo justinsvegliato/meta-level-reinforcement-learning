@@ -13,7 +13,24 @@ class PrependTerminateToken(tf.keras.layers.Layer):
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
         token_dim = tf.shape(inputs)[-1]
-        return tf.concat([tf.zeros((batch_size, 1, token_dim)), inputs], axis=1)
+        return tf.concat([
+            tf.zeros((batch_size, 1, token_dim)), inputs
+        ], axis=1)
+
+
+class PrependTerminateMask(tf.keras.layers.Layer):
+    """
+    Simple layer to prepend the mask
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def call(self, inputs, training=False):
+        batch_size = tf.shape(inputs)[0]
+        return tf.concat([
+            tf.ones((batch_size, 1)), inputs
+        ], axis=1)
 
 
 class SearchQModel(tf.keras.Model):
@@ -23,37 +40,62 @@ class SearchQModel(tf.keras.Model):
     The model takes as input a batch of search-tree tokens, and outputs a
     batch of Q-values for each possible computational actions.
 
-    The advantage of using a transformer-based model is that it 
-    treats the search-tree tokens as a set, and thus is invariant to the order of the tokens.
-    The structure of the search tree is encoded in the tokens.
+    The advantage of using a transformer-based model is that it
+    treats the search-tree tokens as a set, and thus is invariant to the
+    order of the tokens. The structure of the search tree is encoded in the tokens.
     """
 
     def __init__(self,
-                 n_object_actions: int = 4,
                  n_heads: int = 3,
-                 head_dim: int = 16):
+                 head_dim: int = 16,
+                 n_layers: int = 2):
         super().__init__()
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+        self.n_layers = n_layers
 
-        self.q_network = tf.keras.Sequential([
-            tf.keras.layers.Dense(
-                head_dim * n_heads * n_object_actions,
-                activation='relu'
-            ),  # project to the correct dimension for the transformer
-            tf.keras.layers.Reshape((-1, head_dim * n_heads)),
-                # (batch_size, n_object_actions * max_tree_size, head_dim * n_heads)
-            PrependTerminateToken(),  # adds a token for the terminate action
+        self.project_tokens = tf.keras.layers.Dense(
+            head_dim * n_heads,
+            activation='relu'
+        )  # project to the correct dimension for the transformer
+
+        # adds a token for the terminate action
+        self.prepend_terminate_token = PrependTerminateToken()
+        self.prepend_terminate_mask = PrependTerminateMask()
+
+        self.transformer_layers = [
             Transformer(n_heads, head_dim, 'relu',
                         dropout_rate=0.1,
-                        attention_dropout_rate=0.1),
-            Transformer(n_heads, head_dim, 'relu',
-                        dropout_rate=0.1,
-                        attention_dropout_rate=0.1),
+                        attention_dropout_rate=0.1)
+            for _ in range(n_layers)
+        ]
+
+        kernel_init = tf.keras.initializers.RandomUniform(
+            minval=-0.03, maxval=0.03
+        )
+        bias_init = tf.keras.initializers.Constant(-0.2)
+
+        self.to_logits = tf.keras.Sequential([
             tf.keras.layers.Dense(
                 1,
-                kernel_initializer=tf.keras.initializers.RandomUniform(minval=-0.03, maxval=0.03),
-                bias_initializer=tf.keras.initializers.Constant(-0.2)),
+                kernel_initializer=kernel_init,
+                bias_initializer=bias_init),
             tf.keras.layers.Flatten()
-        ], name='q_network')
+        ], name='to_logits')
 
     def call(self, inputs, training=False):
-        return self.q_network(inputs, training=training)
+
+        tokens = self.project_tokens(inputs,
+                                     training=training)
+        tokens = self.prepend_terminate_token(tokens, training=training)
+
+        # attention_mask = self.prepend_terminate_mask(inputs[:, :, 0],
+        #                                              training=training)
+        # attention_mask = attention_mask[:, tf.newaxis, tf.newaxis, :]
+        # attention_mask = tf.repeat(attention_mask, self.n_heads, axis=1)
+        # attention_mask = tf.repeat(attention_mask, tf.shape(attention_mask)[-1], axis=2)
+
+        for layer in self.transformer_layers:
+            tokens = layer(tokens, training=training)
+
+        return self.to_logits(tokens, training=training)

@@ -18,6 +18,7 @@ def main():
         seed=0, maze_size=(5, 5), goal_reward=1, render_shape=(64, 64),
         generate_new_maze_on_reset=True
     )
+
     q_hat = ManhattanQHat(object_env)
     initial_tree = SearchTree(object_env, MazeState.extract_state(object_env), q_hat)
     meta_env = MetaEnv(object_env, initial_tree, max_tree_size=args.get('max_tree_size', 10),
@@ -25,7 +26,7 @@ def main():
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
 
     q_net = SearchQModel()
-    agent = create_dqn_agent(tf_env, q_net, args)
+    agent = create_dqn_agent(tf_env, q_net, **args)
 
     run = create_training_run(agent, tf_env, q_net, args, 'procgen_maze_dqn')
 

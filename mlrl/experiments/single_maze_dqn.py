@@ -24,7 +24,7 @@ def main():
 
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
     q_net = SearchQModel()
-    agent = create_dqn_agent(tf_env, q_net, args)
+    agent = create_dqn_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'single_maze_dqn')
     run.execute()
 

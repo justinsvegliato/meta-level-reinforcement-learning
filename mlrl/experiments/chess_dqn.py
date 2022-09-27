@@ -61,7 +61,7 @@ def main():
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
 
     q_net = SearchQModel(n_object_actions=meta_env.n_object_actions, head_dim=32)
-    agent = create_dqn_agent(tf_env, q_net, args)
+    agent = create_dqn_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'chess_dqn')
     run.execute()
 
