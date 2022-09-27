@@ -4,7 +4,7 @@ from ..utils import one_hot
 from ..utils.plot_search_tree import plot_tree
 from ..utils.render_utils import plot_to_array
 
-from typing import Callable, Tuple, Dict, Any
+from typing import Callable, Tuple, Dict, Any, List
 
 import numpy as np
 import gym
@@ -58,7 +58,7 @@ class MetaEnv(gym.Env):
         action_space_size = 1 + max_tree_size * self.n_object_actions
         self.action_space = gym.spaces.Discrete(action_space_size)
 
-        self.n_meta_data = 2  # number of meta data features: can expand, reward
+        self.n_meta_data = 4  # number of meta data features: attn mas, can expand, reward, q-estimate
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
         self.tree_token_size = self.n_meta_data + \
@@ -122,8 +122,11 @@ class MetaEnv(gym.Env):
             parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
             action_taken_vec = state.get_action_vector(node.get_action())
 
+        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
+        # meta features contains a mask attention and the reward
         meta_features = np.array([
-            self.tree.is_action_valid(node, action), node.reward
+            1., self.tree.is_action_valid(node, action),
+            node.reward, q_est.compute_q(node, action)
         ], dtype=np.float32)
 
         action_vec = state.get_action_vector(action)
@@ -132,6 +135,14 @@ class MetaEnv(gym.Env):
         return np.concatenate([
             meta_features, parent_id_vec, action_taken_vec, action_vec, state_vec
         ])
+
+    def get_token_labels(self) -> List[str]:
+        meta_features = ['mask', 'can_expand', 'reward', 'q-estimate']
+        parent_id_vec = [f'parent_id_{i}' for i in range(self.max_tree_size)]
+        action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
+        action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]
+        state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
+        return meta_features + parent_id_vec + action_taken_vec + action_vec + state_vec
 
     def get_observation(self) -> Dict[str, np.array]:
         """

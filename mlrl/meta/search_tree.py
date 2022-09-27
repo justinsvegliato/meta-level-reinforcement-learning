@@ -159,7 +159,7 @@ class SearchTreeNode:
         return self.parent is None
 
     def get_parent_id(self) -> int:
-        if not self.is_root:
+        if not self.is_root():
             return self.parent.node_id
         return -1
 

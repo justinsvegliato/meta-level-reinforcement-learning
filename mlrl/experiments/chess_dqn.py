@@ -36,6 +36,21 @@ def parse_args():
                         help='Frequency of recording videos.')
     parser.add_argument('--max_tree_size', type=int, default=16,
                         help='Maximum number of nodes in the search tree.')
+    parser.add_argument('--transformer_head_dim', type=int, default=64,
+                        help='Head dimension for the Q-network transformer.')
+    parser.add_argument('--transformer_n_layers', type=int, default=2,
+                        help='Number of transformer layers in Q-network.')
+
+    parser.add_argument('--target_network_update_period', type=int, default=1000,
+                        help='Maximum number of nodes in the search tree.')
+    parser.add_argument('--object_discount', type=float, default=0.99,
+                        help='Discount factor in object-level environment.')
+    parser.add_argument('--meta_discount', type=float, default=0.99,
+                        help='Discount factor in meta-level environment.')
+    parser.add_argument('--epsilon_greedy', type=float, default=0.1,
+                        help='Epsilon for epsilon-greedy exploration.')
+    parser.add_argument('--agent', type=str, default='ddqn',
+                        help='Agent class to use.')
 
     args = vars(parser.parse_args())
 
@@ -60,7 +75,8 @@ def main():
     meta_env = MetaEnv(object_env, initial_tree, max_tree_size=10)
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
 
-    q_net = SearchQModel(n_object_actions=meta_env.n_object_actions, head_dim=32)
+    q_net = SearchQModel(head_dim=args['transformer_head_dim'], 
+                         n_layers=args['transformer_n_layers'])
     agent = create_dqn_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'chess_dqn')
     run.execute()
