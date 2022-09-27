@@ -147,6 +147,7 @@ class TrainingRun:
         self.verbose = verbose
         self.user_given_callbacks = callbacks or []
         self.callbacks = None  # To be defined in pre execution setup due to wandb config
+        self.best_return = -np.inf
 
         # Data tracking
 
@@ -271,8 +272,14 @@ class TrainingRun:
                 f'mean_{k}': np.mean([log[k] for log in step_logs])
                 for k in step_logs[0].keys()
             })
-            if self.video_freq and self.epoch % self.video_freq == 0:
+            eval_epoch = self.video_freq and self.epoch % self.video_freq == 0
+            best_return = self.best_return < epoch_logs['eval_return_mean']
+            if eval_epoch or best_return:
                 self.create_evaluation_video()
+            
+            if best_return:
+                self.best_return = epoch_logs['eval_return_mean']
+                self.model.save_weights(self.model_weights_dir + f'/best_{self.epoch}_{self.best_return:5f}')
 
             self.callbacks.on_epoch_end(self.epoch, epoch_logs)
             self.epoch += 1
@@ -371,8 +378,8 @@ class TrainingRun:
             print(f'Saving run config to {f}')
             json.dump(config, f, indent=4, separators=(", ", ": "), sort_keys=True)
 
-        print(f'Saving model weights to {self.run_dir}/model')
-        self.model.save_weights(f'{self.run_dir}/model')
+        print(f'Saving model weights to {self.model_weights_dir}/model')
+        self.model.save_weights(f'{self.model_weights_dir}/model')
 
     @staticmethod
     def _clean_for_json(item):

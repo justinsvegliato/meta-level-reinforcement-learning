@@ -89,13 +89,13 @@ class SearchQModel(tf.keras.Model):
                                      training=training)
         tokens = self.prepend_terminate_token(tokens, training=training)
 
-        # attention_mask = self.prepend_terminate_mask(inputs[:, :, 0],
-        #                                              training=training)
-        # attention_mask = attention_mask[:, tf.newaxis, tf.newaxis, :]
-        # attention_mask = tf.repeat(attention_mask, self.n_heads, axis=1)
-        # attention_mask = tf.repeat(attention_mask, tf.shape(attention_mask)[-1], axis=2)
+        attention_mask = self.prepend_terminate_mask(inputs[:, :, 0],
+                                                     training=training)
+        attention_mask = attention_mask[:, tf.newaxis, tf.newaxis, :]
+        attention_mask = tf.repeat(attention_mask, self.n_heads, axis=1)
+        attention_mask = tf.repeat(attention_mask, tf.shape(attention_mask)[-1], axis=2)
 
         for layer in self.transformer_layers:
-            tokens = layer(tokens, training=training)
+            tokens = layer([tokens, attention_mask], training=training)
 
         return self.to_logits(tokens, training=training)

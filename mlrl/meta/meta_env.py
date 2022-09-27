@@ -85,6 +85,7 @@ class MetaEnv(gym.Env):
         self.last_computational_reward = 0
         self.object_action_to_string = object_action_to_string or (lambda a: str(a))
         self.meta_action_strings = self.get_action_strings()
+        self.steps = 0
 
         self.reset()
 
@@ -95,6 +96,7 @@ class MetaEnv(gym.Env):
         self.last_meta_action = None
         self.last_meta_reward = 0
         self.last_computational_reward = 0
+        self.steps = 0
         return self.get_observation()
 
     def get_root_tree(self) -> SearchTree:
@@ -224,6 +226,7 @@ class MetaEnv(gym.Env):
             info: Additional information
         """
         self.last_meta_action = computational_action
+        self.steps += 1
 
         if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
             # Perform a step in the underlying environment
@@ -291,7 +294,8 @@ class MetaEnv(gym.Env):
         return f'Meta-action: [{action_string}] | '\
                f'Meta-Reward: {self.last_meta_reward:.3f} | '\
                f'Best Object-action: {self.object_action_to_string(action)} | '\
-               f'Computational-Reward: {computational_reward:.3f}'
+               f'Computational-Reward: {computational_reward:.3f} | '\
+               f't = {self.steps}'
 
     def render(self, mode: str = 'rgb_array', plt_show: bool = False) -> np.ndarray:
         """
