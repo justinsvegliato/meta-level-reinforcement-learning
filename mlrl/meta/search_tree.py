@@ -231,10 +231,8 @@ class SearchTree:
     def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
         """
         Checks whether the given action permits a valid for the given node.
-        This is only relevant for deterministic environments as we do not want to try the
-        same action multiple times.
         """
-        return self.deterministic and action not in node.children
+        return action not in node.children and node.can_expand()
 
     def expand(self, node_idx: int, action: int):
         """ Expands the node with the given index by taking the given action. """

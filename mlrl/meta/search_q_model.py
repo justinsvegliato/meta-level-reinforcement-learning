@@ -12,9 +12,20 @@ class PrependTerminateToken(tf.keras.layers.Layer):
 
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
-        token_dim = tf.shape(inputs)[-1]
+        n_tokens = tf.shape(inputs)[1]
+        token_dim = tf.shape(inputs)[2]
+
+        terminate_token = tf.concat([
+            tf.zeros((batch_size, 1, token_dim)),
+            tf.ones((batch_size, 1, 1))
+        ], axis=-1)
+
+        inputs_with_terminate = tf.concat([
+            inputs, tf.zeros((batch_size, n_tokens, 1))
+        ], axis=-1)
+
         return tf.concat([
-            tf.zeros((batch_size, 1, token_dim)), inputs
+            terminate_token, inputs_with_terminate
         ], axis=1)
 
 
@@ -75,19 +86,19 @@ class SearchQModel(tf.keras.Model):
         )
         bias_init = tf.keras.initializers.Constant(-0.2)
 
-        self.to_logits = tf.keras.Sequential([
+        self.to_q_vals = tf.keras.Sequential([
             tf.keras.layers.Dense(
                 1,
                 kernel_initializer=kernel_init,
                 bias_initializer=bias_init),
             tf.keras.layers.Flatten()
-        ], name='to_logits')
+        ], name='to_q_vals')
 
     def call(self, inputs, training=False):
 
-        tokens = self.project_tokens(inputs,
+        tokens = self.prepend_terminate_token(inputs, training=training)
+        tokens = self.project_tokens(tokens,
                                      training=training)
-        tokens = self.prepend_terminate_token(tokens, training=training)
 
         attention_mask = self.prepend_terminate_mask(inputs[:, :, 0],
                                                      training=training)
@@ -98,4 +109,4 @@ class SearchQModel(tf.keras.Model):
         for layer in self.transformer_layers:
             tokens = layer([tokens, attention_mask], training=training)
 
-        return self.to_logits(tokens, training=training)
+        return self.to_q_vals(tokens, training=training)
