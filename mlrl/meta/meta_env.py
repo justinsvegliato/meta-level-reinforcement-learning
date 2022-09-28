@@ -61,12 +61,12 @@ class MetaEnv(gym.Env):
         self.n_meta_data = 4  # number of meta data features: attn mas, can expand, reward, q-estimate
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
-        self.tree_token_size = self.n_meta_data + \
+        self.tree_token_dim = self.n_meta_data + \
             self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
-            shape=(max_tree_size * self.n_object_actions, self.tree_token_size),
+            shape=(max_tree_size * self.n_object_actions, self.tree_token_dim),
             dtype=np.float32
         )
 
@@ -171,8 +171,11 @@ class MetaEnv(gym.Env):
             for action in node.get_state().get_actions()
         ])
         n_tokens = self.max_tree_size * self.n_object_actions
-        padding = np.zeros((n_tokens - obs.shape[0], obs.shape[1]))
-        search_tokens = np.concatenate([obs, padding], axis=0)
+        if obs.size > 0:
+            padding = np.zeros((n_tokens - obs.shape[0], obs.shape[1]))
+            search_tokens = np.concatenate([obs, padding], axis=0)
+        else:
+            search_tokens = np.zeros((n_tokens, self.tree_token_dim))
 
         action_mask = np.zeros((self.action_space.n,), dtype=np.int32)
         action_mask[0] = 1

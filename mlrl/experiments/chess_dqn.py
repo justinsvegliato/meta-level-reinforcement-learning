@@ -20,7 +20,7 @@ def parse_args():
                         help='Learning rate for the optimiser.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to use.')
-    parser.add_argument('--num_epochs', type=int, default=100,
+    parser.add_argument('--num_epochs', type=int, default=200,
                         help='Number of epochs to run for.')
     parser.add_argument('--steps_per_epoch', type=int, default=1000,
                         help='Number of epochs to run for.')
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('--transformer_n_layers', type=int, default=2,
                         help='Number of transformer layers in Q-network.')
 
-    parser.add_argument('--target_network_update_period', type=int, default=1000,
+    parser.add_argument('--target_network_update_period', type=int, default=5000,
                         help='Maximum number of nodes in the search tree.')
     parser.add_argument('--object_discount', type=float, default=0.99,
                         help='Discount factor in object-level environment.')
