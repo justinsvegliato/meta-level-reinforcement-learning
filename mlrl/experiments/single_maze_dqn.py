@@ -23,7 +23,8 @@ def main():
                        object_action_to_string=lambda a: object_env.ACTION[a])
 
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
-    q_net = SearchQModel()
+    q_net = SearchQModel(head_dim=args['transformer_head_dim'],
+                         n_layers=args['transformer_n_layers'])
     agent = create_dqn_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'single_maze_dqn')
     run.execute()

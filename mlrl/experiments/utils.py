@@ -109,6 +109,10 @@ def create_parser():
                         help='Epsilon for epsilon-greedy exploration.')
     parser.add_argument('--agent', type=str, default='ddqn',
                         help='Agent class to use.')
+    parser.add_argument('--transformer_head_dim', type=int, default=16,
+                        help='Head dimension for the Q-network transformer.')
+    parser.add_argument('--transformer_n_layers', type=int, default=2,
+                        help='Number of transformer layers in Q-network.')
 
     return parser
 
