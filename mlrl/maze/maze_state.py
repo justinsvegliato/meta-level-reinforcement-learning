@@ -54,6 +54,9 @@ class MazeState(ObjectState):
     def get_state_vector(self) -> np.array:
         return np.array(self.state_vec, dtype=np.float32)
 
+    def get_maximum_number_of_actions(self):
+        return 4
+
     def get_actions(self) -> list:
         return [0, 1, 2, 3]
 
@@ -69,4 +72,39 @@ class MazeState(ObjectState):
         return ', '.join(map(lambda x: str(int(x)), self.state_vec))
 
     def __repr__(self) -> str:
-        return f'MazeState(pos={self.get_state_string()})'
+        return f'MazeState({self.get_state_string()})'
+
+
+class RestrictedActionsMazeState(MazeState):
+
+    @staticmethod
+    def extract_state(env) -> 'MazeState':
+        """
+        A static method to extract the state of the environment
+        for later restoring and representation.
+        """
+        state_vec = np.array(env.maze_view._MazeView2D__robot.copy(),
+                             dtype=np.int32)
+
+        if hasattr(env, '_elapsed_steps'):
+            gym_state = (
+                state_vec, env.steps_beyond_done, env.done, env._elapsed_steps
+            )
+        else:
+            gym_state = (
+                state_vec, env.steps_beyond_done, env.done
+            )
+
+        actions = [
+            i for i, a in enumerate(env.ACTION) 
+            if env.maze_view.maze.is_open(state_vec, a)
+        ]
+
+        return RestrictedActionsMazeState(state_vec, gym_state, actions)
+
+    def __init__(self, state_vec: np.array, gym_state: tuple, actions: list):
+        super().__init__(state_vec, gym_state)
+        self.actions = actions
+
+    def get_actions(self) -> list:
+        return self.actions
