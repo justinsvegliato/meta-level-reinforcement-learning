@@ -1,10 +1,10 @@
-from .utils import parse_args, create_dqn_agent, create_training_run
+from .utils import parse_args, create_agent, create_training_run
 from ..maze.maze_env import make_maze_env
 from ..maze.maze_state import MazeState
 from ..maze.manhattan_q import ManhattanQHat
 from ..meta.search_tree import SearchTree
 from ..meta.meta_env import MetaEnv
-from ..meta.search_q_model import SearchQModel
+from ..meta.search_networks import SearchQNetwork
 
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
 from tf_agents.environments.gym_wrapper import GymWrapper
@@ -23,9 +23,9 @@ def main():
                        object_action_to_string=lambda a: object_env.ACTION[a])
 
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
-    q_net = SearchQModel(head_dim=args['transformer_head_dim'],
-                         n_layers=args['transformer_n_layers'])
-    agent = create_dqn_agent(tf_env, q_net, **args)
+    q_net = SearchQNetwork(head_dim=args['transformer_head_dim'],
+                           n_layers=args['transformer_n_layers'])
+    agent = create_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'single_maze_dqn')
     run.execute()
 

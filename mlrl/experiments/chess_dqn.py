@@ -1,7 +1,7 @@
-from .utils import create_dqn_agent, create_training_run
+from .utils import create_agent, create_training_run
 from ..meta.search_tree import SearchTree
 from ..meta.meta_env import MetaEnv
-from ..meta.search_q_model import SearchQModel
+from ..meta.search_networks import SearchQNetwork
 from ..chess.chess_env import ChessVsRandom
 from ..chess.chess_state import ChessState, ChessQFunction
 
@@ -75,9 +75,9 @@ def main():
     meta_env = MetaEnv(object_env, initial_tree, max_tree_size=10)
     tf_env = TFPyEnvironment(GymWrapper(meta_env))
 
-    q_net = SearchQModel(head_dim=args['transformer_head_dim'],
+    q_net = SearchQNetwork(head_dim=args['transformer_head_dim'],
                          n_layers=args['transformer_n_layers'])
-    agent = create_dqn_agent(tf_env, q_net, **args)
+    agent = create_agent(tf_env, q_net, **args)
     run = create_training_run(agent, tf_env, q_net, args, 'chess_dqn')
     run.execute()
 

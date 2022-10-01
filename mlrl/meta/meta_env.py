@@ -4,7 +4,7 @@ from ..utils import one_hot
 from ..utils.plot_search_tree import plot_tree
 from ..utils.render_utils import plot_to_array
 
-from typing import Callable, Tuple, Dict, Any, List
+from typing import Callable, Tuple, Dict, Any, List, Union
 
 import numpy as np
 import gym
@@ -33,7 +33,9 @@ class MetaEnv(gym.Env):
                  object_action_to_string: Callable[[Any], str] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
-                 object_env_discount: float = 0.99):
+                 object_env_discount: float = 0.99,
+                 one_hot_action_space: bool = False,
+                 split_mask_and_tokens: bool = True):
         """
         Args:
             env: The object-level environment to wrap
@@ -47,6 +49,7 @@ class MetaEnv(gym.Env):
         self.object_env_discount = object_env_discount
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
+        self.split_mask_and_tokens = split_mask_and_tokens
 
         self.tree = initial_tree
         self.n_computations = 0
@@ -55,14 +58,21 @@ class MetaEnv(gym.Env):
 
         object_state = initial_tree.get_root().get_state()
         self.n_object_actions = object_state.get_maximum_number_of_actions()
-        action_space_size = 1 + max_tree_size * self.n_object_actions
-        self.action_space = gym.spaces.Discrete(action_space_size)
+        self.action_space_size = 1 + max_tree_size * self.n_object_actions
+        self.one_hot_action_space = one_hot_action_space
+        if one_hot_action_space:
+            self.action_space = gym.spaces.Box(
+                low=0, high=1, shape=(self.action_space_size,),
+                dtype=np.float32
+            )
+        else:
+            self.action_space = gym.spaces.Discrete(self.action_space_size)
 
         self.n_meta_data = 4  # number of meta data features: attn mas, can expand, reward, q-estimate
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
         self.tree_token_dim = self.n_meta_data + \
-            self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
+            2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -73,11 +83,14 @@ class MetaEnv(gym.Env):
         self.object_reward_min = object_reward_min
         self.object_reward_max = object_reward_max
 
-        self.observation_space = gym.spaces.Dict({
-            'search_tree_tokens': tree_token_space,
-            'valid_action_mask': gym.spaces.Box(
-                low=0, high=1, shape=(self.action_space.n,), dtype=np.int32)
-        })
+        if split_mask_and_tokens:
+            self.observation_space = gym.spaces.Dict({
+                'search_tree_tokens': tree_token_space,
+                'valid_action_mask': gym.spaces.Box(
+                    low=0, high=1, shape=(self.action_space_size,), dtype=np.int32)
+            })
+        else:
+            self.observation_space = tree_token_space
 
         # Variables for rendering
         self.last_meta_action = None
@@ -112,9 +125,37 @@ class MetaEnv(gym.Env):
             deterministic=self.tree.deterministic
         )
 
-    def tokenise_node(self, node: SearchTreeNode, action: Any) -> np.array:
-        state = node.get_state()
+    def tokenise(self, node: SearchTreeNode, action_idx: int) -> np.array:
+        """
+        Generates a token for the given node and action index.
+        Token contains the following information:
+            - Attention mask. Whether the token contains valid information or is padding.
+            - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
+            - Antecendet action vector. Vector encoding the action that was taken to get to this node.
+            - Reward. The reward given for the antecendent action.
+            - Action vector. Action to expand the node with.
+            - Q-estimate. The q-estimate of the node state and expansion action.
+            - State vector. The state vector of the node.
+            - ID: The id of the node.
+            - Parent ID: The id of the parent node.
 
+        Args:
+            node: The node to tokenise
+            action_idx: The index of the action to expand the node with. If this is greater than the
+                number of actions the node can be expanded with, the token will be a padding token.
+
+        Returns:
+            A 1-dimensional numpy array of length token_dim.
+        """
+        state = node.get_state()
+        actions = node.state.get_actions()
+
+        if action_idx < len(actions):
+            action = actions[action_idx]
+        else:
+            return np.zeros(self.tree_token_dim)
+
+        id_vec = one_hot(node.get_id(), self.max_tree_size)
         if node.is_root():
             parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
             action_taken_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
@@ -133,16 +174,17 @@ class MetaEnv(gym.Env):
         state_vec = state.get_state_vector()
 
         return np.concatenate([
-            meta_features, parent_id_vec, action_taken_vec, action_vec, state_vec
+            meta_features, id_vec, parent_id_vec, action_taken_vec, action_vec, state_vec
         ])
 
     def get_token_labels(self) -> List[str]:
-        meta_features = ['mask', 'can_expand', 'reward', 'q-estimate']
+        meta_features = ['obs_mask', 'can_expand', 'reward', 'q-estimate']
+        id_vec = [f'id_{i}' for i in range(self.max_tree_size)]
         parent_id_vec = [f'parent_id_{i}' for i in range(self.max_tree_size)]
         action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
         action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]
         state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
-        return meta_features + parent_id_vec + action_taken_vec + action_vec + state_vec
+        return meta_features + id_vec + parent_id_vec + action_taken_vec + action_vec + state_vec
 
     def get_observation(self) -> Dict[str, np.array]:
         """
@@ -166,10 +208,11 @@ class MetaEnv(gym.Env):
         corresponding to a valid computational action.
         """
         obs = np.array([
-            self.tokenise_node(node, action)
+            self.tokenise(node, action_idx)
             for node in self.tree.node_list
-            for action in node.get_state().get_actions()
+            for action_idx in range(self.n_object_actions)
         ])
+
         n_tokens = self.max_tree_size * self.n_object_actions
         if obs.size > 0:
             padding = np.zeros((n_tokens - obs.shape[0], obs.shape[1]))
@@ -177,18 +220,15 @@ class MetaEnv(gym.Env):
         else:
             search_tokens = np.zeros((n_tokens, self.tree_token_dim))
 
-        action_mask = np.zeros((self.action_space.n,), dtype=np.int32)
-        action_mask[0] = 1
-        for node in self.tree.node_list:
-            for action_idx, action in enumerate(node.get_state().get_actions()):
-                if self.tree.is_action_valid(node, action):
-                    idx = node.get_id() * self.n_object_actions + action_idx + 1
-                    action_mask[idx] = 1
-
-        return {
-            'search_tree_tokens': search_tokens,
-            'valid_action_mask': action_mask
-        }
+        if self.split_mask_and_tokens:
+            action_mask = np.concatenate([[1], search_tokens[:, 1]])
+            action_mask = action_mask.astype(np.int32)
+            return {
+                'search_tree_tokens': search_tokens,
+                'valid_action_mask': action_mask
+            }
+        else:
+            return search_tokens
 
     def get_best_object_action(self) -> int:
         q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
@@ -217,7 +257,7 @@ class MetaEnv(gym.Env):
         self.last_computation_reward = q_dist.max() - q_dist[prior_action]
         return self.last_computation_reward
 
-    def step(self, computational_action: int) -> Tuple[np.array, float, bool, dict]:
+    def step(self, computational_action: Union[int, list, np.array]) -> Tuple[np.array, float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
         - action == 0: terminate search and perform a step in the underlying environment
@@ -239,6 +279,9 @@ class MetaEnv(gym.Env):
             done: Whether the underlying environment is done
             info: Additional information
         """
+        if self.one_hot_action_space and not isinstance(computational_action, int):
+            computational_action = np.argmax(computational_action)
+
         self.last_meta_action = computational_action
         self.steps += 1
 
@@ -287,7 +330,7 @@ class MetaEnv(gym.Env):
             **{
                 i: f'Expand Node {(i - 1) // n} with Action '
                 + self.object_action_to_string((i - 1) % n)
-                for i in range(1, self.action_space.n)
+                for i in range(1, self.action_space_size)
             }
         }
 
@@ -370,3 +413,17 @@ class MetaEnv(gym.Env):
             plt.close()
 
         return meta_env_img
+
+    def plot_search_tokens(self, ax: plt.Axes = None, show: bool = True, annot_fmt: str = '.3f'):
+        if ax is None:
+            plt.figure(figsize=(25, 10))
+        obs = self.get_observation()
+        tokens = obs['search_tree_tokens'] if self.split_mask_and_tokens else obs
+        ax = sns.heatmap(tokens, annot=True, fmt=annot_fmt, ax=ax)
+        for t in ax.texts:
+            if float(t.get_text()) == 0:
+                t.set_text('')
+        ax.set_xticklabels(self.get_token_labels(), rotation=45)
+        ax.set_title('Search Tree Tokens: Each token represents a node and object-level action, i.e. a potential expansion of the search tree.')
+        if show:
+            plt.show()

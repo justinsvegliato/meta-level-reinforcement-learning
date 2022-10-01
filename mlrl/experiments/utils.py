@@ -5,18 +5,19 @@ import argparse
 
 import tensorflow as tf
 from tf_agents.utils import common
+from tf_agents.agents import TFAgent
 from tf_agents.agents.dqn.dqn_agent import DqnAgent, DdqnAgent
 from tf_agents.networks.sequential import Sequential
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
 
 
-def create_dqn_agent(tf_env: TFPyEnvironment,
-                     q_net: tf.keras.Model,
-                     learning_rate=1e-3,
-                     target_network_update_period=500,
-                     meta_discount=0.99,
-                     agent='dqn',
-                     **_) -> DqnAgent:
+def create_agent(tf_env: TFPyEnvironment,
+                 q_net: tf.keras.Model,
+                 learning_rate=1e-3,
+                 target_network_update_period=500,
+                 meta_discount=0.99,
+                 agent='dqn',
+                 **_) -> TFAgent:
     """ Creates a DQN agent. """
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
