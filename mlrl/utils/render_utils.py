@@ -70,6 +70,7 @@ def embed_mp4(filename: str, clear_before=True) -> HTML:
     <source src="data:video/mp4;base64,{0}" type="video/mp4">
     Your browser does not support the video tag.
     </video>'''.format(b64.decode())
+
     if clear_before:
         clear_output()
 
@@ -94,20 +95,26 @@ def create_policy_eval_video(policy: TFPolicy,
     Returns:
         str: The path to the saved video.
     """
-
     if not filename.endswith('.mp4'):
         filename = filename + '.mp4'
 
     env.reset()
 
+    def get_image() -> np.array:
+        imgs = np.array([
+            py_env.render() for py_env in env.pyenv.envs[:2]
+        ])
+        b, h, w, c = imgs.shape
+        return imgs.reshape((b * h, w, c))
+
     with imageio.get_writer(filename, fps=fps) as video:
 
-        video.append_data(env.render().numpy()[0])
+        video.append_data(get_image())
 
         for _ in range(max_steps):
             action_step = policy.action(env.current_time_step())
             env.step(action_step.action)
 
-            video.append_data(env.render().numpy()[0])
+            video.append_data(get_image())
 
     return filename

@@ -85,6 +85,15 @@ class SearchTransformer(tf.keras.Model):
 
         return tokens
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'n_heads': self.n_heads,
+            'head_dim': self.head_dim,
+            'n_layers': self.n_layers
+        })
+        return config
+
 
 class SearchQNetwork(tf.keras.Model):
     """
@@ -125,6 +134,11 @@ class SearchQNetwork(tf.keras.Model):
         tokens = self.transformer(inputs, training=training)
         return self.to_q_vals(tokens, training=training)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(self.transformer.get_config())
+        return config
+
 
 class SearchValueNetwork(tf.keras.Model):
     def __init__(self,
@@ -142,8 +156,13 @@ class SearchValueNetwork(tf.keras.Model):
         x = tf.reduce_sum(tokens, axis=-2)
         return self.to_value(x)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(self.transformer.get_config())
+        return config
 
-class SearchActorModel(tf.keras.Model):
+
+class SearchActorNetwork(tf.keras.Model):
 
     def __init__(self,
                  n_heads=3,
@@ -151,14 +170,19 @@ class SearchActorModel(tf.keras.Model):
                  n_layers=2,
                  temperature=1.0,
                  name='search_actor_model',
+                 relaxed_one_hot=False,
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.temperature = temperature
+        self.relaxed_one_hot = relaxed_one_hot
+
         self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
+
         self.to_logits = tf.keras.Sequential([
             tf.keras.layers.Dense(1),
             tf.keras.layers.Flatten()
         ], name='to_logits')
+
         self.prep_mask = PrependTerminateMask()
 
     def call(self, search_tokens, training=False):
@@ -168,7 +192,22 @@ class SearchActorModel(tf.keras.Model):
         action_logits = self.to_logits(tokens, training=training)
         action_logits = tf.where(mask, action_logits, tf.float32.min)
 
-        action_dist = tfp.distributions.RelaxedOneHotCategorical(
-            self.temperature, logits=action_logits
-        )
+        if self.relaxed_one_hot:
+            action_dist = tfp.distributions.RelaxedOneHotCategorical(
+                self.temperature, logits=action_logits
+            )
+        else:
+            action_dist = tfp.distributions.Categorical(
+                logits=action_logits, dtype=tf.int64
+            )
+
         return action_dist
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'transformer': self.transformer.get_config(),
+            'temperature': self.temperature,
+            'relaxed_one_hot': self.relaxed_one_hot
+        })
+        return config

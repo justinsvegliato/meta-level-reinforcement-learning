@@ -417,13 +417,16 @@ class MetaEnv(gym.Env):
     def plot_search_tokens(self, ax: plt.Axes = None, show: bool = True, annot_fmt: str = '.3f'):
         if ax is None:
             plt.figure(figsize=(25, 10))
+
         obs = self.get_observation()
         tokens = obs['search_tree_tokens'] if self.split_mask_and_tokens else obs
         ax = sns.heatmap(tokens, annot=True, fmt=annot_fmt, ax=ax)
         for t in ax.texts:
             if float(t.get_text()) == 0:
                 t.set_text('')
+
         ax.set_xticklabels(self.get_token_labels(), rotation=45)
         ax.set_title('Search Tree Tokens: Each token represents a node and object-level action, i.e. a potential expansion of the search tree.')
+
         if show:
             plt.show()

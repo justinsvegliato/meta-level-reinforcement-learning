@@ -18,6 +18,9 @@ from tf_agents.utils import common
 
 import numpy as np
 import wandb
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
 
 
 def compute_return_stats(environment: TFEnvironment,
@@ -29,22 +32,24 @@ def compute_return_stats(environment: TFEnvironment,
     """
 
     returns = []
+    rewards = []
     for _ in range(num_episodes):
 
         time_step = environment.reset()
         episode_return = 0.0
         n_steps = 0
-        while not time_step.is_last() and n_steps < max_steps:
+        while not tf.reduce_all(time_step.is_last()) and n_steps < max_steps:
             action_step = policy.action(time_step)
             time_step = environment.step(action_step.action)
             episode_return += time_step.reward
+            rewards.append(time_step.reward.numpy())
             n_steps += 1
 
         returns.append(episode_return)
 
     returns = np.array(returns)
 
-    return returns.mean(), returns.std()
+    return returns.mean(), returns.std(), np.concatenate(rewards)
 
 
 def time_id():
@@ -73,7 +78,7 @@ class TrainingRun:
     def __init__(self,
                  agent: TFAgent,
                  environment: TFEnvironment,
-                 model: tf.keras.Model,
+                 model: Union[tf.keras.Model, List[tf.keras.Model]],
                  num_epochs=10,
                  collect_steps_per_iteration=1,
                  train_steps_per_epoch=1000,
@@ -92,6 +97,9 @@ class TrainingRun:
                  verbose=1,
                  wandb_entity='drcope',
                  wandb_project='mlrl',
+                 run_args=None,
+                 save_reward_distributions=True,
+                 reward_dist_thresh=0.5,
                  name='run'):
         """
         Creates a new training run.
@@ -135,6 +143,7 @@ class TrainingRun:
         self.initial_collect_steps = initial_collect_steps
         self.collect_steps_per_iteration = collect_steps_per_iteration
         self.experience_batch_size = experience_batch_size
+        self.run_args = run_args or dict()
 
         # Video parameters
         self.video_steps = video_steps
@@ -148,17 +157,20 @@ class TrainingRun:
         self.user_given_callbacks = callbacks or []
         self.callbacks = None  # To be defined in pre execution setup due to wandb config
         self.best_return = -np.inf
+        self.save_reward_distributions = save_reward_distributions
+        self.reward_dist_thresh = reward_dist_thresh
 
         # Data tracking
-
         self.metric_fns = metric_fns or dict()
         self.run_dir = run_dir or f'{RUNS_DIR}/{agent.name}/{self.name}-{self.run_id}'
         self.model_weights_dir = f'{self.run_dir}/model_weights'
         self.videos_dir = f'{self.run_dir}/videos'
+        self.figures_dir = f'{self.run_dir}/figures'
 
         Path(self.run_dir).mkdir(parents=True)
         Path(self.model_weights_dir).mkdir(parents=True)
         Path(self.videos_dir).mkdir(parents=True)
+        Path(self.figures_dir).mkdir(parents=True)
 
         # Wandb variables
         self.end_wandb = end_wandb
@@ -176,15 +188,23 @@ class TrainingRun:
         self.experience_dataset = None  # setup in pre-execution
         self.experience_iterator = None  # setup in pre-execution
 
+        splitter = agent.__dict__.get('_observation_and_action_constraint_splitter')
         self.random_policy = RandomTFPolicy(
             environment.time_step_spec(),
             environment.action_spec(),
-            observation_and_action_constraint_splitter=agent._observation_and_action_constraint_splitter
+            observation_and_action_constraint_splitter=splitter
         )
 
     def get_config(self):
         try:
-            model_config = self.model.get_config()
+            if isinstance(self.model, list):
+                model_config = {
+                    model.name: model.get_config()
+                    for model in self.model
+                }
+            else:
+                model_config = self.model.get_config()
+
         except NotImplementedError:
             model_config = None
 
@@ -199,6 +219,7 @@ class TrainingRun:
             'train_steps_per_epoch': self.train_steps_per_epoch,
             'initial_collect_steps': self.initial_collect_steps,
             'experience_batch_size': self.experience_batch_size,
+            **self.run_args
         }
 
     def training_step(self) -> Dict[str, float]:
@@ -216,10 +237,12 @@ class TrainingRun:
 
     def get_evaluation_stats(self) -> Dict[str, float]:
         logs = dict()
-        return_mean, return_std = compute_return_stats(
+        return_mean, return_std, rewards = compute_return_stats(
             self.eval_env, self.agent.policy,
             self.num_eval_episodes, self.eval_steps
         )
+        if self.save_reward_distributions:
+            self.create_reward_distributions(rewards)
 
         logs['eval_return_mean'] = return_mean
         logs['eval_return_std'] = return_std
@@ -272,20 +295,41 @@ class TrainingRun:
                 f'mean_{k}': np.mean([log[k] for log in step_logs])
                 for k in step_logs[0].keys()
             })
-            eval_epoch = self.video_freq and self.epoch % self.video_freq == 0
+
+            video_epoch = self.video_freq and self.epoch % self.video_freq == 0
             best_return = self.best_return < epoch_logs['eval_return_mean']
-            if eval_epoch or best_return:
+
+            if video_epoch or best_return:
                 self.create_evaluation_video()
-            
+
             if best_return:
                 self.best_return = epoch_logs['eval_return_mean']
-                self.model.save_weights(self.model_weights_dir + f'/best_{self.epoch}_{self.best_return:5f}')
+                self.save_model_weights(f'best_{self.epoch}_{self.best_return:5f}')
 
             self.callbacks.on_epoch_end(self.epoch, epoch_logs)
             self.epoch += 1
 
-        self.create_evaluation_video()
         self.callbacks.on_train_end()
+
+    def create_reward_distributions(self, rewards):
+        _, axs = plt.subplots(1, 2, figsize=(20, 5))
+        sns.distplot(rewards, ax=axs[0], kde=False)
+        rewards_lt_t = [
+            r for r in rewards if r < self.reward_dist_thresh
+        ]
+        sns.distplot(rewards_lt_t, ax=axs[1], kde=False)
+
+        for ax in axs:
+            ax.set_yscale('log')
+            ax.set_xlabel('Reward')
+
+        axs[0].set_ylabel('Log Count')
+        axs[1].set_ylabel('')
+        axs[0].set_title('Full Distribution')
+        axs[1].set_title(f'Distribution of rewards < {self.reward_dist_thresh}')
+
+        plt.tight_layout()
+        plt.savefig(f'{self.figures_dir}/reward_{self.epoch}_distribution.png')
 
     def create_evaluation_video(self):
         """
@@ -320,13 +364,19 @@ class TrainingRun:
             callbacks,
             add_history=True,
             add_progbar=self.verbose != 0,
-            model=self.model,
+            model=self.get_callback_model(),
             verbose=self.verbose,
             epochs=self.num_epochs,
             steps=self.train_steps_per_epoch
         )
 
+    def get_callback_model(self):
+        if isinstance(self.model, list):
+            return self.model[0]
+        return self.model
+
     def _pre_execute_setup(self):
+        print('Setting up run...')
         self._setup_callbacks()
 
         self.agent.train = common.function(self.agent.train)
@@ -334,7 +384,11 @@ class TrainingRun:
         # Reset the train step
         self.agent.train_step_counter.assign(0)
 
-        self.collect_data(self.random_policy, self.initial_collect_steps)
+        print('Collecting initial experience...')
+        if self.run_args['agent'] == 'ppo_agent':
+            self.collect_data(self.agent.collect_policy, self.initial_collect_steps)
+        else:
+            self.collect_data(self.random_policy, self.initial_collect_steps)
 
         self.experience_dataset = self.replay_buffer.as_dataset(
             num_parallel_calls=3,
@@ -343,12 +397,12 @@ class TrainingRun:
         ).prefetch(3)
 
         self.experience_iterator = iter(self.experience_dataset)
-
         self.epoch = 0
 
     def execute(self):
         self._pre_execute_setup()
 
+        print('Starting training...')
         try:
             self.train()
             self.wandb_run.finish()
@@ -365,9 +419,10 @@ class TrainingRun:
             The training history as a dictionary mapping metric
             names to lists of historical values.
         """
-        return self.model.history.history
+        return self.get_callback_model().history.history
 
     def save(self):
+        self.create_evaluation_video()
 
         config = {
             'run_config': self.get_config(),
@@ -378,8 +433,21 @@ class TrainingRun:
             print(f'Saving run config to {f}')
             json.dump(config, f, indent=4, separators=(", ", ": "), sort_keys=True)
 
-        print(f'Saving model weights to {self.model_weights_dir}/model')
-        self.model.save_weights(f'{self.model_weights_dir}/model')
+        self.save_model_weights()
+
+    def save_model_weights(self, info: str = ''):
+        if info:
+            info = f'_{info}'
+
+        if isinstance(self.model, list):
+            for m in enumerate(self.model):
+                path = f'{self.model_weights_dir}/{m.name}{info}'
+                print(f'Saving model weights to {path}')
+                m.save_weights(path)
+        else:
+            path = f'{self.model_weights_dir}/{self.model.name}{info}'
+            print(f'Saving model weights to {path}')
+            self.model.save_weights(path)
 
     @staticmethod
     def _clean_for_json(item):
