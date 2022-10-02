@@ -119,14 +119,14 @@ def create_training_run(
     print('Creating training run...')
     return TrainingRun(
         agent, tf_env, model,
-        num_epochs=args['num_epochs'],
-        experience_batch_size=args['experience_batch_size'],
-        train_steps_per_epoch=args['steps_per_epoch'],
-        num_eval_episodes=args['num_eval_episodes'],
-        eval_steps=args['eval_steps'],
-        initial_collect_steps=args['initial_collect_steps'],
-        video_steps=args['video_steps'],
-        video_freq=args['video_freq'],
+        num_epochs=args.get('num_epochs', 10),
+        experience_batch_size=args.get('experience_batch_size', 64),
+        train_steps_per_epoch=args.get('steps_per_epoch', 1000),
+        num_eval_episodes=args.get('num_eval_episodes', 3),
+        eval_steps=args.get('eval_steps', 250),
+        initial_collect_steps=args.get('initial_collect_steps', 500),
+        video_steps=args.get('video_steps', 300),
+        video_freq=args.get('video_freq', 5),
         name=name,
         run_args=args
     )

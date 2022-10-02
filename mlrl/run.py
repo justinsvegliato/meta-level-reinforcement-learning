@@ -379,7 +379,8 @@ class TrainingRun:
         print('Setting up run...')
         self._setup_callbacks()
 
-        self.agent.train = common.function(self.agent.train)
+        if self.run_args['agent'] in ['dqn', 'ddqn']:
+            self.agent.train = common.function(self.agent.train)
 
         # Reset the train step
         self.agent.train_step_counter.assign(0)

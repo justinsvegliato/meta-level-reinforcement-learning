@@ -3,48 +3,6 @@ import tensorflow_probability as tfp
 from official.nlp.modeling.layers import Transformer
 
 
-class PrependTerminateToken(tf.keras.layers.Layer):
-    """
-    Simple layer to prepend a zero vector to a sequence of tokens
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def call(self, inputs, training=False):
-        batch_size = tf.shape(inputs)[0]
-        n_tokens = tf.shape(inputs)[1]
-        token_dim = tf.shape(inputs)[2]
-
-        terminate_token = tf.concat([
-            tf.zeros((batch_size, 1, token_dim)),
-            tf.ones((batch_size, 1, 1))
-        ], axis=-1)
-
-        inputs_with_terminate = tf.concat([
-            inputs, tf.zeros((batch_size, n_tokens, 1))
-        ], axis=-1)
-
-        return tf.concat([
-            terminate_token, inputs_with_terminate
-        ], axis=1)
-
-
-class PrependTerminateMask(tf.keras.layers.Layer):
-    """
-    Simple layer to prepend the mask
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def call(self, inputs, training=False):
-        batch_size = tf.shape(inputs)[0]
-        return tf.concat([
-            tf.ones((batch_size, 1)), inputs
-        ], axis=1)
-
-
 class SearchTransformer(tf.keras.Model):
     """
     Transformer model for search tree tokens
@@ -59,9 +17,6 @@ class SearchTransformer(tf.keras.Model):
         self.project_tokens = tf.keras.layers.Dense(head_dim * n_heads, 
                                                     activation='relu')
 
-        self.prepend_terminate_token = PrependTerminateToken()
-        self.prepend_terminate_mask = PrependTerminateMask()
-
         self.transformer_layers = [
             Transformer(n_heads, head_dim, 'relu',
                         dropout_rate=0.1,
@@ -70,12 +25,11 @@ class SearchTransformer(tf.keras.Model):
         ]
 
     def call(self, inputs, training=False):
-        tokens = self.prepend_terminate_token(inputs, training=training)
-        tokens = self.project_tokens(tokens,
+
+        tokens = self.project_tokens(inputs,
                                      training=training)
 
-        attention_mask = self.prepend_terminate_mask(inputs[:, :, 0],
-                                                     training=training)
+        attention_mask = inputs[:, :, 0]
         attention_mask = attention_mask[:, tf.newaxis, tf.newaxis, :]
         attention_mask = tf.repeat(attention_mask, self.n_heads, axis=1)
         attention_mask = tf.repeat(attention_mask, tf.shape(attention_mask)[-1], axis=2)
@@ -151,10 +105,21 @@ class SearchValueNetwork(tf.keras.Model):
         self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
         self.to_value = tf.keras.layers.Dense(1)
 
-    def call(self, search_tokens, training=False):
+    def compute_value(self, search_tokens, training=False):
         tokens = self.transformer(search_tokens, training=training)
         x = tf.reduce_sum(tokens, axis=-2)
-        return self.to_value(x)
+        return tf.squeeze(self.to_value(x), axis=-1)
+
+    def call(self, inputs, training=False):
+        if tf.rank(inputs) == 4:
+            # Handle multiple time steps independently
+            return tf.map_fn(
+                lambda tokens: self.compute_value(tokens,
+                                                  training=training),
+                inputs
+            )
+
+        return self.compute_value(inputs, training=training)
 
     def get_config(self):
         config = super().get_config()
@@ -183,22 +148,29 @@ class SearchActorNetwork(tf.keras.Model):
             tf.keras.layers.Flatten()
         ], name='to_logits')
 
-        self.prep_mask = PrependTerminateMask()
-
-    def call(self, search_tokens, training=False):
-        mask = tf.cast(self.prep_mask(search_tokens[:, :, 1]), tf.bool)
-
+    def compute_logits(self, search_tokens, training=False):
+        mask = tf.cast(search_tokens[:, :, 1], tf.bool)
         tokens = self.transformer(search_tokens, training=training)
         action_logits = self.to_logits(tokens, training=training)
         action_logits = tf.where(mask, action_logits, tf.float32.min)
+        return action_logits
+
+    def call(self, inputs, training=False):
+        if tf.rank(inputs) == 4:
+            logits = tf.map_fn(
+                lambda x: self.compute_logits(x, training=training),
+                inputs
+            )
+        else:
+            logits = self.compute_logits(inputs, training=training)
 
         if self.relaxed_one_hot:
             action_dist = tfp.distributions.RelaxedOneHotCategorical(
-                self.temperature, logits=action_logits
+                self.temperature, logits=logits
             )
         else:
             action_dist = tfp.distributions.Categorical(
-                logits=action_logits, dtype=tf.int64
+                logits=logits, dtype=tf.int64
             )
 
         return action_dist

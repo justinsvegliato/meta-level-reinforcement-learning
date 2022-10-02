@@ -68,7 +68,8 @@ class MetaEnv(gym.Env):
         else:
             self.action_space = gym.spaces.Discrete(self.action_space_size)
 
-        self.n_meta_data = 4  # number of meta data features: attn mas, can expand, reward, q-estimate
+        # meta data features: attn mask, can expand, reward, q-estimate, is terminate
+        self.n_meta_data = 5
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
         self.tree_token_dim = self.n_meta_data + \
@@ -76,7 +77,7 @@ class MetaEnv(gym.Env):
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
-            shape=(max_tree_size * self.n_object_actions, self.tree_token_dim),
+            shape=(self.action_space_size, self.tree_token_dim),
             dtype=np.float32
         )
 
@@ -174,7 +175,9 @@ class MetaEnv(gym.Env):
         state_vec = state.get_state_vector()
 
         return np.concatenate([
-            meta_features, id_vec, parent_id_vec, action_taken_vec, action_vec, state_vec
+            meta_features, id_vec, parent_id_vec,
+            action_taken_vec, action_vec, state_vec,
+            [0.]  # not a terminate token
         ])
 
     def get_token_labels(self) -> List[str]:
@@ -184,7 +187,8 @@ class MetaEnv(gym.Env):
         action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
         action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]
         state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
-        return meta_features + id_vec + parent_id_vec + action_taken_vec + action_vec + state_vec
+        return meta_features + id_vec + parent_id_vec + \
+            action_taken_vec + action_vec + state_vec + [r'$\perp$']
 
     def get_observation(self) -> Dict[str, np.array]:
         """
@@ -207,13 +211,14 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-        obs = np.array([
+        terminate_token = [1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.]
+        obs = np.array([terminate_token] + [
             self.tokenise(node, action_idx)
             for node in self.tree.node_list
             for action_idx in range(self.n_object_actions)
         ])
 
-        n_tokens = self.max_tree_size * self.n_object_actions
+        n_tokens = self.action_space_size
         if obs.size > 0:
             padding = np.zeros((n_tokens - obs.shape[0], obs.shape[1]))
             search_tokens = np.concatenate([obs, padding], axis=0)
@@ -354,7 +359,9 @@ class MetaEnv(gym.Env):
                f'Computational-Reward: {computational_reward:.3f} | '\
                f't = {self.steps}'
 
-    def render(self, mode: str = 'rgb_array', plt_show: bool = False) -> np.ndarray:
+    def render(self,
+               mode: str = 'rgb_array',
+               plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
         object-level environment, the current search tree (i.e. the meta-level
@@ -414,7 +421,10 @@ class MetaEnv(gym.Env):
 
         return meta_env_img
 
-    def plot_search_tokens(self, ax: plt.Axes = None, show: bool = True, annot_fmt: str = '.3f'):
+    def plot_search_tokens(self,
+                           ax: plt.Axes = None,
+                           show: bool = True,
+                           annot_fmt: str = '.3f'):
         if ax is None:
             plt.figure(figsize=(25, 10))
 
@@ -426,7 +436,10 @@ class MetaEnv(gym.Env):
                 t.set_text('')
 
         ax.set_xticklabels(self.get_token_labels(), rotation=45)
-        ax.set_title('Search Tree Tokens: Each token represents a node and object-level action, i.e. a potential expansion of the search tree.')
+        ax.set_title(
+            'Search Tree Tokens: Each token represents a node and '
+            'object-level action, i.e. a potential expansion of the search tree.'
+        )
 
         if show:
             plt.show()

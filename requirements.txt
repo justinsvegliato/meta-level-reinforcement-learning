@@ -12,6 +12,7 @@ pydot==1.4.2
 wandb==0.12.10
 jupyter==1.0.0
 jupyterlab==3.2.9
+ipykernel==6.16.0
 plotly==5.5.0
 statsmodels
 imageio-ffmpeg==0.4.7
