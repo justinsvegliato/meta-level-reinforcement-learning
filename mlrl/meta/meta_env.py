@@ -20,7 +20,7 @@ def mask_invalid_action_constraint_splitter(observation):
 
 class MetaEnv(gym.Env):
     """
-    Class that wraps a gym_maze environment and allows for the 
+    Class that wraps a gym_maze environment and allows for the
     meta-learning of the search problem
     """
 
@@ -262,7 +262,8 @@ class MetaEnv(gym.Env):
         self.last_computation_reward = q_dist.max() - q_dist[prior_action]
         return self.last_computation_reward
 
-    def step(self, computational_action: Union[int, list, np.array]) -> Tuple[np.array, float, bool, dict]:
+    def step(self,
+             computational_action: Union[int, list, np.array]) -> Tuple[np.array, float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
         - action == 0: terminate search and perform a step in the underlying environment
@@ -344,7 +345,7 @@ class MetaEnv(gym.Env):
         if self.last_meta_action is None:
             return 'Initial State'
 
-        action_string = self.meta_action_strings[self.last_meta_action]
+        action_string = self.meta_action_strings[int(self.last_meta_action)]
 
         if self.tree.get_num_nodes() != 1:
             computational_reward = self.last_computation_reward

@@ -102,7 +102,7 @@ def create_policy_eval_video(policy: TFPolicy,
 
     def get_image() -> np.array:
         imgs = np.array([
-            py_env.render() for py_env in env.pyenv.envs[:2]
+            e.render() for e in env.envs[:2]
         ])
         b, h, w, c = imgs.shape
         return imgs.reshape((b * h, w, c))

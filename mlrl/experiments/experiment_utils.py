@@ -97,6 +97,8 @@ def create_agent(tf_env: TFPyEnvironment,
             value_net=Sequential([value_net]),
             optimizer=optimizer,
             train_step_counter=train_step_counter,
+            # compute_value_and_advantage_in_train=False,
+            # update_normalizers_in_train=False,
             discount_factor=meta_discount
         )
 
