@@ -191,7 +191,7 @@ class SearchTreeNode:
 
     def __repr__(self, depth=0) -> str:
         children_str = '\n'.join([
-            c.__repr__(depth + 1) 
+            c.__repr__(depth + 1)
             for a in self.children for c in self.children[a]
         ])
 

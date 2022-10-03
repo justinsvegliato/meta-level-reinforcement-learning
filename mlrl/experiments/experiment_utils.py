@@ -32,7 +32,7 @@ def create_meta_env(object_env: gym.Env,
                     args: dict,
                     object_action_to_string=None) -> MetaEnv:
     """
-    Creates a meta environment from a given object environment, 
+    Creates a meta environment from a given object environment,
     an initial state, and a Q-function.
     """
     initial_tree = SearchTree(object_env, init_state, q_hat)

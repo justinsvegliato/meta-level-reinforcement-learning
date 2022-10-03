@@ -96,7 +96,7 @@ class RestrictedActionsMazeState(MazeState):
             )
 
         actions = [
-            i for i, a in enumerate(env.ACTION) 
+            i for i, a in enumerate(env.ACTION)
             if env.maze_view.maze.is_open(state_vec, a)
         ]
 

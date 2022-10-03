@@ -1,5 +1,5 @@
 from mlrl.experiments.experiment_utils import (
-    parse_args, create_agent, create_training_run,
+    parse_args, create_agent,
     create_batched_tf_meta_env, create_meta_env
 )
 from mlrl.meta.search_tree import ObjectState
@@ -170,9 +170,7 @@ def main():
         collect_actor.run()
         agent_learner.run()
 
-        if (eval_interval and
-            (agent_learner.train_step_numpy >= eval_interval + last_eval_step
-                or i == num_iterations - 1)):
+        if (eval_interval and (agent_learner.train_step_numpy >= eval_interval + last_eval_step or i == num_iterations - 1)):
             logging.info('Evaluating.')
 
             video_file = f'{videos_dir}/eval_video_{i}.mp4'

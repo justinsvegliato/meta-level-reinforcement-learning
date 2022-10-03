@@ -4,7 +4,6 @@ import tensorflow_probability as tfp
 from official.nlp.modeling.layers import Transformer
 
 from tf_agents.networks import network
-from tf_agents.networks import utils
 from tf_agents.specs import tensor_spec
 from tf_agents.specs import distribution_spec
 
@@ -20,7 +19,7 @@ class SearchTransformer(tf.keras.Model):
         self.head_dim = head_dim
         self.n_layers = n_layers
 
-        self.project_tokens = tf.keras.layers.Dense(head_dim * n_heads, 
+        self.project_tokens = tf.keras.layers.Dense(head_dim * n_heads,
                                                     activation='relu')
 
         self.transformer_layers = [

@@ -61,4 +61,3 @@ class ChessVsStockfish(ChessVsAgent):
     def get_action(self, board: chess.Board) -> chess.Move:
         result = self.engine.play(board, chess.engine.Limit(time=0.1))
         return result.move
-

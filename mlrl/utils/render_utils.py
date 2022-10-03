@@ -54,8 +54,8 @@ def svg_to_array(svg: str, shape=(128, 128)) -> np.ndarray:
     Returns:
         np.ndarray: A numpy array containing the rasterised image.
     """
-    png = cairosvg.svg2png(bytestring=svg, 
-                           output_width=shape[0], 
+    png = cairosvg.svg2png(bytestring=svg,
+                           output_width=shape[0],
                            output_height=shape[1])
     img = Image.open(BytesIO(png))
     return np.array(img)
@@ -81,6 +81,7 @@ def create_policy_eval_video(policy: TFPolicy,
                              env: TFEnvironment,
                              filename: str = 'video',
                              max_steps: int = 60,
+                             max_envs_to_show: int = 2,
                              fps: int = 1) -> str:
     """
     Creates and saves a video of the policy being evaluating in an environment.
@@ -102,7 +103,7 @@ def create_policy_eval_video(policy: TFPolicy,
 
     def get_image() -> np.array:
         imgs = np.array([
-            e.render() for e in env.envs[:2]
+            e.render() for e in env.envs[:max_envs_to_show]
         ])
         b, h, w, c = imgs.shape
         return imgs.reshape((b * h, w, c))
