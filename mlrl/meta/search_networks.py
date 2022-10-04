@@ -6,6 +6,8 @@ from official.nlp.modeling.layers import Transformer
 from tf_agents.networks import network
 from tf_agents.specs import tensor_spec
 from tf_agents.specs import distribution_spec
+from tf_agents.networks.actor_distribution_network import ActorDistributionNetwork
+from tf_agents.networks.value_network import ValueNetwork
 
 
 class SearchTransformer(tf.keras.Model):
@@ -31,10 +33,15 @@ class SearchTransformer(tf.keras.Model):
 
     def call(self, inputs, training=False):
 
-        tokens = self.project_tokens(inputs,
+        if tf.nest.is_nested(inputs):
+            tokens = inputs['search_tree_tokens']
+        else:
+            tokens = inputs
+
+        tokens = self.project_tokens(tokens,
                                      training=training)
 
-        attention_mask = inputs[:, :, 0]
+        attention_mask = tokens[:, :, 0]
         attention_mask = attention_mask[:, tf.newaxis, tf.newaxis, :]
         attention_mask = tf.repeat(attention_mask, self.n_heads, axis=1)
         attention_mask = tf.repeat(attention_mask, tf.shape(attention_mask)[-1], axis=2)
@@ -132,6 +139,10 @@ class SearchValueNetwork(tf.keras.Model):
         return config
 
 
+def get_action_mask(search_tokens: tf.Tensor) -> tf.Tensor:
+    return tf.cast(search_tokens[:, :, 1], tf.bool)
+
+
 class SearchActorNetwork(tf.keras.Model):
 
     def __init__(self,
@@ -154,7 +165,7 @@ class SearchActorNetwork(tf.keras.Model):
         ], name='to_logits')
 
     def compute_logits(self, search_tokens, training=False):
-        mask = tf.cast(search_tokens[:, :, 1], tf.bool)
+        mask = get_action_mask(search_tokens)
         tokens = self.transformer(search_tokens, training=training)
         action_logits = self.to_logits(tokens, training=training)
         action_logits = tf.where(mask, action_logits, tf.float32.min)
@@ -208,7 +219,7 @@ class SearchActorLogitsNetwork(tf.keras.Model):
         ], name='to_logits')
 
     def compute_logits(self, search_tokens, training=False):
-        mask = tf.cast(search_tokens[:, :, 1], tf.bool)
+        mask = get_action_mask(search_tokens)
         tokens = self.transformer(search_tokens, training=training)
         action_logits = self.to_logits(tokens, training=training)
         action_logits = tf.where(mask, action_logits, tf.float32.min)
@@ -283,3 +294,31 @@ class CategoricalNetwork(network.DistributionNetwork):
 
     def call(self, logits, outer_rank, training=False, mask=None):
         return self.output_spec.build_distribution(logits=logits), ()
+
+
+def create_action_distribution_network(observation_tensor_spec: tensor_spec.TensorSpec,
+                                       action_tensor_spec: tensor_spec.TensorSpec,
+                                       **network_kwargs) -> ActorDistributionNetwork:
+    custom_objects = {
+        'SearchActorLogitsNetwork': SearchActorLogitsNetwork,
+        'SearchTransformer': SearchTransformer
+    }
+
+    with tf.keras.utils.custom_object_scope(custom_objects):
+        return ActorDistributionNetwork(
+            observation_tensor_spec, action_tensor_spec,
+            preprocessing_layers=SearchActorLogitsNetwork(**network_kwargs),
+            fc_layer_params=None,
+            discrete_projection_net=lambda spec: CategoricalNetwork(spec)
+        )
+
+
+def create_value_network(observation_tensor_spec: tensor_spec.TensorSpec,
+                         **network_kwargs) -> ValueNetwork:
+    return ValueNetwork(
+        observation_tensor_spec,
+        preprocessing_layers=SearchTransformer(**network_kwargs),
+        preprocessing_combiner=tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x[0], axis=-2)),
+        batch_squash=True,
+        fc_layer_params=None
+    )

@@ -1,5 +1,5 @@
 from ..run import TrainingRun
-from ..meta.meta_env import mask_invalid_action_constraint_splitter
+from ..meta.meta_env import mask_token_splitter
 from ..meta.search_networks import SearchQNetwork, SearchActorNetwork, SearchValueNetwork
 from ..meta.meta_env import MetaEnv
 from ..meta.search_tree import QFunction, SearchTree, ObjectState
@@ -39,7 +39,7 @@ def create_meta_env(object_env: gym.Env,
     meta_env = MetaEnv(object_env,
                        initial_tree,
                        max_tree_size=args.get('max_tree_size', 10),
-                       split_mask_and_tokens=args['agent'] in ['dqn', 'ddqn'],
+                       split_mask_and_tokens=args.get('split_mask_and_tokens', True),
                        object_action_to_string=object_action_to_string)
 
     if args.get('meta_time_limit', None):
@@ -74,7 +74,7 @@ def create_agent(tf_env: TFPyEnvironment,
             q_network=Sequential([q_net]),
             optimizer=optimizer,
             td_errors_loss_fn=common.element_wise_squared_loss,
-            observation_and_action_constraint_splitter=mask_invalid_action_constraint_splitter,
+            observation_and_action_constraint_splitter=mask_token_splitter,
             target_update_period=target_network_update_period,
             gamma=meta_discount,
             train_step_counter=train_step_counter
