@@ -236,6 +236,9 @@ class SearchTree:
 
     def expand(self, node_idx: int, action: int):
         """ Expands the node with the given index by taking the given action. """
+        node_idx = int(node_idx)
+        action = int(action)
+
         if node_idx >= len(self.node_list):
             raise Exception(
                 f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}"

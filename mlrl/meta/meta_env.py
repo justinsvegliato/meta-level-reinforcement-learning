@@ -4,7 +4,7 @@ from ..utils import one_hot
 from ..utils.plot_search_tree import plot_tree
 from ..utils.render_utils import plot_to_array
 
-from typing import Callable, Tuple, Dict, Any, List, Union
+from typing import Callable, Optional, Tuple, Dict, Any, List, Union
 
 import numpy as np
 import gym
@@ -35,7 +35,8 @@ class MetaEnv(gym.Env):
                  object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99,
                  one_hot_action_space: bool = False,
-                 split_mask_and_tokens: bool = True):
+                 split_mask_and_tokens: bool = True,
+                 dump_debug_images: bool = True):
         """
         Args:
             env: The object-level environment to wrap
@@ -50,6 +51,7 @@ class MetaEnv(gym.Env):
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
         self.split_mask_and_tokens = split_mask_and_tokens
+        self.dump_debug_images = dump_debug_images
 
         self.tree = initial_tree
         self.n_computations = 0
@@ -285,45 +287,81 @@ class MetaEnv(gym.Env):
             done: Whether the underlying environment is done
             info: Additional information
         """
-        if self.one_hot_action_space and not isinstance(computational_action, int):
-            computational_action = np.argmax(computational_action)
+        try:
+            if self.one_hot_action_space and not isinstance(computational_action, int):
+                computational_action = np.argmax(computational_action)
 
-        self.last_meta_action = computational_action
-        self.steps += 1
+            self.last_meta_action = computational_action
+            self.steps += 1
 
-        if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
-            # Perform a step in the underlying environment
-            best_action_idx = self.get_best_object_action()
-            root_state = self.tree.get_root().get_state()
-            action = root_state.get_actions()[best_action_idx]
+            if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
+                # Perform a step in the underlying environment
+                best_action_idx = self.get_best_object_action()
+                root_state = self.tree.get_root().get_state()
+                action = root_state.get_actions()[best_action_idx]
 
+                self.set_environment_to_root_state()
+                _, self.last_meta_reward, done, info = self.object_env.step(action)
+
+                self.tree = self.get_root_tree()
+
+                return self.get_observation(), self.last_meta_reward, done, info
+
+            if self.computational_rewards:
+                # Keep track of prior action for later comparison
+                prior_action = self.get_best_object_action()
+
+            # perform a computational action on the search tree
+            node_idx = (computational_action - 1) // self.n_object_actions
+            object_action = (computational_action - 1) % self.n_object_actions
+
+            self.tree.expand(node_idx, object_action)
+            self.n_computations += 1
+
+            # Compute reward (named "last_meta_reward" for readability in later access)
+            self.last_meta_reward = -self.cost_of_computation
+            if self.computational_rewards:
+                self.last_meta_reward += self.get_computational_reward(prior_action)
+
+            # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
-            _, self.last_meta_reward, done, info = self.object_env.step(action)
 
-            self.tree = self.get_root_tree()
+            return self.get_observation(), self.last_meta_reward, False, dict()
 
-            return self.get_observation(), self.last_meta_reward, done, info
+        except Exception as e:
+            self._dump_debug_info(computational_action, e)
+            raise e
 
-        if self.computational_rewards:
-            # Keep track of prior action for later comparison
-            prior_action = self.get_best_object_action()
+    def _dump_debug_info(self, computational_action: int, e: Exception):
+        import time
+        debug_id = int(time.time() * 1000)
+        debug_dir = f'./debug/{debug_id}'
 
-        # perform a computational action on the search tree
-        node_idx = (computational_action - 1) // self.n_object_actions
-        object_action = (computational_action - 1) % self.n_object_actions
+        from pathlib import Path
+        Path(debug_dir).mkdir(parents=True, exist_ok=True)
 
-        self.tree.expand(node_idx, object_action)
-        self.n_computations += 1
+        info = self.get_info()
+        info['computational_action'] = int(computational_action)
+        info['exception'] = str(e)
 
-        # Compute reward (named "last_meta_reward" for readability in later access)
-        self.last_meta_reward = -self.cost_of_computation
-        if self.computational_rewards:
-            self.last_meta_reward += self.get_computational_reward(prior_action)
+        import json
+        with open(f'{debug_dir}/info.json', 'w') as f:
+            json.dump(info, f)
 
-        # Set the environment to the state of the root node for inter-step consistency
-        self.set_environment_to_root_state()
+        self.plot_search_tokens(show=False)
+        plt.savefig(f'{debug_dir}/crash_search_tokens.png')
+        plt.close()
 
-        return self.get_observation(), self.last_meta_reward, False, dict()
+        self.render(save_fig_to=f'{debug_dir}/crash_render.png')
+
+    def get_info(self) -> dict:
+        return {
+            'n_computations': int(self.n_computations),
+            'last_meta_reward': float(self.last_meta_reward),
+            'last_computation_reward': float(self.last_computation_reward),
+            'last_meta_action': int(self.last_meta_action),
+            'tree': str(self.tree),
+        }
 
     def set_environment_to_root_state(self):
         root_state = self.tree.get_root().get_state()
@@ -362,6 +400,7 @@ class MetaEnv(gym.Env):
 
     def render(self,
                mode: str = 'rgb_array',
+               save_fig_to: Optional[str] = None,
                plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
@@ -414,6 +453,9 @@ class MetaEnv(gym.Env):
         plt.tight_layout(rect=[0, 0.03, 1, .9])
 
         meta_env_img = plot_to_array(fig)
+
+        if save_fig_to is not None:
+            plt.savefig(save_fig_to)
 
         if plt_show:
             plt.show()

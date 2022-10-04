@@ -36,11 +36,16 @@ def create_meta_env(object_env: gym.Env,
     an initial state, and a Q-function.
     """
     initial_tree = SearchTree(object_env, init_state, q_hat)
-    return MetaEnv(object_env,
-                   initial_tree,
-                   max_tree_size=args.get('max_tree_size', 10),
-                   split_mask_and_tokens=args['agent'] in ['dqn', 'ddqn'],
-                   object_action_to_string=object_action_to_string)
+    meta_env = MetaEnv(object_env,
+                       initial_tree,
+                       max_tree_size=args.get('max_tree_size', 10),
+                       split_mask_and_tokens=args['agent'] in ['dqn', 'ddqn'],
+                       object_action_to_string=object_action_to_string)
+
+    if args.get('meta_time_limit', None):
+        return gym.wrappers.time_limit.TimeLimit(meta_env, args['meta_time_limit'])
+
+    return meta_env
 
 
 def create_agent(tf_env: TFPyEnvironment,
