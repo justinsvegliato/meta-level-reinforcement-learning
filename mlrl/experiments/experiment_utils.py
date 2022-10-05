@@ -143,7 +143,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
 
     # Run parameters
-    parser.add_argument('--learning_rate', type=float, default=1e-3,
+    parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
     parser.add_argument('--experience_batch_size', type=int, default=64,
                         help='Batch size to use.')
@@ -169,6 +169,8 @@ def create_parser():
                         help='Discount factor in object-level environment.')
     parser.add_argument('--meta_discount', type=float, default=0.99,
                         help='Discount factor in meta-level environment.')
+    parser.add_argument('--meta_time_limit', type=int, default=500,
+                        help='Maximum number of steps in meta-level environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed.')
     parser.add_argument('--env_batch_size', type=int, default=2,

@@ -335,18 +335,27 @@ class MetaEnv(gym.Env):
             return self.get_observation(), self.last_meta_reward, False, dict()
 
         except Exception as e:
-            self._dump_debug_info(computational_action, e)
+            self._dump_debug_info(e, computational_action)
             raise e
 
-    def _dump_debug_info(self, computational_action: int, e: Exception):
+    def _dump_debug_info(self,
+                         e: Exception,
+                         computational_action: int = None,
+                         debug_dir: str = None,
+                         open_debug_server: bool = True):
         """
-        Dumps debug information to the folder `./debug/{timestamp}` in case of an exception.
+        Dumps debug information to the provided folder or to `./debug/{timestamp}`.
         Starts a debug server on port 5678 to allow inspection of the program state.
+
+        Args:
+            computational_action: The action that was taken in the meta environment
+            e: The exception that was raised
+            debug_dir: The directory to dump the debug information to
+            open_debug_server: Whether to open a debug server
         """
         try:
             import time
-            debug_id = int(time.time() * 1000)
-            debug_dir = f'./debug/{debug_id}'
+            debug_dir = debug_dir or f'./debug/{int(time.time() * 1000)}'
 
             from pathlib import Path
             Path(debug_dir).mkdir(parents=True, exist_ok=True)
@@ -357,11 +366,12 @@ class MetaEnv(gym.Env):
                 f.write(traceback.format_exc())
 
             info = self.get_info()
-            info['computational_action'] = int(computational_action)
             info['exception'] = str(e)
+            if computational_action is not None:
+                info['computational_action'] = int(computational_action)
 
             import json
-            with open(f'{debug_dir}/info.json', 'w') as f:
+            with open(f'{debug_dir}/env_info.json', 'w') as f:
                 json.dump(info, f)
 
             self.plot_search_tokens(show=False)
@@ -371,15 +381,15 @@ class MetaEnv(gym.Env):
             self.render(save_fig_to=f'{debug_dir}/crash_render.png')
 
         finally:
-            import debugpy
-
-            # 5678 is the default attach port in the VS Code debug configurations.
-            # 0.0.0.0 is used to allow remote debugging through docker.
-            debugpy.listen(('0.0.0.0', 5678))
-            print("Waiting for debugger attach")
-            debugpy.wait_for_client()
-            print("Debugger attached")
-            debugpy.breakpoint()
+            if open_debug_server:
+                import debugpy
+                # 5678 is the default attach port in the VS Code debug configurations.
+                # 0.0.0.0 is used to allow remote debugging through docker.
+                debugpy.listen(('0.0.0.0', 5678))
+                print("Waiting for debugger attach")
+                debugpy.wait_for_client()
+                print("Debugger attached")
+                debugpy.breakpoint()
 
     def get_info(self) -> dict:
         return {
