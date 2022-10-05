@@ -126,6 +126,7 @@ class PPORunner:
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
                  num_iterations: int = 1000,
+                 max_envs_to_render_in_video: int = 2,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -138,6 +139,7 @@ class PPORunner:
         self.env_multithreading = env_multithreading
         self.env_batch_size = env_batch_size
         self.config = config
+        self.max_envs_to_render_in_video = max_envs_to_render_in_video
         self.name = get_maze_name(config)
         self.root_dir = f'runs/{self.name}/{time_id()}'
 
@@ -258,8 +260,9 @@ class PPORunner:
 
         try:
             video_file = f'{self.videos_dir}/video_{i}.mp4'
-            create_policy_eval_video(self.agent.policy, self.env, max_steps=120,
-                                     filename=video_file, max_envs_to_show=1)
+            create_policy_eval_video(self.agent.policy, self.eval_env, max_steps=120,
+                                     filename=video_file,
+                                     max_envs_to_show=self.max_envs_to_render_in_video)
             logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
         except Exception as e:
             print(f'Error creating video: {e}')
