@@ -339,26 +339,47 @@ class MetaEnv(gym.Env):
             raise e
 
     def _dump_debug_info(self, computational_action: int, e: Exception):
-        import time
-        debug_id = int(time.time() * 1000)
-        debug_dir = f'./debug/{debug_id}'
+        """
+        Dumps debug information to the folder `./debug/{timestamp}` in case of an exception.
+        Starts a debug server on port 5678 to allow inspection of the program state.
+        """
+        try:
+            import time
+            debug_id = int(time.time() * 1000)
+            debug_dir = f'./debug/{debug_id}'
 
-        from pathlib import Path
-        Path(debug_dir).mkdir(parents=True, exist_ok=True)
+            from pathlib import Path
+            Path(debug_dir).mkdir(parents=True, exist_ok=True)
 
-        info = self.get_info()
-        info['computational_action'] = int(computational_action)
-        info['exception'] = str(e)
+            import traceback
+            with open(f'{debug_dir}/exception_log.txt', 'a') as f:
+                f.write(str(e))
+                f.write(traceback.format_exc())
 
-        import json
-        with open(f'{debug_dir}/info.json', 'w') as f:
-            json.dump(info, f)
+            info = self.get_info()
+            info['computational_action'] = int(computational_action)
+            info['exception'] = str(e)
 
-        self.plot_search_tokens(show=False)
-        plt.savefig(f'{debug_dir}/crash_search_tokens.png')
-        plt.close()
+            import json
+            with open(f'{debug_dir}/info.json', 'w') as f:
+                json.dump(info, f)
 
-        self.render(save_fig_to=f'{debug_dir}/crash_render.png')
+            self.plot_search_tokens(show=False)
+            plt.savefig(f'{debug_dir}/crash_search_tokens.png')
+            plt.close()
+
+            self.render(save_fig_to=f'{debug_dir}/crash_render.png')
+
+        finally:
+            import debugpy
+
+            # 5678 is the default attach port in the VS Code debug configurations.
+            # 0.0.0.0 is used to allow remote debugging through docker.
+            debugpy.listen(('0.0.0.0', 5678))
+            print("Waiting for debugger attach")
+            debugpy.wait_for_client()
+            print("Debugger attached")
+            debugpy.breakpoint()
 
     def get_info(self) -> dict:
         return {
@@ -481,7 +502,7 @@ class MetaEnv(gym.Env):
         tokens = obs['search_tree_tokens'] if self.split_mask_and_tokens else obs
         ax = sns.heatmap(tokens, annot=True, fmt=annot_fmt, ax=ax)
         for t in ax.texts:
-            if float(t.get_text()) == 0:
+            if t.get_text() and float(t.get_text()) == 0:
                 t.set_text('')
 
         ax.set_xticklabels(self.get_token_labels(), rotation=45)
