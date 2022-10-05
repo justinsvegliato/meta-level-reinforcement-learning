@@ -179,13 +179,13 @@ def create_parser():
     # Maze parameters
     parser.add_argument('--maze_size', type=int, default=5,
                         help='Size of the maze.')
-    parser.add_argument('--procgen_maze', type=bool, default=False,
+    parser.add_argument('--procgen_maze', type=bool, default=True,
                         help='Whether to use a procgen maze.')
     parser.add_argument('--restricted_maze_states', type=bool, default=True,
                         help='Whether to restrict movements and node expansions to only free spaces.')
 
     # Agent parameters
-    parser.add_argument('--agent', type=str, default='ppo_agent',
+    parser.add_argument('--agent', type=str, default='ppo',
                         help='Agent class to use.')
     parser.add_argument('--transformer_head_dim', type=int, default=16,
                         help='Head dimension for the agent transformer.')

@@ -35,11 +35,11 @@ import wandb
 def get_maze_name(config: dict) -> str:
     name = ''
 
-    if config.get('maze_procgen', False):
+    if config.get('procgen_maze', False):
         name += 'procgen_'
 
     n = config.get('maze_size', 5)
-    agent = config['agent']
+    agent = config.get('agent', 'ppo')
     name += f'{n}x{n}_maze_{agent}'
 
     return name
@@ -48,7 +48,7 @@ def get_maze_name(config: dict) -> str:
 def create_maze_meta_env(object_state_cls: Type[ObjectState],
                          args: dict) -> MetaEnv:
     maze_n = args.get('maze_size', 5)
-    procgen = bool(args.get('maze_procgen', False))
+    procgen = bool(args.get('procgen_maze', False))
 
     object_env = make_maze_env(
         seed=args.get('seed', 0),
@@ -118,14 +118,14 @@ class PPORunner:
     def __init__(self,
                  env_batch_size: int = 2,
                  env_multithreading: bool = True,
-                 train_batch_size: int = 4,
-                 train_num_steps: int = 64,
+                 train_batch_size: int = 2,
+                 train_num_steps: int = 128,
                  summary_interval: int = 1000,
                  collect_sequence_length: int = 2048,
-                 policy_save_interval: int = 5000,
+                 policy_save_interval: int = 10000,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
-                 num_iterations: int = 100,
+                 num_iterations: int = 1000,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -147,15 +147,14 @@ class PPORunner:
         self.env = BatchedPyEnvironment([
             GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
             for _ in range(env_batch_size)
-        ], multithreading=env_multithreading)
+        ], multithreading=False)
         self.env.reset()
 
         if eval_steps > 0:
             self.eval_env = BatchedPyEnvironment([
                 GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
                 for _ in range(env_batch_size)
-            ], multithreading=env_multithreading)
-
+            ], multithreading=False)
             self.eval_env.reset()
 
         self.train_step_counter = train_utils.create_train_step()
@@ -268,7 +267,10 @@ class PPORunner:
         return logs
 
     def pre_iteration(self):
-        """ Called before each iteration. Resets actors and clears replay buffer. """
+        """
+        Called before each iteration.
+        Resets actors and clears replay buffer.
+        """
         # its very important to reset the actors
         # otherwise the observations can be wrong on the next run
         self.collect_actor.reset()
@@ -301,8 +303,14 @@ class PPORunner:
                 # collect data
                 self.collect_actor.run()
                 print('Collect stats:')
-                print(', '.join([f'{metric.name}: {metric.result():.3f}' for metric in self.collect_actor.metrics]))
-                iteration_logs.update({metric.name: metric.result() for metric in self.collect_actor.metrics})
+                print(', '.join([
+                    f'{metric.name}: {metric.result():.3f}'
+                    for metric in self.collect_actor.metrics
+                ]))
+                iteration_logs.update({
+                    metric.name: metric.result()
+                    for metric in self.collect_actor.metrics
+                })
 
                 # train
                 loss_info = self.ppo_learner.run()
@@ -330,7 +338,7 @@ class PPORunner:
 
 def main():
     args = parse_args()
-    ppo_runner = PPORunner(args)
+    ppo_runner = PPORunner(**args)
     ppo_runner.run()
 
 
