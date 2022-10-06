@@ -15,17 +15,22 @@ class SearchTransformer(tf.keras.Model):
     Transformer model for search tree tokens
     """
 
-    def __init__(self, n_heads, head_dim, n_layers, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self,
+                 n_heads: int = 3,
+                 d_model: int = 16,
+                 n_layers: int = 2,
+                 name='search_transformer',
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
         self.n_heads = n_heads
-        self.head_dim = head_dim
+        self.d_model = d_model
         self.n_layers = n_layers
 
-        self.project_tokens = tf.keras.layers.Dense(head_dim * n_heads,
+        self.project_tokens = tf.keras.layers.Dense(d_model * n_heads,
                                                     activation='relu')
 
         self.transformer_layers = [
-            Transformer(n_heads, head_dim, 'relu',
+            Transformer(n_heads, d_model, 'relu',
                         dropout_rate=0.1,
                         attention_dropout_rate=0.1)
             for _ in range(n_layers)
@@ -55,7 +60,7 @@ class SearchTransformer(tf.keras.Model):
         config = super().get_config()
         config.update({
             'n_heads': self.n_heads,
-            'head_dim': self.head_dim,
+            'head_dim': self.d_model,
             'n_layers': self.n_layers
         })
         return config
