@@ -70,6 +70,9 @@ class ObjectState(ABC):
         """ Returns a string representation of the state. """
         return str(self.get_state_vector())
 
+    def __eq__(self, other: 'ObjectState') -> bool:
+        return np.array_equal(self.get_state_vector(), other.get_state_vector())
+
 
 class QFunction(ABC):
     """
@@ -143,8 +146,23 @@ class SearchTreeNode:
             new_node_id, self, next_state, object_action,
             reward, done, self.q_function
         )
-        self.children[object_action].append(child_node)
         return child_node
+
+    def get_path_to_root(self) -> List['SearchTreeNode']:
+        """
+        Returns a list of nodes from the root to the current node.
+        The list is ordered from the current node to the root.
+        The list does not include the current node.
+        """
+        path = []
+        current_node = self
+        while not current_node.is_root():
+            current_node = current_node.get_parent()
+            path.append(current_node)
+        return path
+
+    def add_child_node(self, node: 'SearchTreeNode'):
+        self.children[node.action].append(node)
 
     def get_q_value(self, action: int) -> float:
         return self.q_function(self.state, action)
@@ -166,8 +184,10 @@ class SearchTreeNode:
     def get_children(self) -> Dict[int, List['SearchTreeNode']]:
         """
             Returns a dictionary of the children of the node.
-            The keys are the actions that led to the children, and the values are the children.
-            As the environment may be stochastic, there may be multiple children for each action.
+            The keys are the actions that led to the children, and the
+            values are the children. To account for the environment
+            potentially being stochastic, there may be multiple
+            children for each action.
         """
         return self.children
 
@@ -219,10 +239,12 @@ class SearchTree:
                  env: gym.Env,
                  root_state: ObjectState,
                  q_function: QFunction,
+                 max_size: int = 10,
                  deterministic: bool = True):
         self.env = env
         self.deterministic = deterministic
         self.q_function = q_function
+        self.max_size = max_size
         self.root_node: SearchTreeNode = SearchTreeNode(
             0, None, root_state, None, 0, False, q_function
         )
@@ -234,22 +256,61 @@ class SearchTree:
         """
         return action not in node.children and node.can_expand()
 
-    def expand(self, node_idx: int, action: int):
-        """ Expands the node with the given index by taking the given action. """
+    def has_valid_expansions(self, node: SearchTreeNode) -> bool:
+        """
+        Checks whether the given node has any valid expansions.
+        """
+        return node.can_expand() and any(
+            self.is_action_valid(node, a) for a in node.state.get_actions())
+
+    def expand_all(self, node_idx: int):
+        """ Expands all valid actions for the given node. """
         node_idx = int(node_idx)
-        action = int(action)
 
         if node_idx >= len(self.node_list):
             raise Exception(
-                f"Node index out of bounds: {node_idx=}, {action=}, {len(self.node_list)=}"
+                f"Node index out of bounds: {node_idx=}, {len(self.node_list)=}"
+            )
+
+        node = self.node_list[node_idx]
+        for action_idx in range(len(node.state.get_actions())):
+            if len(self.node_list) >= self.max_size:
+                break
+            self.expand_action(node_idx, action_idx)
+
+    def expand_action(self, node_idx: int, action_idx: int):
+        """
+        Expands the node with the given index by taking the given action.
+
+        Args:
+            node_idx: The index in the tree node list of the node to expand.
+            action_idx: The index in the node's action list of the action to take.
+        """
+
+        node_idx = int(node_idx)
+        action_idx = int(action_idx)
+
+        if node_idx >= len(self.node_list):
+            raise Exception(
+                f"Node index out of bounds: {node_idx=}, {action_idx=}, {len(self.node_list)=}"
             )
 
         node = self.node_list[node_idx]
         if node.can_expand():
-            child_node = node.expand_node(self.env, action, len(self.node_list))
-            self.node_list.append(child_node)
-            return True
-        return False
+            child_node = node.expand_node(self.env, action_idx, len(self.node_list))
+            if self.can_add_child(node, child_node):
+                node.add_child_node(child_node)
+                self.node_list.append(child_node)
+
+    def set_max_size(self, max_size: int):
+        self.max_size = max_size
+
+    def can_add_child(self, parent: SearchTreeNode, child: SearchTreeNode) -> bool:
+        """
+        Checks whether the given child node can be added to the given parent node.
+        """
+        ascending_path_states = [n.state for n in parent.get_path_to_root()]
+        return child.state not in ascending_path_states
 
     def get_nodes(self) -> List[SearchTreeNode]:
         return self.node_list

@@ -35,6 +35,7 @@ class MetaEnv(gym.Env):
                  cost_of_computation: float = 0.001,
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
+                 expand_all_actions: bool = False,
                  object_action_to_string: Callable[[Any], str] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
@@ -49,9 +50,15 @@ class MetaEnv(gym.Env):
             cost_of_computation: The cost of computing a node in the search tree
             computational_rewards: Whether to give computational reward
             max_tree_size: The maximum number of nodes in the search tree
+            expand_all_actions: Whether to have each computational action correspond to 
+                expanding all actions at a given node, or just one specified action.
+                The latter increases the number of actions in the meta-action space and
+                the size of the observations by a factor of the number of actions in the
+                object-level environment.
         """
         self.object_env = object_env
         self.max_tree_size = max_tree_size
+        self.expand_all_actions = expand_all_actions
         self.object_env_discount = object_env_discount
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
@@ -59,13 +66,19 @@ class MetaEnv(gym.Env):
         self.dump_debug_images = dump_debug_images
 
         self.tree = initial_tree
+        self.tree.set_max_size(max_tree_size)
         self.n_computations = 0
 
         # Setup gym spaces
 
         object_state = initial_tree.get_root().get_state()
         self.n_object_actions = object_state.get_maximum_number_of_actions()
-        self.action_space_size = 1 + max_tree_size * self.n_object_actions
+
+        if self.expand_all_actions:
+            self.action_space_size = 1 + max_tree_size
+        else:
+            self.action_space_size = 1 + max_tree_size * self.n_object_actions
+
         self.one_hot_action_space = one_hot_action_space
         if one_hot_action_space:
             self.action_space = gym.spaces.Box(
@@ -76,11 +89,22 @@ class MetaEnv(gym.Env):
             self.action_space = gym.spaces.Discrete(self.action_space_size)
 
         # meta data features: attn mask, can expand, reward, q-estimate, is terminate
-        self.n_meta_data = 5
+        self.n_meta_feats = 5
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
-        self.tree_token_dim = self.n_meta_data + \
-            2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
+
+        if self.expand_all_actions:
+            # If we are expanding all actions, then the token does not include a
+            # representation of the action to be expanded
+            self.tree_token_dim = self.n_meta_feats + \
+                2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
+        else:
+            # 2 * max_tree_size because we include the id of the corresponding node
+            # and the id of the parent node
+            # 2 * self.action_vec_dim because we include the vector for the action
+            # taken to reach the node and the vector for the action to be expanded
+            self.tree_token_dim = self.n_meta_feats + \
+                2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -130,12 +154,16 @@ class MetaEnv(gym.Env):
         new_root_state = old_state.extract_state(self.object_env)
         return SearchTree(
             self.object_env, new_root_state, self.tree.q_function,
-            deterministic=self.tree.deterministic
+            deterministic=self.tree.deterministic,
+            max_size=self.max_tree_size
         )
 
-    def tokenise(self, node: SearchTreeNode, action_idx: int) -> np.array:
+    def node_action_tokenisation(self, node: SearchTreeNode, action_idx: int) -> np.array:
         """
         Generates a token for the given node and action index.
+        This will be used when computational actions correspond to explicitly expanding
+        a node with a given action, rather than expanding a node by trying all possible actions.
+
         Token contains the following information:
             - Attention mask. Whether the token contains valid information or is padding.
             - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
@@ -189,15 +217,74 @@ class MetaEnv(gym.Env):
             [0.]  # not a terminate token
         ])
 
+    def node_tokenisation(self, node: SearchTreeNode) -> np.array:
+        """
+        Generates a token for the given node.
+        This will be used when computational actions correspond to expanding a node by
+        trying all possible actions, thus it does not include information about
+        an action to expand the node with.
+
+        Token contains the following information:
+            - Attention mask. Whether the token contains valid information or is padding.
+            - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
+            - Antecendet action vector. Vector encoding the action that was taken to get to this node.
+            - Reward. The reward given for the antecendent action.
+            - Value estimate. A value estimate of the node state.
+            - State vector. The state vector of the node.
+            - ID: The id of the node.
+            - Parent ID: The id of the parent node.
+            - Terminate Action: The action that terminates the search.
+                Always zero for tokens generated by this function.
+
+        Args:
+            node: The node to tokenise
+            action_idx: The index of the action to expand the node with. If this is greater than the
+                number of actions the node can be expanded with, the token will be a padding token.
+
+        Returns:
+            A 1-dimensional numpy array of length token_dim.
+        """
+        state = node.get_state()
+
+        id_vec = one_hot(node.get_id(), self.max_tree_size)
+        if node.is_root():
+            parent_id_vec = np.zeros((self.max_tree_size,), dtype=np.float32)
+            action_taken_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
+        else:
+            parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
+            action_taken_vec = state.get_action_vector(node.get_action())
+
+        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
+        # meta features contains a mask attention and the reward
+        meta_features = np.array([
+            1., self.tree.has_valid_expansions(node),
+            node.reward, q_est.compute_value(node)
+        ], dtype=np.float32)
+
+        state_vec = state.get_state_vector()
+
+        return np.concatenate([
+            meta_features, id_vec, parent_id_vec,
+            action_taken_vec, state_vec,
+            [0.]  # not a terminate token
+        ])
+
     def get_token_labels(self) -> List[str]:
-        meta_features = ['obs_mask', 'can_expand', 'reward', 'q-estimate']
+        meta_features = [
+            'obs_mask', 'can_expand', 'reward',
+            'value-estimate' if self.expand_all_actions else 'q-estimate'
+        ]
         id_vec = [f'id_{i}' for i in range(self.max_tree_size)]
         parent_id_vec = [f'parent_id_{i}' for i in range(self.max_tree_size)]
         action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
         action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]
         state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
-        return meta_features + id_vec + parent_id_vec + \
-            action_taken_vec + action_vec + state_vec + [r'$\perp$']
+        if self.expand_all_actions:
+            return meta_features + id_vec + parent_id_vec + \
+                action_taken_vec + state_vec + [r'$\perp$']
+        else:
+            return meta_features + id_vec + parent_id_vec + \
+                action_taken_vec + action_vec + state_vec + [r'$\perp$']
 
     def get_observation(self) -> Dict[str, np.array]:
         """
@@ -220,12 +307,24 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
+        if len(self.tree.node_list) > self.max_tree_size:
+            raise RuntimeError(
+                f'Tree has {len(self.tree.node_list)} nodes, '
+                f'but max_tree_size is {self.max_tree_size}'
+            )
+
         terminate_token = [1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.]
-        obs = np.array([terminate_token] + [
-            self.tokenise(node, action_idx)
-            for node in self.tree.node_list
-            for action_idx in range(self.n_object_actions)
-        ])
+        if self.expand_all_actions:
+            obs = np.array([terminate_token] + [
+                self.node_tokenisation(node)
+                for node in self.tree.node_list
+            ])
+        else:
+            obs = np.array([terminate_token] + [
+                self.node_action_tokenisation(node, action_idx)
+                for node in self.tree.node_list
+                for action_idx in range(self.n_object_actions)
+            ])
 
         n_tokens = self.action_space_size
         if obs.size > 0:
@@ -275,13 +374,20 @@ class MetaEnv(gym.Env):
         """
         Performs a step in the meta environment. The action is interpreted as follows:
         - action == 0: terminate search and perform a step in the underlying environment
-        - action > 0: expand the search tree by one node with the given action
+        - action > 0: expand a node of the search tree.
 
-        For example, if the underlying environment has 4 actions and the tree is
-        currently of size 2, then the valid action space of the meta environment
-        contains 1 + 2 * 4 = 9 computational actions. Taking computational action
-        6 expands the second node in the tree with object-level action 1
-        (actions are 0-indexed).
+        The expansion operation has two modes:
+        - expand_all_actions: expand all actions from the given node
+        - expand_given_action: expand the given action from the given node
+
+        For example of expanding a given action, if the underlying environment
+        has 4 actions and the tree is currently of size 2, then the valid action
+        space of the meta environment contains 1 + 2 * 4 = 9 computational
+        actions. Taking computational action 6 expands the second node in the
+        tree with object-level action 1 (actions are 0-indexed).
+
+        In a where the meta environment is configured to expand all actions,
+        the same action space would be 1 + 2 = 3 computational actions.
 
         Args:
             computational_action: The action to perform in the meta environment
@@ -317,11 +423,16 @@ class MetaEnv(gym.Env):
                 # Keep track of prior action for later comparison
                 prior_action = self.get_best_object_action()
 
-            # perform a computational action on the search tree
-            node_idx = (computational_action - 1) // self.n_object_actions
-            object_action = (computational_action - 1) % self.n_object_actions
+            if self.expand_all_actions:
+                # Expand all actions from the given node
+                node_idx = (computational_action - 1)
+                self.tree.expand_all(node_idx)
+            else:
+                # perform a computational action on the search tree
+                node_idx = (computational_action - 1) // self.n_object_actions
+                object_action_idx = (computational_action - 1) % self.n_object_actions
+                self.tree.expand_action(node_idx, object_action_idx)
 
-            self.tree.expand(node_idx, object_action)
             self.n_computations += 1
 
             # Compute reward (named "last_meta_reward" for readability in later access)
@@ -405,15 +516,24 @@ class MetaEnv(gym.Env):
         root_state.set_environment_to_state(self.object_env)
 
     def get_action_strings(self) -> Dict[int, str]:
-        n = self.n_object_actions
-        return {
-            0: 'Terminate Search',
-            **{
-                i: f'Expand Node {(i - 1) // n} with Action '
-                + self.object_action_to_string((i - 1) % n)
-                for i in range(1, self.action_space_size)
+        if self.expand_all_actions:
+            return {
+                0: 'Terminate Search',
+                **{
+                    i: f'Expand Node {(i - 1)}'
+                    for i in range(1, self.action_space_size)
+                }
             }
-        }
+        else:
+            n = self.n_object_actions
+            return {
+                0: 'Terminate Search',
+                **{
+                    i: f'Expand Node {(i - 1) // n} with Action '
+                    + self.object_action_to_string((i - 1) % n)
+                    for i in range(1, self.action_space_size)
+                }
+            }
 
     def get_render_title(self) -> str:
 

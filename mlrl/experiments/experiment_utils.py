@@ -29,7 +29,7 @@ def create_batched_tf_meta_env(make_meta_env, batch_size: int) -> TFPyEnvironmen
 def create_meta_env(object_env: gym.Env,
                     init_state: ObjectState,
                     q_hat: QFunction,
-                    args: dict,
+                    config: dict,
                     object_action_to_string=None) -> MetaEnv:
     """
     Creates a meta environment from a given object environment,
@@ -38,12 +38,13 @@ def create_meta_env(object_env: gym.Env,
     initial_tree = SearchTree(object_env, init_state, q_hat)
     meta_env = MetaEnv(object_env,
                        initial_tree,
-                       max_tree_size=args.get('max_tree_size', 10),
-                       split_mask_and_tokens=args.get('split_mask_and_tokens', True),
+                       max_tree_size=config.get('max_tree_size', 10),
+                       split_mask_and_tokens=config.get('split_mask_and_tokens', True),
+                       expand_all_actions=config.get('expand_all_actions', False),
                        object_action_to_string=object_action_to_string)
 
-    if args.get('meta_time_limit', None):
-        return gym.wrappers.time_limit.TimeLimit(meta_env, args['meta_time_limit'])
+    if config.get('meta_time_limit', None):
+        return gym.wrappers.time_limit.TimeLimit(meta_env, config['meta_time_limit'])
 
     return meta_env
 
@@ -162,11 +163,12 @@ def create_parser():
     parser.add_argument('--video_freq', type=int, default=5,
                         help='Number of steps to record a video for.')
 
-    # Environment parameters
+    # Meta-level environment parameters
+    parser.add_argument('--expand_all_actions', type=bool, default=True,
+                        help='Whether to expand all actions in the meta environment '
+                             'with each computational action.')
     parser.add_argument('--max_tree_size', type=int, default=10,
                         help='Maximum number of nodes in the search tree.')
-    parser.add_argument('--object_discount', type=float, default=0.99,
-                        help='Discount factor in object-level environment.')
     parser.add_argument('--meta_discount', type=float, default=0.99,
                         help='Discount factor in meta-level environment.')
     parser.add_argument('--meta_time_limit', type=int, default=500,
@@ -175,6 +177,10 @@ def create_parser():
                         help='Random seed.')
     parser.add_argument('--env_batch_size', type=int, default=2,
                         help='Batch size for the environment.')
+
+    # Object-level environment parameters
+    parser.add_argument('--object_discount', type=float, default=0.99,
+                        help='Discount factor in object-level environment.')
 
     # Maze parameters
     parser.add_argument('--maze_size', type=int, default=5,
