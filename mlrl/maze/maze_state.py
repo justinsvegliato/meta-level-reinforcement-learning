@@ -1,6 +1,9 @@
 from ..meta.search_tree import ObjectState
 from ..utils import one_hot
 
+from typing import List
+
+from gym_maze.envs import MazeEnv
 import numpy as np
 
 
@@ -60,6 +63,9 @@ class MazeState(ObjectState):
     def get_actions(self) -> list:
         return [0, 1, 2, 3]
 
+    def get_action_labels(self) -> List[str]:
+        return MazeEnv.ACTION
+
     def get_action_vector(self, action: int) -> np.array:
         _, _, done, *_ = self.gym_state
 
@@ -108,3 +114,6 @@ class RestrictedActionsMazeState(MazeState):
 
     def get_actions(self) -> list:
         return self.actions
+
+    def get_action_labels(self) -> List[str]:
+        return [MazeEnv.ACTION[a] for a in self.actions]

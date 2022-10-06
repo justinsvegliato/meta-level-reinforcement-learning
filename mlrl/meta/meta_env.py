@@ -10,6 +10,7 @@ import numpy as np
 import gym
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import seaborn as sns
 sns.set()
 
@@ -558,6 +559,7 @@ class MetaEnv(gym.Env):
     def render(self,
                mode: str = 'rgb_array',
                save_fig_to: Optional[str] = None,
+               meta_action_probs: np.array = None,
                plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
@@ -576,7 +578,15 @@ class MetaEnv(gym.Env):
         Returns:
             A numpy array containing the rendered image.
         """
-        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        fig = plt.figure(tight_layout=True, figsize=(15, 6))
+        n = 5
+        given_action_probs = meta_action_probs is not None
+        total_rows = n + 1 if given_action_probs else n
+        gs = gridspec.GridSpec(total_rows, 3 * n)
+
+        object_env_ax = fig.add_subplot(gs[:n, :n * 1])
+        tree_ax = fig.add_subplot(gs[:n, n:n * 2])
+        root_dist_ax = fig.add_subplot(gs[:n, n * 2:])
 
         plt.suptitle(self.get_render_title())
 
@@ -584,29 +594,21 @@ class MetaEnv(gym.Env):
         object_env_img = self.object_env.render(mode=mode)
 
         # Render the underlying environment in left subplot
-        axs[0].set_axis_off()
-        axs[0].imshow(object_env_img)
-        axs[0].set_title('Object-level Environment')
+        object_env_ax.set_axis_off()
+        object_env_ax.imshow(object_env_img)
+        object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=axs[1], show=False,
+        plot_tree(self.tree, ax=tree_ax, show=False,
                   object_action_to_string=self.object_action_to_string)
 
         # Render the Q-distribution in the right subplot
-        actions = self.tree.get_root().get_state().get_actions()
-        if actions:
-            q_dist = self.root_q_distribution()
+        self.plot_root_q_distribution(root_dist_ax)
 
-            sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=axs[2])
+        if given_action_probs:
+            probs_ax = fig.add_subplot(gs[-1, :])
+            self.plot_action_probs(probs_ax, meta_action_probs)
 
-            axs[2].set_xticklabels([
-                self.object_action_to_string(a) for a in actions
-            ])
-
-        axs[2].set_ylim([self.object_reward_min, self.object_reward_max])
-        axs[2].set_title('Root Q-Distribution')
-        axs[2].yaxis.set_label_position('right')
-        axs[2].yaxis.tick_right()
         plt.tight_layout(rect=[0, 0.03, 1, .9])
 
         meta_env_img = plot_to_array(fig)
@@ -621,10 +623,55 @@ class MetaEnv(gym.Env):
 
         return meta_env_img
 
+    def plot_action_probs(self, probs_ax, meta_action_probs):
+        """
+        Plots heatmap of the meta-action probabilities on the given axis.
+
+        Args:
+            probs_ax: The axis to plot on.
+            meta_action_probs: The meta-action probabilities to plot.
+        """
+        meta_action_probs = meta_action_probs[: 1 + len(self.tree.node_list)]
+        meta_action_probs = np.reshape(meta_action_probs, (1, meta_action_probs.size))
+
+        probs_ax.set_title('Meta-level Action probabilities')
+        probs_ax = sns.heatmap(meta_action_probs, annot=True,
+                               fmt='.3f', vmin=0, vmax=1, cbar=False)
+        label_strings = [r'$\perp$'] + [
+            f'Expand Node {i}'
+            for i, _ in enumerate(self.tree.node_list)
+        ]
+        probs_ax.set_xticks(ticks=0.5 + np.arange(len(label_strings)),
+                            labels=label_strings, ha='center')
+        probs_ax.set_yticks(ticks=[])
+
+    def plot_root_q_distribution(self, ax):
+        """
+        Plots the Q-distribution over the object-level actions derived from the
+        current search tree and Q-hat function.
+
+        Args:
+            ax: The matplotlib axis on which to plot the Q-distribution.
+        """
+        root_state = self.tree.get_root().get_state()
+        action_labels = root_state.get_action_labels()
+        if action_labels:
+            q_dist = self.root_q_distribution()
+            sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=ax)
+            ax.set_xticklabels(action_labels)
+
+        ax.set_ylim([self.object_reward_min, self.object_reward_max])
+        ax.set_title('Root Q-Distribution')
+        ax.yaxis.set_label_position('right')
+        ax.yaxis.tick_right()
+
     def plot_search_tokens(self,
                            ax: plt.Axes = None,
                            show: bool = True,
                            annot_fmt: str = '.3f'):
+        """
+        Plots the search tokens for each node in the search tree.
+        """
         if ax is None:
             plt.figure(figsize=(25, 10))
 

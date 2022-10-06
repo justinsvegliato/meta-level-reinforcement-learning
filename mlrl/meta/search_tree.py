@@ -38,6 +38,10 @@ class ObjectState(ABC):
         """ Returns a vector representation of the action. """
         pass
 
+    def get_action_labels(self) -> List[str]:
+        """ Returns a list of labels for the actions. """
+        return [str(a) for a in self.get_actions()]
+
     def get_action_vector_dim(self) -> int:
         """
         Computes the dimension of the action vectors for the problem domain.
@@ -95,8 +99,8 @@ class SearchTreeNode:
     """
 
     __slots__ = [
-        'parent', 'node_id', 'state', 'action',
-        'reward', 'children', 'done', 'q_function'
+        'parent', 'node_id', 'state', 'action', 'reward',
+        'children', 'is_terminal_state', 'q_function', 'tried_actions'
     ]
 
     def __init__(self,
@@ -122,9 +126,10 @@ class SearchTreeNode:
         self.state = state
         self.action = action
         self.reward = reward
-        self.done = done
+        self.is_terminal_state = done
         self.children: Dict[int, List['SearchTreeNode']] = defaultdict(list)
         self.q_function = q_function
+        self.tried_actions = []
 
     def expand_node(self,
                     env: gym.Env,
@@ -134,7 +139,7 @@ class SearchTreeNode:
         Expands the node by "simulating" taking the given action in the environment
         from the node's state and creating a new child node.
         """
-        if self.done:
+        if self.is_terminal_state:
             raise Exception('Cannot expand a terminal node')
 
         self.state.set_environment_to_state(env)
@@ -146,6 +151,7 @@ class SearchTreeNode:
             new_node_id, self, next_state, object_action,
             reward, done, self.q_function
         )
+        self.tried_actions.append(action_idx)
         return child_node
 
     def get_path_to_root(self) -> List['SearchTreeNode']:
@@ -192,7 +198,11 @@ class SearchTreeNode:
         return self.children
 
     def can_expand(self) -> bool:
-        return not self.done
+        all_tried = all(
+            action_idx in self.tried_actions
+            for action_idx in range(len(self.state.get_actions()))
+        )
+        return (not self.is_terminal_state) and (not all_tried)
 
     def get_trajectory(self) -> Tuple[int, float, ObjectState]:
         return (self.action, self.reward, self.state)

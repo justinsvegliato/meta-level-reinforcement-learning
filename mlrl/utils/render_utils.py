@@ -3,8 +3,11 @@ import base64
 
 import io
 import numpy as np
+import tensorflow as tf
+import tensorflow_probability as tfp
 from tf_agents.environments import TFEnvironment
 from tf_agents.policies import TFPolicy
+from tf_agents.policies.random_tf_policy import RandomTFPolicy
 
 import chess
 import chess.svg
@@ -101,12 +104,23 @@ def create_policy_eval_video(policy: TFPolicy,
 
     env.reset()
 
+    def render_env(i):
+        gym_env = env.envs[i].gym
+        policy_step = policy.distribution(env.current_time_step())
+        if isinstance(policy_step.action, tfp.distributions.Categorical):
+            probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
+            return gym_env.render(meta_action_probs=probs)
+        return gym_env.render()
+
     def get_image() -> np.array:
-        imgs = np.array([
-            e.render() for e in env.envs[:max_envs_to_show]
-        ])
-        b, h, w, c = imgs.shape
-        return imgs.reshape((b * h, w, c))
+        if hasattr(env, 'envs'):
+            imgs = np.array([
+                render_env(i)
+                for i in range(max_envs_to_show)
+            ])
+            b, h, w, c = imgs.shape
+            return imgs.reshape((b * h, w, c))
+        return env.render()
 
     with imageio.get_writer(filename, fps=fps) as video:
 
@@ -115,7 +129,31 @@ def create_policy_eval_video(policy: TFPolicy,
         for _ in range(max_steps):
             action_step = policy.action(env.current_time_step())
             env.step(action_step.action)
-
             video.append_data(get_image())
 
     return filename
+
+
+def create_random_policy_video(env: TFEnvironment,
+                               filename: str = 'video',
+                               max_steps: int = 60,
+                               max_envs_to_show: int = 2,
+                               fps: int = 1) -> str:
+    """
+    Creates and saves a video of a random policy being evaluated in an environment.
+    Assumes that environment observations are nested and contain search tokens and an action mask.
+
+    Args:
+        env (TFEnvironment): The environment to evaluate the policy in.
+        filename (str): The name of the file to save the video to.
+        max_steps (int): The maximum number of steps to run the policy for.
+        fps (int): The frames per second of the video.
+
+    Returns:
+        str: The path to the saved video.
+    """
+    from mlrl.meta.meta_env import mask_token_splitter
+    policy = RandomTFPolicy(env.time_step_spec(),
+                            env.action_spec(),
+                            observation_and_action_constraint_splitter=mask_token_splitter)
+    return create_policy_eval_video(policy, env, filename, max_steps, max_envs_to_show, fps)
