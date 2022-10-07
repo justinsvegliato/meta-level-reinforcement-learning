@@ -1,4 +1,5 @@
 import numpy as np
+from mlrl.meta.meta_env import MetaEnv
 import tensorflow as tf
 import tensorflow_probability as tfp
 from official.nlp.modeling.layers import Transformer
@@ -39,7 +40,7 @@ class SearchTransformer(tf.keras.Model):
     def call(self, inputs, training=False):
 
         if tf.nest.is_nested(inputs):
-            tokens = inputs['search_tree_tokens']
+            tokens = inputs[MetaEnv.SEARCH_TOKENS_KEY]
         else:
             tokens = inputs
 
@@ -60,7 +61,7 @@ class SearchTransformer(tf.keras.Model):
         config = super().get_config()
         config.update({
             'n_heads': self.n_heads,
-            'head_dim': self.d_model,
+            'd_model': self.d_model,
             'n_layers': self.n_layers
         })
         return config
@@ -80,13 +81,13 @@ class SearchQNetwork(tf.keras.Model):
 
     def __init__(self,
                  n_heads: int = 3,
-                 head_dim: int = 16,
+                 d_model: int = 16,
                  n_layers: int = 2,
                  name='search_q_model',
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
+        self.transformer = SearchTransformer(n_heads, d_model, n_layers)
 
         kernel_init = tf.keras.initializers.RandomUniform(
             minval=-0.03, maxval=0.03
@@ -114,12 +115,12 @@ class SearchQNetwork(tf.keras.Model):
 class SearchValueNetwork(tf.keras.Model):
     def __init__(self,
                  n_heads=3,
-                 head_dim=16,
+                 d_model=16,
                  n_layers=2,
                  name='search_value_network',
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
+        self.transformer = SearchTransformer(n_heads, d_model, n_layers)
         self.to_value = tf.keras.layers.Dense(1)
 
     def compute_value(self, search_tokens, training=False):
@@ -152,7 +153,7 @@ class SearchActorNetwork(tf.keras.Model):
 
     def __init__(self,
                  n_heads=3,
-                 head_dim=16,
+                 d_model=16,
                  n_layers=2,
                  temperature=1.0,
                  name='search_actor_model',
@@ -162,7 +163,7 @@ class SearchActorNetwork(tf.keras.Model):
         self.temperature = temperature
         self.relaxed_one_hot = relaxed_one_hot
 
-        self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
+        self.transformer = SearchTransformer(n_heads, d_model, n_layers)
 
         self.to_logits = tf.keras.Sequential([
             tf.keras.layers.Dense(1),
@@ -210,13 +211,13 @@ class SearchActorLogitsNetwork(tf.keras.Model):
 
     def __init__(self,
                  n_heads=3,
-                 head_dim=16,
+                 d_model=16,
                  n_layers=2,
                  name='search_actor_logits',
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        self.transformer = SearchTransformer(n_heads, head_dim, n_layers)
+        self.transformer = SearchTransformer(n_heads, d_model, n_layers)
 
         self.to_logits = tf.keras.Sequential([
             tf.keras.layers.Dense(1),

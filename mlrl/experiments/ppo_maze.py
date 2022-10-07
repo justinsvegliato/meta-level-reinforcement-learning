@@ -74,10 +74,11 @@ def create_search_ppo_agent(env, config, train_step=None):
     observation_tensor_spec, action_tensor_spec, time_step_tensor_spec = (
         spec_utils.get_tensor_specs(env))
 
-    network_kwargs = config.get('network_kwargs', None) or {
+    # network_kwargs = config.get('network_kwargs', None) or {
+    network_kwargs = {
         'n_heads': 3,
         'n_layers': 2,
-        'head_dim': 32,
+        'd_model': 32,
     }
 
     value_net = create_value_network(observation_tensor_spec, **network_kwargs)

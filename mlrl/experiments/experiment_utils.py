@@ -63,7 +63,7 @@ def create_agent(tf_env: TFPyEnvironment,
     if agent in ['dqn', 'ddqn']:
         print('Creating DQN/DDQN agent...')
 
-        q_net = SearchQNetwork(head_dim=args.get('transformer_head_dim', 32),
+        q_net = SearchQNetwork(d_model=args.get('transformer_d_model', 32),
                                n_layers=args.get('transformer_n_layers', 2),
                                n_heads=args.get('transformer_n_heads', 2))
 
@@ -88,11 +88,11 @@ def create_agent(tf_env: TFPyEnvironment,
     elif agent == 'ppo_agent':
         print('Creating PPO agent...')
 
-        actor_net = SearchActorNetwork(head_dim=args.get('transformer_head_dim', 32),
+        actor_net = SearchActorNetwork(d_model=args.get('transformer_d_model', 32),
                                        n_layers=args.get('transformer_n_layers', 2),
                                        n_heads=args.get('transformer_n_heads', 3))
 
-        value_net = SearchValueNetwork(head_dim=args.get('transformer_head_dim', 32),
+        value_net = SearchValueNetwork(d_model=args.get('transformer_d_model', 32),
                                        n_layers=args.get('transformer_n_layers', 2),
                                        n_heads=args.get('transformer_n_heads', 3))
 
@@ -148,7 +148,7 @@ def create_parser():
                         help='Learning rate for the optimiser.')
     parser.add_argument('--experience_batch_size', type=int, default=64,
                         help='Batch size to use.')
-    parser.add_argument('--num_epochs', type=int, default=20,
+    parser.add_argument('--num_epochs', type=int, default=50,
                         help='Number of epochs to run for.')
     parser.add_argument('--steps_per_epoch', type=int, default=1000,
                         help='Number of epochs to run for.')
@@ -193,7 +193,7 @@ def create_parser():
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',
                         help='Agent class to use.')
-    parser.add_argument('--transformer_head_dim', type=int, default=16,
+    parser.add_argument('--transformer_d_model', type=int, default=16,
                         help='Head dimension for the agent transformer.')
     parser.add_argument('--transformer_n_layers', type=int, default=2,
                         help='Number of agent transformer layers.')
