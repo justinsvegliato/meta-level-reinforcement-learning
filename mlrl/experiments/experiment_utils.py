@@ -1,8 +1,10 @@
-from ..run import TrainingRun
-from ..meta.meta_env import mask_token_splitter
-from ..meta.search_networks import SearchQNetwork, SearchActorNetwork, SearchValueNetwork
-from ..meta.meta_env import MetaEnv
-from ..meta.search_tree import QFunction, SearchTree, ObjectState
+from mlrl.run import TrainingRun
+from mlrl.meta.meta_env import mask_token_splitter
+from mlrl.networks.search_q_net import SearchQNetwork
+from mlrl.networks.search_actor_nets import SearchActorNetwork
+from mlrl.networks.search_value_net import SearchValueNetwork
+from mlrl.meta.meta_env import MetaEnv
+from mlrl.meta.search_tree import QFunction, SearchTree, ObjectState
 
 import argparse
 from typing import Union, List
@@ -167,7 +169,7 @@ def create_parser():
     parser.add_argument('--expand_all_actions', type=bool, default=True,
                         help='Whether to expand all actions in the meta environment '
                              'with each computational action.')
-    parser.add_argument('--max_tree_size', type=int, default=10,
+    parser.add_argument('--max_tree_size', type=int, default=32,
                         help='Maximum number of nodes in the search tree.')
     parser.add_argument('--meta_discount', type=float, default=0.99,
                         help='Discount factor in meta-level environment.')
@@ -199,6 +201,10 @@ def create_parser():
                         help='Number of agent transformer layers.')
     parser.add_argument('--transformer_n_heads', type=int, default=3,
                         help='Number of agent transformer heads.')
+    parser.add_argument('--n_lstm_layers', type=int, default=3,
+                        help='Number of agent transformer heads.')
+
+    # DQN parameters
     parser.add_argument('--target_network_update_period', type=int, default=500,
                         help='Maximum number of nodes in the search tree.')
     parser.add_argument('--epsilon_greedy', type=float, default=0.1,

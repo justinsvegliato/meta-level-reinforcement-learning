@@ -5,8 +5,10 @@ from mlrl.maze.maze_state import RestrictedActionsMazeState
 from mlrl.maze.manhattan_q import ManhattanQHat
 from mlrl.maze.maze_env import make_maze_env
 from mlrl.meta.meta_env import mask_token_splitter
-from mlrl.meta.search_networks import create_action_distribution_network
-from mlrl.meta.search_networks import create_value_network
+from mlrl.networks.search_actor_nets import create_action_distribution_network
+from mlrl.networks.search_value_net import create_value_network
+from mlrl.networks.search_actor_rnn import ActionSearchRNN
+from mlrl.networks.search_value_rnn import ValueSearchRNN
 from mlrl.utils.render_utils import create_policy_eval_video
 
 import os
@@ -81,23 +83,28 @@ def create_search_ppo_agent(env, config, train_step=None):
         'd_model': 32,
     }
 
-    value_net = create_value_network(observation_tensor_spec, **network_kwargs)
+    use_lstms = config.get('n_lstm_layers', 0) > 0
+    if use_lstms:
+        value_net = ValueSearchRNN(observation_tensor_spec, **config)
+        actor_net = ActionSearchRNN(observation_tensor_spec, **config)
+    else:
+        value_net = create_value_network(observation_tensor_spec, **network_kwargs)
 
-    actor_net = create_action_distribution_network(observation_tensor_spec['search_tree_tokens'],
-                                                   action_tensor_spec,
-                                                   **network_kwargs)
+        actor_net = create_action_distribution_network(observation_tensor_spec['search_tree_tokens'],
+                                                       action_tensor_spec,
+                                                       **network_kwargs)
 
-    masked_actor_net = MaskSplitterNetwork(mask_token_splitter,
-                                           actor_net,
-                                           input_tensor_spec=observation_tensor_spec,
-                                           passthrough_mask=True)
+        actor_net = MaskSplitterNetwork(mask_token_splitter,
+                                        actor_net,
+                                        input_tensor_spec=observation_tensor_spec,
+                                        passthrough_mask=True)
 
     train_step = train_step or train_utils.create_train_step()
 
     return PPOAgent(
         time_step_tensor_spec,
         action_tensor_spec,
-        actor_net=masked_actor_net,
+        actor_net=actor_net,
         value_net=value_net,
         optimizer=tf.keras.optimizers.Adam(3e-4),
         train_step_counter=train_step,
