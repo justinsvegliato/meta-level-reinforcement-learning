@@ -106,11 +106,15 @@ def create_search_ppo_agent(env, config, train_step=None):
         action_tensor_spec,
         actor_net=actor_net,
         value_net=value_net,
-        optimizer=tf.keras.optimizers.Adam(3e-4),
+        optimizer=tf.keras.optimizers.Adam(1e-5),
+        greedy_eval=False,
+        importance_ratio_clipping=0.2,
         train_step_counter=train_step,
         compute_value_and_advantage_in_train=False,
         update_normalizers_in_train=False,
         normalize_observations=False,
+        use_gae=False,
+        use_td_lambda_return=False,
         discount_factor=0.99,
         num_epochs=1,  # deprecated param
     )
@@ -124,18 +128,17 @@ def time_id():
 class PPORunner:
 
     def __init__(self,
-                 env_batch_size: int = 2,
+                 env_batch_size: int = 4,
                  env_multithreading: bool = True,
-                 train_batch_size: int = 2,
-                 train_num_steps: int = 128,
+                 train_batch_size: int = 4,
+                 train_num_steps: int = 64,
                  summary_interval: int = 1000,
-                 collect_sequence_length: int = 2048,
+                 collect_sequence_length: int = 4096,
                  policy_save_interval: int = 10000,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
                  num_iterations: int = 1000,
                  max_envs_to_render_in_video: int = 2,
-                 collect_policy_in_video: bool = True,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -149,7 +152,6 @@ class PPORunner:
         self.env_batch_size = env_batch_size
         self.config = config
         self.max_envs_to_render_in_video = max_envs_to_render_in_video
-        self.collect_policy_in_video = collect_policy_in_video
         self.name = get_maze_name(config)
         self.root_dir = f'runs/{self.name}/{time_id()}'
 
@@ -159,14 +161,14 @@ class PPORunner:
         self.env = BatchedPyEnvironment([
             GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
             for _ in range(env_batch_size)
-        ], multithreading=False)
+        ], multithreading=env_multithreading)
         self.env.reset()
 
         if eval_steps > 0:
             self.eval_env = BatchedPyEnvironment([
                 GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
                 for _ in range(env_batch_size)
-            ], multithreading=False)
+            ], multithreading=env_multithreading)
             self.eval_env.reset()
 
         self.train_step_counter = train_utils.create_train_step()
@@ -201,9 +203,12 @@ class PPORunner:
                                              interval=summary_interval),
         ]
 
+        self.collect_policy = py_tf_eager_policy.PyTFEagerPolicy(
+            self.agent.collect_policy, use_tf_function=True, batch_time_steps=False)
+
         self.collect_actor = actor.Actor(
             self.env,
-            self.agent.collect_policy,
+            self.collect_policy,
             self.train_step_counter,
             steps_per_run=collect_sequence_length,
             observers=[self.replay_buffer.add_batch],
@@ -224,12 +229,12 @@ class PPORunner:
         )
 
         if eval_steps > 0:
-            self.eval_greedy_policy = py_tf_eager_policy.PyTFEagerPolicy(
-                self.agent.policy, use_tf_function=True)
+            self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
+                self.agent.policy, use_tf_function=True, batch_time_steps=False)
 
             self.eval_actor = actor.Actor(
                 self.eval_env,
-                self.eval_greedy_policy,
+                self.eval_policy,
                 self.train_step_counter,
                 metrics=actor.eval_metrics(buffer_size=10),
                 reference_metrics=[collect_env_step_metric],
@@ -270,13 +275,9 @@ class PPORunner:
 
         try:
             video_file = f'{self.videos_dir}/video_{i}.mp4'
-            if self.collect_policy_in_video:
-                policy = self.agent.collect_policy
-            else:
-                policy = self.eval_greedy_policy
 
             create_policy_eval_video(
-                policy, self.eval_env, max_steps=120,
+                self.agent.policy, self.eval_env, max_steps=120,
                 filename=video_file,
                 max_envs_to_show=self.max_envs_to_render_in_video)
 
@@ -352,6 +353,16 @@ class PPORunner:
 
         except KeyboardInterrupt:
             print('Training interrupted by user.')
+
+        except Exception as e:
+            print(f'Error during training: {e}')
+            import debugpy
+            debugpy.listen(('0.0.0.0', 5678))
+            print('Waiting for debugger...')
+            debugpy.wait_for_client()
+            print('Debugger attached.')
+            debugpy.breakpoint()
+            raise e
 
         finally:
             wandb.finish()

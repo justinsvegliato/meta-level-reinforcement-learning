@@ -103,36 +103,36 @@ class SearchRNNTransformer(network.Network):
             'reset_mask': tf.equal(step_type, time_step.StepType.FIRST, name='mask')
         }
 
+        tokens = self.project_search_tokens(search_tokens, training=training)
+
         # Prepare lstm inputs for each timestep.
         # This means using a decoder transformer layer from the search tokens at
         # each timestep to single token that servers as the input for the lstm.
-        batch_size = tf.shape(search_tokens)[0]
-        n_time_steps = tf.shape(search_tokens)[1]
-        n_tokens = tf.shape(search_tokens)[2]
+        def decode_search_tokens(tokens_t):
+            decoder_inputs = tf.zeros_like(tokens[0, :, :1])  # (batch, 1, token_dim)
+            decoder_inputs = [decoder_inputs, tokens_t, None, None]
+            lstm_inputs, _ = self.decoder_block(decoder_inputs,
+                                                training=training)
+            return lstm_inputs[:, 0]
 
-        # TODO: switch this to a tf.map_fn
-        lstm_inputs_across_time = []
-        for t in range(n_time_steps):
-            inputs = tf.zeros((batch_size, 1, 192))
-            decoder_inputs = [inputs, search_tokens[:, t], None, None]
-            lstm_inputs, _ = self.decoder_block(decoder_inputs)
-            lstm_inputs_across_time.append(lstm_inputs)
-
-        lstm_inputs_across_time = tf.concat(lstm_inputs_across_time, axis=1)
+        tokens = tf.einsum('btnd->tbnd', tokens)
+        lstm_inputs = tf.map_fn(decode_search_tokens, tokens)
+        tokens = tf.einsum('tbnd->btnd', tokens)
+        lstm_inputs = tf.einsum('tbd->btd', lstm_inputs)
 
         # Apply inputs and network state to the lstm
         memory_encoding, network_state = self.lstm_network(
-            inputs=lstm_inputs_across_time,
+            inputs=lstm_inputs,
             initial_state=network_state,
             training=training,
             **network_kwargs)
 
         # reshape the output of the lstm to be added to each of the search tokens
         # thus encorporating information from previous timesteps into the tokens
+        n_tokens = tf.shape(tokens)[2]
         memory_encoding = tf.expand_dims(memory_encoding, 2)
         memory_encoding = tf.repeat(memory_encoding, n_tokens, axis=2)
 
-        tokens = self.project_search_tokens(search_tokens)
         tokens = tokens + memory_encoding
 
         # swap the time and batch dimensions to be able to apply the transformer

@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_agents.environments import TFEnvironment
+from tf_agents.environments.tf_py_environment import TFPyEnvironment
 from tf_agents.policies import TFPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 
@@ -99,14 +100,18 @@ def create_policy_eval_video(policy: TFPolicy,
     Returns:
         str: The path to the saved video.
     """
+    env = TFPyEnvironment(env)
+
     if not filename.endswith('.mp4'):
         filename = filename + '.mp4'
 
     env.reset()
 
+    policy_state = policy.get_initial_state(env.batch_size)
+
     def render_env(i):
         gym_env = env.envs[i].gym
-        policy_step = policy.distribution(env.current_time_step())
+        policy_step = policy.distribution(env.current_time_step(), policy_state)
         if isinstance(policy_step.action, tfp.distributions.Categorical):
             probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
             return gym_env.render(meta_action_probs=probs)
@@ -122,12 +127,13 @@ def create_policy_eval_video(policy: TFPolicy,
             return imgs.reshape((b * h, w, c))
         return env.render()
 
-    with imageio.get_writer(filename, fps=fps) as video:
+    with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
 
         video.append_data(get_image())
 
         for _ in range(max_steps):
-            action_step = policy.action(env.current_time_step())
+            action_step = policy.action(env.current_time_step(), policy_state)
+            policy_state = action_step.state
             env.step(action_step.action)
             video.append_data(get_image())
 
