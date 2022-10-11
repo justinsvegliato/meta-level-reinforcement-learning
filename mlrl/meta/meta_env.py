@@ -51,7 +51,7 @@ class MetaEnv(gym.Env):
             cost_of_computation: The cost of computing a node in the search tree
             computational_rewards: Whether to give computational reward
             max_tree_size: The maximum number of nodes in the search tree
-            expand_all_actions: Whether to have each computational action correspond to 
+            expand_all_actions: Whether to have each computational action correspond to
                 expanding all actions at a given node, or just one specified action.
                 The latter increases the number of actions in the meta-action space and
                 the size of the observations by a factor of the number of actions in the
@@ -371,7 +371,8 @@ class MetaEnv(gym.Env):
         return self.last_computation_reward
 
     def step(self,
-             computational_action: Union[int, list, np.array]) -> Tuple[np.array, float, bool, dict]:
+             computational_action: Union[int, list, np.array]
+             ) -> Tuple[np.array, float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
         - action == 0: terminate search and perform a step in the underlying environment
@@ -418,6 +419,11 @@ class MetaEnv(gym.Env):
 
                 self.tree = self.get_root_tree()
 
+                info.update({
+                    'computational_reward': 0,
+                    'object_level_reward': self.last_meta_reward
+                })
+
                 return self.get_observation(), self.last_meta_reward, done, info
 
             if self.computational_rewards:
@@ -444,7 +450,12 @@ class MetaEnv(gym.Env):
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
 
-            return self.get_observation(), self.last_meta_reward, False, dict()
+            info = {
+                'computational_reward': self.last_computation_reward,
+                'object_level_reward': 0
+            }
+
+            return self.get_observation(), self.last_meta_reward, False, info
 
         except Exception as e:
             self._dump_debug_info(e, computational_action)

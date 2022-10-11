@@ -206,13 +206,15 @@ class PPORunner:
         self.collect_policy = py_tf_eager_policy.PyTFEagerPolicy(
             self.agent.collect_policy, use_tf_function=True, batch_time_steps=False)
 
+        metrics = actor.collect_metrics(buffer_size=collect_sequence_length)
+
         self.collect_actor = actor.Actor(
             self.env,
             self.collect_policy,
             self.train_step_counter,
             steps_per_run=collect_sequence_length,
             observers=[self.replay_buffer.add_batch],
-            metrics=actor.collect_metrics(buffer_size=collect_sequence_length),
+            metrics=metrics,
             reference_metrics=[collect_env_step_metric],
             summary_dir=os.path.join(self.root_dir, learner.TRAIN_DIR),
             summary_interval=summary_interval)
@@ -223,7 +225,7 @@ class PPORunner:
             self.agent,
             experience_dataset_fn=dataset_fn,
             normalization_dataset_fn=dataset_fn,
-            num_samples=1, num_epochs=20,  # num samples * num epochs = train steps per run
+            num_samples=1, num_epochs=10,  # num samples * num epochs = train steps per run
             triggers=learning_triggers,
             shuffle_buffer_size=collect_sequence_length
         )
@@ -232,11 +234,13 @@ class PPORunner:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
                 self.agent.policy, use_tf_function=True, batch_time_steps=False)
 
+            eval_metrics = actor.collect_metrics(buffer_size=eval_steps)
+
             self.eval_actor = actor.Actor(
                 self.eval_env,
                 self.eval_policy,
                 self.train_step_counter,
-                metrics=actor.eval_metrics(buffer_size=10),
+                metrics=eval_metrics,
                 reference_metrics=[collect_env_step_metric],
                 summary_dir=os.path.join(self.root_dir, 'eval'),
                 steps_per_run=eval_steps)
@@ -355,6 +359,7 @@ class PPORunner:
             print('Training interrupted by user.')
 
         except Exception as e:
+            print()
             print(f'Error during training: {e}')
             import debugpy
             debugpy.listen(('0.0.0.0', 5678))

@@ -43,6 +43,7 @@ def create_meta_env(object_env: gym.Env,
                        max_tree_size=config.get('max_tree_size', 10),
                        split_mask_and_tokens=config.get('split_mask_and_tokens', True),
                        expand_all_actions=config.get('expand_all_actions', False),
+                       computational_rewards=config.get('computational_rewards', True),
                        object_action_to_string=object_action_to_string)
 
     if config.get('meta_time_limit', None):
@@ -148,15 +149,17 @@ def create_parser():
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
-    parser.add_argument('--experience_batch_size', type=int, default=64,
+    parser.add_argument('--experience_batch_size', type=int, default=128,
                         help='Batch size to use.')
+    parser.add_argument('--train_batch_size', type=int, default=32,
+                        help='Train batch size to use in PPO')
     parser.add_argument('--num_epochs', type=int, default=50,
                         help='Number of epochs to run for.')
     parser.add_argument('--steps_per_epoch', type=int, default=1000,
                         help='Number of epochs to run for.')
     parser.add_argument('--num_eval_episodes', type=int, default=3,
                         help='Number of episodes to evaluate for.')
-    parser.add_argument('--eval_steps', type=int, default=250,
+    parser.add_argument('--eval_steps', type=int, default=1600,
                         help='Number of steps to evaluate for.')
     parser.add_argument('--initial_collect_steps', type=int, default=500,
                         help='Number of steps to collect before training.')
@@ -177,8 +180,10 @@ def create_parser():
                         help='Maximum number of steps in meta-level environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed.')
-    parser.add_argument('--env_batch_size', type=int, default=2,
+    parser.add_argument('--env_batch_size', type=int, default=32,
                         help='Batch size for the environment.')
+    parser.add_argument('--computational_rewards', type=bool, default=True,
+                        help='Whether to use computational rewards.')
 
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,
