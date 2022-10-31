@@ -1,5 +1,6 @@
 from mlrl.networks.search_transformer import SearchTransformer
 
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 from tf_agents.networks.value_network import ValueNetwork
 from tf_agents.specs import tensor_spec

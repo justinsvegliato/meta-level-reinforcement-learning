@@ -7,6 +7,7 @@ from typing import List, Callable, Dict, Union
 from pathlib import Path
 from collections import defaultdict
 
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 from tf_agents.agents import TFAgent
 from tf_agents.policies import TFPolicy

@@ -1,6 +1,7 @@
 from mlrl.networks.search_rnn_transformer import SearchRNNTransformer
 from mlrl.meta.meta_env import MetaEnv
 
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 from tf_agents.networks import network
 

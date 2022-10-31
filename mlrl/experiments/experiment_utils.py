@@ -11,6 +11,7 @@ from typing import Union, List
 
 import gym
 
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 from tf_agents.utils import common
 from tf_agents.agents import TFAgent

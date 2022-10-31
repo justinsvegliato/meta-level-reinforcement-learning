@@ -1,5 +1,6 @@
 from mlrl.networks.search_transformer import SearchTransformer
 
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 
 

@@ -2,5 +2,5 @@
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Enabled": true,
-    "editor.fontFamily": "Fira Code"
+    "editor.fontFamily": "Fira Code Retina"
 }

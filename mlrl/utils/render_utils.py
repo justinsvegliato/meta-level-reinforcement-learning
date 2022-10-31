@@ -3,6 +3,7 @@ import base64
 
 import io
 import numpy as np
+import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_agents.environments import TFEnvironment
@@ -100,7 +101,8 @@ def create_policy_eval_video(policy: TFPolicy,
     Returns:
         str: The path to the saved video.
     """
-    env = TFPyEnvironment(env)
+    if not isinstance(env, TFPyEnvironment):
+        env = TFPyEnvironment(env)
 
     if not filename.endswith('.mp4'):
         filename = filename + '.mp4'
