@@ -2,5 +2,10 @@
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Enabled": true,
-    "editor.fontFamily": "Fira Code Retina"
+    "editor.fontFamily": "Fira Code Retina",
+    "python.testing.pytestArgs": [
+        "mlrl"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

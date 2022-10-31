@@ -1,4 +1,4 @@
-from mlrl.meta.q_estimation import SimpleSearchBasedQEstimator
+from mlrl.meta.q_estimation import SearchQEstimator, RecursiveDeterministicEstimator
 from mlrl.meta.search_tree import SearchTree, SearchTreeNode
 from mlrl.utils import one_hot
 from mlrl.utils.plot_search_tree import plot_tree
@@ -37,6 +37,7 @@ class MetaEnv(gym.Env):
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
                  expand_all_actions: bool = False,
+                 search_q_estimator: Optional[SearchQEstimator] = None,
                  object_action_to_string: Callable[[Any], str] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
@@ -70,6 +71,8 @@ class MetaEnv(gym.Env):
         self.tree.set_max_size(max_tree_size)
         self.n_computations = 0
 
+        self.search_q_estimator = search_q_estimator or RecursiveDeterministicEstimator(object_env_discount)
+
         # Setup gym spaces
 
         object_state = initial_tree.get_root().get_state()
@@ -89,7 +92,7 @@ class MetaEnv(gym.Env):
         else:
             self.action_space = gym.spaces.Discrete(self.action_space_size)
 
-        # meta data features: attn mask, can expand, reward, q-estimate, is terminate
+        # meta data features: attn mask, can expand, reward, is terminate
         self.n_meta_feats = 5
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
@@ -168,10 +171,9 @@ class MetaEnv(gym.Env):
         Token contains the following information:
             - Attention mask. Whether the token contains valid information or is padding.
             - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
-            - Antecendet action vector. Vector encoding the action that was taken to get to this node.
+            - Antecedent action vector. Vector encoding the action that was taken to get to this node.
             - Reward. The reward given for the antecendent action.
             - Action vector. Action to expand the node with.
-            - Q-estimate. The q-estimate of the node state and expansion action.
             - State vector. The state vector of the node.
             - ID: The id of the node.
             - Parent ID: The id of the parent node.
@@ -202,11 +204,9 @@ class MetaEnv(gym.Env):
             parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
             action_taken_vec = state.get_action_vector(node.get_action())
 
-        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
         # meta features contains a mask attention and the reward
         meta_features = np.array([
-            1., self.tree.is_action_valid(node, action),
-            node.reward, q_est.compute_q(node, action)
+            1., self.tree.is_action_valid(node, action), node.reward,
         ], dtype=np.float32)
 
         action_vec = state.get_action_vector(action)
@@ -230,7 +230,6 @@ class MetaEnv(gym.Env):
             - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
             - Antecendet action vector. Vector encoding the action that was taken to get to this node.
             - Reward. The reward given for the antecendent action.
-            - Value estimate. A value estimate of the node state.
             - State vector. The state vector of the node.
             - ID: The id of the node.
             - Parent ID: The id of the parent node.
@@ -255,11 +254,9 @@ class MetaEnv(gym.Env):
             parent_id_vec = one_hot(node.get_parent_id(), self.max_tree_size)
             action_taken_vec = state.get_action_vector(node.get_action())
 
-        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
         # meta features contains a mask attention and the reward
         meta_features = np.array([
-            1., self.tree.has_valid_expansions(node),
-            node.reward, q_est.compute_value(node)
+            1., self.tree.has_valid_expansions(node), node.reward
         ], dtype=np.float32)
 
         state_vec = state.get_state_vector()
@@ -344,20 +341,18 @@ class MetaEnv(gym.Env):
             return search_tokens
 
     def get_best_object_action(self) -> int:
-        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
         actions = self.tree.get_root().get_state().get_actions()
         action_idx, _ = max(
             enumerate(actions),
-            key=lambda item: q_est.compute_q(self.tree.get_root(), item[1]),
+            key=lambda item: self.search_q_estimator.compute_root_q(self.tree, item[1]),
             default=(None, None)
         )
         return action_idx
 
     def root_q_distribution(self) -> np.array:
-        q_est = SimpleSearchBasedQEstimator(self.tree, self.object_env_discount)
         root_state = self.tree.get_root().get_state()
         return np.array([
-            q_est.compute_q(self.tree.get_root(), a)
+            self.search_q_estimator.compute_root_q(self.tree, a)
             for a in root_state.get_actions()
         ])
 
@@ -367,8 +362,8 @@ class MetaEnv(gym.Env):
         both considered under the Q-distribution derived from the tree after the computation.
         """
         q_dist = self.root_q_distribution()
-        self.last_computation_reward = q_dist.max() - q_dist[prior_action]
-        return self.last_computation_reward
+        self.last_computational_reward = q_dist.max() - q_dist[prior_action]
+        return self.last_computational_reward
 
     def step(self,
              computational_action: Union[int, list, np.array]
@@ -451,7 +446,7 @@ class MetaEnv(gym.Env):
             self.set_environment_to_root_state()
 
             info = {
-                'computational_reward': self.last_computation_reward,
+                'computational_reward': self.last_computational_reward,
                 'object_level_reward': 0
             }
 
@@ -513,12 +508,13 @@ class MetaEnv(gym.Env):
                 debugpy.wait_for_client()
                 print("Debugger attached")
                 debugpy.breakpoint()
+                print('Breakpoint reached')
 
     def get_info(self) -> dict:
         return {
             'n_computations': int(self.n_computations),
             'last_meta_reward': float(self.last_meta_reward),
-            'last_computation_reward': float(self.last_computation_reward),
+            'last_computation_reward': float(self.last_computational_reward),
             'last_meta_action': int(self.last_meta_action),
             'tree': str(self.tree),
         }
@@ -555,7 +551,7 @@ class MetaEnv(gym.Env):
         action_string = self.meta_action_strings[int(self.last_meta_action)]
 
         if self.tree.get_num_nodes() != 1:
-            computational_reward = self.last_computation_reward
+            computational_reward = self.last_computational_reward
         else:
             computational_reward = 0
 
@@ -625,7 +621,7 @@ class MetaEnv(gym.Env):
         meta_env_img = plot_to_array(fig)
 
         if save_fig_to is not None:
-            plt.savefig(save_fig_to)
+            plt.savefig(save_fig_to, transparent=False)
 
         if plt_show:
             plt.show()

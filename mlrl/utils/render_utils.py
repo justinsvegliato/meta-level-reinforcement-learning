@@ -31,7 +31,7 @@ def plot_to_array(fig: plt.Figure) -> np.ndarray:
     Converts a matplotlib figure to a numpy array.
     """
     io_buf = io.BytesIO()
-    fig.savefig(io_buf, format='raw')
+    fig.savefig(io_buf, format='raw', facecolor='white', transparent=False)
     io_buf.seek(0)
     img_arr = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
                          newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
@@ -113,10 +113,11 @@ def create_policy_eval_video(policy: TFPolicy,
 
     def render_env(i):
         gym_env = env.envs[i].gym
-        policy_step = policy.distribution(env.current_time_step(), policy_state)
-        if isinstance(policy_step.action, tfp.distributions.Categorical):
-            probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
-            return gym_env.render(meta_action_probs=probs)
+        if not isinstance(policy, RandomTFPolicy):
+            policy_step = policy.distribution(env.current_time_step(), policy_state)
+            if isinstance(policy_step.action, tfp.distributions.Categorical):
+                probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
+                return gym_env.render(meta_action_probs=probs)
         return gym_env.render()
 
     def get_image() -> np.array:
