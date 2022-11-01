@@ -1,5 +1,3 @@
-from mlrl.meta.meta_env import MetaEnv
-
 import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 from official.nlp.modeling.layers import Transformer
@@ -33,6 +31,7 @@ class SearchTransformer(tf.keras.Model):
 
     def call(self, inputs, training=False):
 
+        from mlrl.meta.meta_env import MetaEnv
         if tf.nest.is_nested(inputs):
             tokens = inputs[MetaEnv.SEARCH_TOKENS_KEY]
         else:

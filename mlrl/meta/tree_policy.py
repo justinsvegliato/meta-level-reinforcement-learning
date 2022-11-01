@@ -1,6 +1,5 @@
 from typing import Optional
 from mlrl.meta.search_tree import SearchTree, ObjectState
-from mlrl.meta.q_estimation import SearchQEstimator, RecursiveDeterministicEstimator
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -18,13 +17,14 @@ class SearchPolicy(ABC):
         pass
 
 
-class GreedyPolicy(SearchPolicy):
+class GreedySearchPolicy(SearchPolicy):
 
     def __init__(self, tree: SearchTree, object_discount: float = 0.99):
         super().__init__(tree)
+        from mlrl.meta.q_estimation import RecursiveDeterministicEstimator
         self.estimator = RecursiveDeterministicEstimator(object_discount)
 
-    def q_aggregation(self, q_val1: float, q_val2) -> float:
+    def q_aggregation(self, q_val1: float, q_val2: float) -> float:
         """
         How to aggregate competing Q-values for the same state and action
         from different parts of the tree.
@@ -41,8 +41,8 @@ class GreedyPolicy(SearchPolicy):
 
     def get_action(self, state: ObjectState) -> int:
         """
-        This method returns the action with the highest Q-value for the given state
-        using the tree policy to evaluate the Q-values.
+        This method returns the action with the highest Q-value for the given
+        state using the tree policy to evaluate the Q-values.
         """
 
         q_values = defaultdict(lambda: None)

@@ -46,7 +46,7 @@ class RecursiveDeterministicEstimator(SearchQEstimator):
         """
         Computes the value of a given state using the search tree and the Q-hat function
         """
-        actions = search_node.get_actions()
+        actions = search_node.state.get_actions()
         return max((self.compute_q(search_node, action) for action in actions), default=0)
 
     def compute_q(self, search_tree_node: SearchTreeNode, action: int) -> float:

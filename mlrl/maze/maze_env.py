@@ -29,6 +29,7 @@ def make_maze_env(seed=None, **make_kwargs):
     if seed is not None:
         random.seed(seed)
     env = gym.make("gym-maze-v0", **make_kwargs)
+    env.maze_view.line_width = 10  # better rendering
     env.reset()
     return env
 

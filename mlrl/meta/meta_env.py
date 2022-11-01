@@ -93,7 +93,7 @@ class MetaEnv(gym.Env):
             self.action_space = gym.spaces.Discrete(self.action_space_size)
 
         # meta data features: attn mask, can expand, reward, is terminate
-        self.n_meta_feats = 5
+        self.n_meta_feats = 4
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
 
@@ -269,8 +269,7 @@ class MetaEnv(gym.Env):
 
     def get_token_labels(self) -> List[str]:
         meta_features = [
-            'obs_mask', 'can_expand', 'reward',
-            'value-estimate' if self.expand_all_actions else 'q-estimate'
+            'obs_mask', 'can_expand', 'reward'
         ]
         id_vec = [f'id_{i}' for i in range(self.max_tree_size)]
         parent_id_vec = [f'parent_id_{i}' for i in range(self.max_tree_size)]
