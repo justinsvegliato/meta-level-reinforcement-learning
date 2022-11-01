@@ -135,4 +135,3 @@ class NodeActionTokeniser(NodeTokeniser):
 
         tokens = np.array([terminate_token] + tree_tokens)
         return self.pad(tokens)
-
