@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import List
 from mlrl.meta.search_tree import SearchTree, SearchTreeNode
 from mlrl.utils import one_hot
@@ -26,6 +27,11 @@ class TreeTokeniser(ABC):
         """Get the labels for the tokens."""
         pass
 
+    @cached_property
+    def tree_token_dim(self) -> int:
+        """Get the dimension of the tree token."""
+        return len(self.get_token_labels())
+
     def get_terminate_token(self) -> np.array:
         """Get the token for terminate action."""
         return [1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.]
@@ -44,10 +50,12 @@ class NodeTokeniser(TreeTokeniser):
 
     def __init__(self,
                  action_vec_dim: int,
+                 state_vec_dim: int,
                  max_tree_size: int,
                  n_terminate_tokens: int = 1):
         super().__init__(max_tree_size, n_terminate_tokens)
         self.action_vec_dim = action_vec_dim
+        self.state_vec_dim = state_vec_dim
 
     def node_tokenisation(self, tree: SearchTree, node: SearchTreeNode) -> np.array:
         """
@@ -101,10 +109,21 @@ class NodeTokeniser(TreeTokeniser):
     def tokenise(self, tree: SearchTree) -> np.array:
         terminate_token = self.get_terminate_token()
         tokens = np.array([terminate_token] + [
-            self.node_tokenisation(node)
+            self.node_tokenisation(tree, node)
             for node in tree.node_list
         ])
         return self.pad(tokens)
+
+    def get_token_labels(self) -> List[str]:
+        meta_features = [
+            'obs_mask', 'can_expand', 'reward'
+        ]
+        id_vec = [f'id_{i}' for i in range(self.max_tree_size)]
+        parent_id_vec = [f'parent_id_{i}' for i in range(self.max_tree_size)]
+        action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
+        state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
+        return meta_features + id_vec + parent_id_vec + \
+                action_taken_vec + state_vec + [r'$\perp$']
 
 
 class NodeActionTokeniser(NodeTokeniser):
@@ -135,3 +154,8 @@ class NodeActionTokeniser(NodeTokeniser):
 
         tokens = np.array([terminate_token] + tree_tokens)
         return self.pad(tokens)
+    
+    def get_token_labels(self) -> List[str]:
+        labels = super().get_token_labels()
+        action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]
+        return labels + action_vec

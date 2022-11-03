@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 
 
-class SearchPolicy(ABC):
+class SearchTreePolicy(ABC):
 
     def __init__(self, tree: SearchTree):
         self.tree = tree
@@ -17,7 +17,7 @@ class SearchPolicy(ABC):
         pass
 
 
-class GreedySearchPolicy(SearchPolicy):
+class GreedySearchTreePolicy(SearchTreePolicy):
 
     def __init__(self, tree: SearchTree, object_discount: float = 0.99):
         super().__init__(tree)
