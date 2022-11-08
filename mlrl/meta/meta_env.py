@@ -39,6 +39,8 @@ class MetaEnv(gym.Env):
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
                  expand_all_actions: bool = False,
+                 keep_subtree_on_terminate: bool = True,
+                 root_based_computational_rewards: bool = False,
                  search_q_estimator: Optional[SearchQEstimator] = None,
                  make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
                  tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.array]] = None,
@@ -62,28 +64,34 @@ class MetaEnv(gym.Env):
                 the size of the observations by a factor of the number of actions in the
                 object-level environment.
         """
+        # Meta env params
         self.object_env = object_env
         self.max_tree_size = max_tree_size
         self.expand_all_actions = expand_all_actions
+        self.keep_subtree_on_terminate = keep_subtree_on_terminate
         self.object_env_discount = object_env_discount
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
-        self.split_mask_and_tokens = split_mask_and_tokens
-        self.dump_debug_images = dump_debug_images
+        self.root_based_computational_rewards = root_based_computational_rewards
 
-        self.tree = initial_tree
-        self.tree.set_max_size(max_tree_size)
-        self.n_computations = 0
-
+        # Functions
         self.search_q_estimator = search_q_estimator or \
             RecursiveDeterministicEstimator(object_env_discount)
         self.make_tree_policy = make_tree_policy or \
             (lambda tree: GreedySearchTreePolicy(tree, object_env_discount))
         self.search_tree_policy = self.make_tree_policy(initial_tree)
         self.tree_policy_renderer = tree_policy_renderer
+    
+        # Utility params
+        self.split_mask_and_tokens = split_mask_and_tokens
+        self.dump_debug_images = dump_debug_images
+
+        # Meta env state
+        self.tree = initial_tree
+        self.tree.set_max_size(max_tree_size)
+        self.n_computations = 0
 
         # Setup gym spaces
-
         object_state = initial_tree.get_root().get_state()
         self.n_object_actions = object_state.get_maximum_number_of_actions()
 
@@ -101,7 +109,7 @@ class MetaEnv(gym.Env):
         else:
             self.action_space = gym.spaces.Discrete(self.action_space_size)
 
-        # meta data features: attn mask, can expand, reward, is terminate
+        # Meta data features: attn mask, can expand, reward, is terminate
         self.n_meta_feats = 4
         self.state_vec_dim = object_state.get_state_vector_dim()
         self.action_vec_dim = object_state.get_action_vector_dim()
@@ -221,29 +229,71 @@ class MetaEnv(gym.Env):
             return search_tokens
 
     def get_best_object_action(self) -> int:
-        actions = self.tree.get_root().get_state().get_actions()
-        action_idx, _ = max(
-            enumerate(actions),
-            key=lambda item: self.search_q_estimator.compute_root_q(self.tree, item[1]),
-            default=(None, None)
-        )
-        return action_idx
-
-    def root_q_distribution(self) -> np.array:
         root_state = self.tree.get_root().get_state()
-        return np.array([
-            self.search_q_estimator.compute_root_q(self.tree, a)
-            for a in root_state.get_actions()
-        ])
+        return self.search_tree_policy.get_action(root_state)
 
-    def get_computational_reward(self, prior_action: int) -> float:
+    def root_q_distribution(self) -> Dict[int, float]:
+        root_state = self.tree.get_root().get_state()
+        return {
+            a: self.search_q_estimator.compute_root_q(self.tree, a)
+            for a in root_state.get_actions()
+        }
+
+    def get_computational_reward(self) -> float:
         """
         Difference between the value of best action before and after the computation,
         both considered under the Q-distribution derived from the tree after the computation.
         """
-        q_dist = self.root_q_distribution()
-        self.last_computational_reward = q_dist.max() - q_dist[prior_action]
+        if self.root_based_computational_rewards:
+            # q-distribution under the current tree
+            q_dist = self.root_q_distribution()
+            # best action under the current policy (assumed to be created with the previous tree)
+            prior_action = self.get_best_object_action()
+            self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
+
+        else:
+            updated_policy = self.make_tree_policy(self.tree)
+            updated_policy_value = updated_policy.estimate_root_value(self.tree)
+            prior_policy_value = self.search_tree_policy.estimate_root_value(self.tree)
+            self.last_computational_reward =  updated_policy_value - prior_policy_value
+
         return self.last_computational_reward
+
+    def terminate_step(self):
+        # Perform a step in the underlying environment
+        action = self.get_best_object_action()
+
+        self.set_environment_to_root_state()
+        _, self.last_meta_reward, done, info = self.object_env.step(action)
+
+        if self.keep_subtree_on_terminate and action in self.tree.get_root().get_children():
+            self.tree = self.tree.get_root_subtree(action)
+        else:
+            self.tree = self.get_root_tree()
+
+        self.search_tree_policy = self.make_tree_policy(self.tree)
+
+        info.update({
+            'computational_reward': 0,
+            'object_level_reward': self.last_meta_reward
+        })
+
+        return self.get_observation(), self.last_meta_reward, done, info
+
+    def perform_computational_action(self, computational_action: int):
+        """
+        Performs a computational action on the tree.
+        """
+        self.n_computations += 1
+        if self.expand_all_actions:
+            # Expand all actions from the given node
+            node_idx = (computational_action - 1)
+            self.tree.expand_all(node_idx)
+        else:
+            # perform a computational action on the search tree
+            node_idx = (computational_action - 1) // self.n_object_actions
+            object_action_idx = (computational_action - 1) % self.n_object_actions
+            self.tree.expand_action(node_idx, object_action_idx)
 
     def step(self,
              computational_action: Union[int, list, np.array]
@@ -284,44 +334,14 @@ class MetaEnv(gym.Env):
             self.steps += 1
 
             if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
-                # Perform a step in the underlying environment
-                best_action_idx = self.get_best_object_action()
-                root_state = self.tree.get_root().get_state()
-                action = root_state.get_actions()[best_action_idx]
+                return self.terminate_step()
 
-                self.set_environment_to_root_state()
-                _, self.last_meta_reward, done, info = self.object_env.step(action)
-
-                self.tree = self.get_root_tree()
-                self.search_tree_policy = self.make_tree_policy(self.tree)
-
-                info.update({
-                    'computational_reward': 0,
-                    'object_level_reward': self.last_meta_reward
-                })
-
-                return self.get_observation(), self.last_meta_reward, done, info
-
-            if self.computational_rewards:
-                # Keep track of prior action for later comparison
-                prior_action = self.get_best_object_action()
-
-            if self.expand_all_actions:
-                # Expand all actions from the given node
-                node_idx = (computational_action - 1)
-                self.tree.expand_all(node_idx)
-            else:
-                # perform a computational action on the search tree
-                node_idx = (computational_action - 1) // self.n_object_actions
-                object_action_idx = (computational_action - 1) % self.n_object_actions
-                self.tree.expand_action(node_idx, object_action_idx)
-
-            self.n_computations += 1
+            self.perform_computational_action(computational_action)
 
             # Compute reward (named "last_meta_reward" for readability in later access)
             self.last_meta_reward = -self.cost_of_computation
             if self.computational_rewards:
-                self.last_meta_reward += self.get_computational_reward(prior_action)
+                self.last_meta_reward += self.get_computational_reward()
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
@@ -550,8 +570,8 @@ class MetaEnv(gym.Env):
         root_state = self.tree.get_root().get_state()
         action_labels = root_state.get_action_labels()
         if action_labels:
-            q_dist = self.root_q_distribution()
-            sns.barplot(x=list(range(q_dist.shape[0])), y=q_dist, ax=ax)
+            q_dist = np.array(list(self.root_q_distribution().values()))
+            sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
             ax.set_xticklabels(action_labels)
 
         ax.set_ylim([self.object_reward_min, self.object_reward_max])

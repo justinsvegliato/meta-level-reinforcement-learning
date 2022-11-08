@@ -1,5 +1,5 @@
-from typing import Optional
-from mlrl.meta.search_tree import SearchTree, ObjectState
+from typing import Dict
+from mlrl.meta.search_tree import SearchTree, SearchTreeNode, ObjectState
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -9,20 +9,23 @@ import numpy as np
 
 class SearchTreePolicy(ABC):
 
-    def __init__(self, tree: SearchTree):
-        self.tree = tree
+    def __init__(self,
+                 tree: SearchTree,
+                 estimator: 'SearchQEstimator',
+                 object_discount: float = 0.99):
+        # makes a copy of the tree to avoid changing
+        # the policy if the original tree is changed
+        self.tree = tree.copy()
+        self.object_discount = object_discount
+        self.estimator = estimator
 
     @abstractmethod
     def get_action(self, state: ObjectState) -> int:
         pass
 
-
-class GreedySearchTreePolicy(SearchTreePolicy):
-
-    def __init__(self, tree: SearchTree, object_discount: float = 0.99):
-        super().__init__(tree)
-        from mlrl.meta.q_estimation import RecursiveDeterministicEstimator
-        self.estimator = RecursiveDeterministicEstimator(object_discount)
+    @abstractmethod
+    def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
+        pass
 
     def q_aggregation(self, q_val1: float, q_val2: float) -> float:
         """
@@ -39,24 +42,79 @@ class GreedySearchTreePolicy(SearchTreePolicy):
 
         return min(q_val1, q_val2)
 
+    def get_q_values(self, state: ObjectState) -> Dict[ObjectState, float]:
+
+        q_values = defaultdict(lambda: None)
+        for node in self.tree.get_state_nodes(state):
+            for action in node.get_children():
+                q_est = self.estimator.compute_q(node, action)
+                q_values[action] = self.q_aggregation(q_values[action], q_est)
+
+        return q_values
+
+    def estimate_root_value(self, evaluation_tree: SearchTree, debug_verbose=False) -> float:
+        """
+        Estimate the value of the given state under the current policy,
+        given the evaluation tree.
+        """
+        def recursive_compute_value(node: SearchTreeNode) -> float:
+            probabilities = self.get_action_probabilities(node.state)
+            value = 0
+            if debug_verbose:
+                print(', '.join([
+                    f'P({a} | {node.state}) = {p}'
+                    for a, p in probabilities.items()
+                ]))
+
+            for action, prob in probabilities.items():
+                if prob == 0:
+                    continue
+                children = node.get_children()
+                if action not in children:
+                    q_value = evaluation_tree.q_function.compute_q(node.state, action)
+                    if debug_verbose:
+                        print(f'Leaf evaluation: Q-hat({node.state}, {action}) = {q_value:.5f}')
+                else:
+                    q_value = None
+                    for child in children[action]:
+                        q = child.reward + self.object_discount * recursive_compute_value(child)
+                        if debug_verbose:
+                            print(f'Recursive Q-hat({node.state}, {action}) = {q:.5f}')
+                        q_value = self.q_aggregation(q_value, q)
+
+                value += prob * q_value
+
+            if debug_verbose:
+                print(f'Value({node.state}) = {value:.5f}')
+
+            return value
+
+        return recursive_compute_value(evaluation_tree.get_root())
+
+
+class GreedySearchTreePolicy(SearchTreePolicy):
+
+    def __init__(self, tree: SearchTree, object_discount: float = 0.99):
+        from mlrl.meta.q_estimation import RecursiveDeterministicEstimator
+        estimator = RecursiveDeterministicEstimator(object_discount)
+        super().__init__(tree, estimator, object_discount)
+
     def get_action(self, state: ObjectState) -> int:
         """
         This method returns the action with the highest Q-value for the given
         state using the tree policy to evaluate the Q-values.
         """
+        q_values = self.get_q_values(state)
 
-        q_values = defaultdict(lambda: None)
-        state_action_in_tree = defaultdict(lambda: False)
-        for node in self.tree.node_list:
-            if node.state == state:
-                for action in node.get_children():
-                    state_action_in_tree[action] = True
-                    q_est = self.estimator.compute_q(node, action)
-                    q_values[action] = self.q_aggregation(q_values[action], q_est)
-
-        # If a state-action pair is not in the tree, we return the Q-hat function
+        # If a state-action pair was not computed, we use the Q-hat function
         for action in state.get_actions():
-            if not state_action_in_tree[action]:
+            if action not in q_values:
                 q_values[action] = self.tree.q_function(state, action)
 
         return max(q_values, key=q_values.get)
+
+    def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
+        action = self.get_action(state)
+        probabilities = defaultdict(lambda: 0.0)
+        probabilities[action] = 1.0
+        return probabilities

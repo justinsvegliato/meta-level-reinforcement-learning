@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Dict
+import copy
+from typing import List, Tuple, Dict, Union
 from collections import defaultdict
 
 import gym
@@ -247,7 +248,7 @@ class SearchTree:
 
     def __init__(self,
                  env: gym.Env,
-                 root_state: ObjectState,
+                 root: Union[ObjectState, SearchTreeNode],
                  q_function: QFunction,
                  max_size: int = 10,
                  deterministic: bool = True):
@@ -255,14 +256,81 @@ class SearchTree:
         self.deterministic = deterministic
         self.q_function = q_function
         self.max_size = max_size
-        self.root_node: SearchTreeNode = SearchTreeNode(
-            0, None, root_state, None, 0, False, q_function
+        self.root_node: SearchTreeNode = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
+            0, None, root, None, 0, False, q_function
         )
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
+    def copy(self) -> 'SearchTree':
+        """
+        Makes a copy of the tree structure.
+        Preserves the node ids and the parent-child relationships.
+        The original and the copy share the same Q-function and the same environment objects.
+        """
+        root = self.get_root()
+
+        def recursive_copy(node, parent):
+            new_node = SearchTreeNode(
+                node.node_id, parent, node.state, node.action, node.reward,
+                node.is_terminal_state, self.q_function
+            )
+            new_node.tried_actions = copy.deepcopy(node.tried_actions)
+            for a in node.children:
+                for child in node.children[a]:
+                    new_node.add_child_node(recursive_copy(child, new_node))
+            return new_node
+        
+        new_root = recursive_copy(root, None)
+        new_tree = SearchTree(self.env, new_root, self.q_function, self.max_size, self.deterministic)
+
+        def recursive_update_node_list(node):
+            if node not in new_tree.node_list:
+                new_tree.node_list.append(node)
+            for a in node.children:
+                for child in node.children[a]:
+                    recursive_update_node_list(child)
+
+        recursive_update_node_list(new_root)
+        return new_tree
+
+    def get_subtree(self, node_id: int, action: int) -> 'SearchTree':
+        """
+        Creates the subtree rooted with the child node corresponding to the given node and action. 
+        """
+        root_node = self.node_list[node_id].children[action][0]
+
+        sub_tree = SearchTree(self.env,
+                              root_node,
+                              self.q_function,
+                              self.max_size,
+                              self.deterministic)
+
+        def add_children(node: SearchTreeNode):
+            for children in node.get_children().values():
+                for child in children:
+                    sub_tree.node_list.append(child)
+                    add_children(child)
+
+        add_children(root_node)
+
+        return sub_tree
+
+    def get_root_subtree(self, action: int) -> 'SearchTree':
+        """
+        Creates the subtree rooted with the child node corresponding to the given action
+        taken from the root of the current tree. 
+        """
+        return self.get_subtree(0, action)
+
+    def get_state_nodes(self, state: ObjectState) -> List[SearchTreeNode]:
+        """
+        Returns all nodes in the tree that correspond to the given state.
+        """
+        return [node for node in self.node_list if node.state == state]
+
     def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
         """
-        Checks whether the given action permits a valid for the given node.
+        Checks whether the given action permits a valid expansion for the given node.
         """
         return action not in node.children and node.can_expand()
 
@@ -286,7 +354,8 @@ class SearchTree:
         for action_idx in range(len(node.state.get_actions())):
             if len(self.node_list) >= self.max_size:
                 break
-            self.expand_action(node_idx, action_idx)
+            if self.is_action_valid(node, action_idx):
+                self.expand_action(node_idx, action_idx)
 
     def expand_action(self, node_idx: int, action_idx: int):
         """
