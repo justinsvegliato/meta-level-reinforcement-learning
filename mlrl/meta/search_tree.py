@@ -259,6 +259,7 @@ class SearchTree:
         self.root_node: SearchTreeNode = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
             0, None, root, None, 0, False, q_function
         )
+        root.node_id = 0
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
     def copy(self) -> 'SearchTree':
@@ -308,6 +309,7 @@ class SearchTree:
         def add_children(node: SearchTreeNode):
             for children in node.get_children().values():
                 for child in children:
+                    child.node_id = len(sub_tree.node_list)
                     sub_tree.node_list.append(child)
                     add_children(child)
 
@@ -328,10 +330,11 @@ class SearchTree:
         """
         return [node for node in self.node_list if node.state == state]
 
-    def is_action_valid(self, node: SearchTreeNode, action: int) -> bool:
+    def is_action_valid(self, node: SearchTreeNode, action_idx: int) -> bool:
         """
         Checks whether the given action permits a valid expansion for the given node.
         """
+        action = node.state.get_actions()[action_idx]
         return action not in node.children and node.can_expand()
 
     def has_valid_expansions(self, node: SearchTreeNode) -> bool:
@@ -339,7 +342,9 @@ class SearchTree:
         Checks whether the given node has any valid expansions.
         """
         return node.can_expand() and any(
-            self.is_action_valid(node, a) for a in node.state.get_actions())
+            self.is_action_valid(node, action_idx)
+            for action_idx in range(node.state.get_maximum_number_of_actions())
+        )
 
     def expand_all(self, node_idx: int):
         """ Expands all valid actions for the given node. """

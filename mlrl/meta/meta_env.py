@@ -330,6 +330,7 @@ class MetaEnv(gym.Env):
             if self.one_hot_action_space and not isinstance(computational_action, int):
                 computational_action = np.argmax(computational_action)
 
+            self.last_computational_reward = 0
             self.last_meta_action = computational_action
             self.steps += 1
 

@@ -33,6 +33,9 @@ def render_tree_policy(env, tree_policy: SearchTreePolicy) -> np.array:
     """
 
     def recursive_get_arrows(node: SearchTreeNode) -> List[Tuple[int, int]]:
+        if node.is_terminal_state:
+            return []
+
         start_cell = tuple(node.state.get_state_vector())
         action = tree_policy.get_action(node.state)
         if action in node.get_children():
