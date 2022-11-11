@@ -58,22 +58,19 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
     ax.set_title(title)
 
     if can_expand_colour is not None:
-        try:
-            colour_map = [
-                can_expand_colour if search_tree.node_list[node_idx].can_expand() else 'tab:blue'
-                for node_idx in nx_tree.nodes()
-            ]
-            nx.draw(nx_tree, pos, node_size=node_size, ax=ax, node_color=colour_map)
-        except Exception:
-            import debugpy
-            # 5678 is the default attach port in the VS Code debug configurations.
-            # 0.0.0.0 is used to allow remote debugging through docker.
-            debugpy.listen(('0.0.0.0', 5678))
-            print("Waiting for debugger attach")
-            debugpy.wait_for_client()
-            print("Debugger attached")
-            debugpy.breakpoint()
-            print('Breakpoint reached')
+
+        def get_colour(node: SearchTreeNode):
+            if node.can_expand():
+                return can_expand_colour
+            if node.duplicate_state_ancestor is not None:
+                return 'tab:red'
+            else:
+                return 'tab:blue'
+
+        colour_map = [
+            get_colour(search_tree.node_list[node_idx]) for node_idx in nx_tree.nodes()
+        ]
+        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, node_color=colour_map)
     else:
         nx.draw(nx_tree, pos, node_size=node_size, ax=ax)
 

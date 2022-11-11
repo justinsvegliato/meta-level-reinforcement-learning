@@ -39,6 +39,7 @@ class MetaEnv(gym.Env):
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
                  expand_all_actions: bool = False,
+                 finish_on_terminate: bool = False,
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
                  search_q_estimator: Optional[SearchQEstimator] = None,
@@ -73,6 +74,7 @@ class MetaEnv(gym.Env):
         self.cost_of_computation = cost_of_computation
         self.computational_rewards = computational_rewards
         self.root_based_computational_rewards = root_based_computational_rewards
+        self.finish_on_terminate = finish_on_terminate
 
         # Functions
         self.search_q_estimator = search_q_estimator or \
@@ -166,6 +168,7 @@ class MetaEnv(gym.Env):
     def reset(self):
         self.object_env.reset()
         self.tree = self.get_root_tree()
+        self.search_tree_policy = self.make_tree_policy(self.tree)
         self.n_computations = 0
         self.last_meta_action = None
         self.last_meta_reward = 0
@@ -239,10 +242,11 @@ class MetaEnv(gym.Env):
             for a in root_state.get_actions()
         }
 
-    def get_computational_reward(self) -> float:
+    def get_computational_reward(self, verbose=False) -> float:
         """
-        Difference between the value of best action before and after the computation,
-        both considered under the Q-distribution derived from the tree after the computation.
+        Difference between the value of best action before and after the
+        computation, both considered under the Q-distribution derived from
+        the tree after the computation.
         """
         if self.root_based_computational_rewards:
             # q-distribution under the current tree
@@ -253,9 +257,22 @@ class MetaEnv(gym.Env):
 
         else:
             updated_policy = self.make_tree_policy(self.tree)
-            updated_policy_value = updated_policy.estimate_root_value(self.tree)
-            prior_policy_value = self.search_tree_policy.estimate_root_value(self.tree)
+            if verbose:
+                print('Estimating value of policy with updated tree:\n', self.tree)
+
+            updated_policy_value = updated_policy.tree_conditioned_root_value_estimate(self.tree, debug_verbose=verbose)
+
+            if verbose:
+                print()
+                print('Estimating value of policy with prior tree:\n', self.search_tree_policy.tree)
+
+            prior_policy_value = self.search_tree_policy.tree_conditioned_root_value_estimate(self.tree, debug_verbose=verbose)
+
             self.last_computational_reward =  updated_policy_value - prior_policy_value
+            if verbose:
+                print()
+                print(f'Computational Reward = {updated_policy_value:.3f} - '
+                      f'{prior_policy_value:.3f} = {self.last_computational_reward:.3f}')
 
         return self.last_computational_reward
 
@@ -296,7 +313,8 @@ class MetaEnv(gym.Env):
             self.tree.expand_action(node_idx, object_action_idx)
 
     def step(self,
-             computational_action: Union[int, list, np.array]
+             computational_action: Union[int, list, np.array],
+             verbose=False
              ) -> Tuple[np.array, float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
@@ -335,6 +353,8 @@ class MetaEnv(gym.Env):
             self.steps += 1
 
             if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
+                if self.finish_on_terminate:
+                    return self.get_observation(), 0, True, {}
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
@@ -342,7 +362,7 @@ class MetaEnv(gym.Env):
             # Compute reward (named "last_meta_reward" for readability in later access)
             self.last_meta_reward = -self.cost_of_computation
             if self.computational_rewards:
-                self.last_meta_reward += self.get_computational_reward()
+                self.last_meta_reward += self.get_computational_reward(verbose=verbose)
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
@@ -571,11 +591,16 @@ class MetaEnv(gym.Env):
         root_state = self.tree.get_root().get_state()
         action_labels = root_state.get_action_labels()
         if action_labels:
-            q_dist = np.array(list(self.root_q_distribution().values()))
+            q_dist = self.search_tree_policy.estimate_optimal_q_values(root_state)
+            q_dist = np.array(list(q_dist.values()))
+
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
             ax.set_xticklabels(action_labels)
 
-        ax.set_ylim([self.object_reward_min, self.object_reward_max])
+            min_val = min(self.object_reward_min, min(q_dist)) 
+            max_val = max(self.object_reward_max, max(q_dist))
+            ax.set_ylim([min_val, max_val])
+
         ax.set_title('Root Q-Distribution')
         ax.yaxis.set_label_position('right')
         ax.yaxis.tick_right()

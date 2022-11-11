@@ -43,6 +43,10 @@ class ObjectState(ABC):
         """ Returns a list of labels for the actions. """
         return [str(a) for a in self.get_actions()]
 
+    def get_action_label(self, action) -> str:
+        """ Returns a label for the action. """
+        return {a: l for a, l in zip(self.get_actions(), self.get_action_labels())}[action]
+
     def get_action_vector_dim(self) -> int:
         """
         Computes the dimension of the action vectors for the problem domain.
@@ -101,7 +105,8 @@ class SearchTreeNode:
 
     __slots__ = [
         'parent', 'node_id', 'state', 'action', 'reward',
-        'children', 'is_terminal_state', 'q_function', 'tried_actions'
+        'children', 'is_terminal_state', 'q_function', 'tried_actions',
+        'duplicate_state_ancestor'
     ]
 
     def __init__(self,
@@ -121,6 +126,7 @@ class SearchTreeNode:
             action: The action that led to the current node. -1 if the node is the root.
             reward: The reward received at upond reaching the current node.
             done: Whether the current node is a terminal node. If so, the node cannot be expanded.
+            q_function: The Q-function used to compute the action Q-values from the node state.
         """
         self.node_id = node_id
         self.parent = parent
@@ -131,6 +137,20 @@ class SearchTreeNode:
         self.children: Dict[int, List['SearchTreeNode']] = defaultdict(list)
         self.q_function = q_function
         self.tried_actions = []
+        self.duplicate_state_ancestor = self.find_duplicate_state_ancestor()
+
+    def find_duplicate_state_ancestor(self) -> 'SearchTreeNode':
+        """
+        Returns the first ancestor of the given child node that has the same state as the given parent node.
+        If no such ancestor exists, returns None.
+        """
+        current_node = self
+        while not current_node.is_root():
+            current_node = current_node.get_parent()
+            if current_node.state == self.state:
+                return current_node
+
+        return None
 
     def expand_node(self,
                     env: gym.Env,
@@ -199,6 +219,9 @@ class SearchTreeNode:
         return self.children
 
     def can_expand(self) -> bool:
+        if self.duplicate_state_ancestor is not None:
+            return False
+
         all_tried = all(
             action_idx in self.tried_actions
             for action_idx in range(len(self.state.get_actions()))
@@ -328,7 +351,10 @@ class SearchTree:
         """
         Returns all nodes in the tree that correspond to the given state.
         """
-        return [node for node in self.node_list if node.state == state]
+        return [
+            node for node in self.node_list
+            if node.state == state and node.duplicate_state_ancestor is None
+        ]
 
     def is_action_valid(self, node: SearchTreeNode, action_idx: int) -> bool:
         """
@@ -382,19 +408,11 @@ class SearchTree:
         node = self.node_list[node_idx]
         if node.can_expand():
             child_node = node.expand_node(self.env, action_idx, len(self.node_list))
-            if self.can_add_child(node, child_node):
-                node.add_child_node(child_node)
-                self.node_list.append(child_node)
+            node.add_child_node(child_node)
+            self.node_list.append(child_node)
 
     def set_max_size(self, max_size: int):
         self.max_size = max_size
-
-    def can_add_child(self, parent: SearchTreeNode, child: SearchTreeNode) -> bool:
-        """
-        Checks whether the given child node can be added to the given parent node.
-        """
-        ascending_path_states = [n.state for n in parent.get_path_to_root()]
-        return child.state not in ascending_path_states
 
     def get_nodes(self) -> List[SearchTreeNode]:
         return self.node_list

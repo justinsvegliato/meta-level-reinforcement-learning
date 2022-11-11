@@ -33,6 +33,7 @@ def create_meta_env(object_env: gym.Env,
                     init_state: ObjectState,
                     q_hat: QFunction,
                     config: dict,
+                    tree_policy_renderer=None,
                     object_action_to_string=None) -> MetaEnv:
     """
     Creates a meta environment from a given object environment,
@@ -45,6 +46,8 @@ def create_meta_env(object_env: gym.Env,
                        split_mask_and_tokens=config.get('split_mask_and_tokens', True),
                        expand_all_actions=config.get('expand_all_actions', False),
                        computational_rewards=config.get('computational_rewards', True),
+                       finish_on_terminate=config.get('finish_on_terminate', False),
+                       tree_policy_renderer=tree_policy_renderer,
                        object_action_to_string=object_action_to_string)
 
     if config.get('meta_time_limit', None):
@@ -181,10 +184,12 @@ def create_parser():
                         help='Maximum number of steps in meta-level environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed.')
-    parser.add_argument('--env_batch_size', type=int, default=32,
+    parser.add_argument('--env_batch_size', type=int, default=4,
                         help='Batch size for the environment.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
+    parser.add_argument('--finish_on_terminate', type=bool, default=False,
+                        help='Whether to finish meta-level episode on computational terminate action.')
 
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,

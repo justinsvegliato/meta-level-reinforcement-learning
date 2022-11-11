@@ -4,6 +4,7 @@ from mlrl.meta.meta_env import MetaEnv
 from mlrl.maze.maze_state import RestrictedActionsMazeState
 from mlrl.maze.manhattan_q import ManhattanQHat
 from mlrl.maze.maze_env import make_maze_env
+from mlrl.maze.maze_tree_policy_renderer import render_tree_policy
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.networks.search_actor_nets import create_action_distribution_network
 from mlrl.networks.search_value_net import create_value_network
@@ -49,16 +50,17 @@ def get_maze_name(config: dict) -> str:
 
 
 def create_maze_meta_env(object_state_cls: Type[ObjectState],
-                         args: dict) -> MetaEnv:
+                         args: dict,
+                         enable_render: bool = True) -> MetaEnv:
     maze_n = args.get('maze_size', 5)
-    procgen = bool(args.get('procgen_maze', False))
+    procgen = bool(args.get('procgen_maze', True))
 
     object_env = make_maze_env(
         seed=args.get('seed', 0),
         maze_size=(maze_n, maze_n),
         goal_reward=1,
-        render_shape=(64, 64),
         generate_new_maze_on_reset=procgen,
+        enable_render=enable_render
     )
 
     q_hat = ManhattanQHat(object_env)
@@ -68,6 +70,7 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState],
         object_state_cls.extract_state(object_env),
         q_hat,
         args,
+        tree_policy_renderer=render_tree_policy,
         object_action_to_string=lambda a: object_env.ACTION[a]
     )
 
@@ -160,14 +163,18 @@ class PPORunner:
         Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
         self.env = BatchedPyEnvironment([
-            GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
+            GymWrapper(create_maze_meta_env(
+                RestrictedActionsMazeState, config, enable_render=False
+            ))
             for _ in range(env_batch_size)
         ], multithreading=env_multithreading)
         self.env.reset()
 
         if eval_steps > 0:
             self.eval_env = BatchedPyEnvironment([
-                GymWrapper(create_maze_meta_env(RestrictedActionsMazeState, config))
+                GymWrapper(create_maze_meta_env(
+                    RestrictedActionsMazeState, config, enable_render=True
+                ))
                 for _ in range(env_batch_size)
             ], multithreading=env_multithreading)
             self.eval_env.reset()
