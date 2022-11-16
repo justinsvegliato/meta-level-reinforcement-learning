@@ -66,7 +66,8 @@ class SearchTreePolicy(ABC):
         q_values = defaultdict(lambda: None)
         state_nodes = self.tree.get_state_nodes(state)
         if verbose:
-            print(f'Estimating optimal Q-values for state {state} from nodes: {state_nodes}')
+            nodes_str = '\n'.join(state_nodes)
+            print(f'Estimating optimal Q-values for state {state} from nodes:\n{nodes_str}')
 
         for action in state.get_actions():
             children = sum([node.get_children()[action] for node in state_nodes], [])

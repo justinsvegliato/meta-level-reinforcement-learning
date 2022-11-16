@@ -163,8 +163,6 @@ class MetaEnv(gym.Env):
         self.meta_action_strings = self.get_action_strings()
         self.steps = 0
 
-        self.reset()
-
     def reset(self):
         self.object_env.reset()
         self.tree = self.get_root_tree()
@@ -433,6 +431,12 @@ class MetaEnv(gym.Env):
                 debugpy.breakpoint()
                 print('Breakpoint reached')
 
+
+    def get_object_level_seed(self) -> Optional[int]:
+        get_seed = getattr(self.object_env, 'get_seed')
+        seed = get_seed() if get_seed else None
+        return seed
+
     def get_info(self) -> dict:
         return {
             'n_computations': int(self.n_computations),
@@ -440,6 +444,7 @@ class MetaEnv(gym.Env):
             'last_computation_reward': float(self.last_computational_reward),
             'last_meta_action': int(self.last_meta_action),
             'tree': str(self.tree),
+            'object_level_seed': self.get_object_level_seed()
         }
 
     def set_environment_to_root_state(self):
@@ -531,7 +536,12 @@ class MetaEnv(gym.Env):
         # Render the underlying environment in left subplot
         object_env_ax.set_axis_off()
         object_env_ax.imshow(object_env_img)
-        object_env_ax.set_title('Object-level Environment')
+
+        seed = self.get_object_level_seed()
+        if seed is not None:
+            object_env_ax.set_title(f'Object-level Environment [Seed: {seed}]')
+        else:
+            object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
         plot_tree(self.tree, ax=tree_ax, show=False,

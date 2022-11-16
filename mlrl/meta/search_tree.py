@@ -226,6 +226,7 @@ class SearchTreeNode:
             action_idx in self.tried_actions
             for action_idx in range(len(self.state.get_actions()))
         )
+
         return (not self.is_terminal_state) and (not all_tried)
 
     def get_trajectory(self) -> Tuple[int, float, ObjectState]:
@@ -303,7 +304,7 @@ class SearchTree:
                 for child in node.children[a]:
                     new_node.add_child_node(recursive_copy(child, new_node))
             return new_node
-        
+
         new_root = recursive_copy(root, None)
         new_tree = SearchTree(self.env, new_root, self.q_function, self.max_size, self.deterministic)
 
@@ -322,6 +323,7 @@ class SearchTree:
         Creates the subtree rooted with the child node corresponding to the given node and action. 
         """
         root_node = self.node_list[node_id].children[action][0]
+        root_node.parent = None
 
         sub_tree = SearchTree(self.env,
                               root_node,
@@ -332,7 +334,11 @@ class SearchTree:
         def add_children(node: SearchTreeNode):
             for children in node.get_children().values():
                 for child in children:
+                    # update child data
                     child.node_id = len(sub_tree.node_list)
+                    child.duplicate_state_ancestor = child.find_duplicate_state_ancestor()
+
+                    # add to node list and recurse
                     sub_tree.node_list.append(child)
                     add_children(child)
 

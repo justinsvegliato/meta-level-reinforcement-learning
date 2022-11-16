@@ -17,7 +17,7 @@ register(
 )
 
 
-def make_maze_env(seed=None, **make_kwargs):
+def make_maze_env(**make_kwargs):
     """
     Args:
         seed (int): The seed to use for the maze generation.
@@ -26,11 +26,7 @@ def make_maze_env(seed=None, **make_kwargs):
     Returns:
         gym.Env: The maze environment.
     """
-    if seed is not None:
-        random.seed(seed)
-    env = gym.make("gym-maze-v0", **make_kwargs)
-    env.reset()
-    return env
+    return gym.make("gym-maze-v0", **make_kwargs)
 
 
 def get_maze_state(env) -> tuple:
