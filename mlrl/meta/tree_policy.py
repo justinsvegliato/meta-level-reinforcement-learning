@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List, Tuple
 from mlrl.meta.search_tree import SearchTree, SearchTreeNode, ObjectState
 
 from abc import ABC, abstractmethod
@@ -42,31 +42,41 @@ class SearchTreePolicy(ABC):
 
         return min(q_val1, q_val2)
 
-    def compute_cycle_value(self, leaf_node: SearchTreeNode) -> float:
+    def compute_cycle_value(self, cycle_traj: List[Tuple[ObjectState, int, float]]) -> float:
         """
         Computes the value of a cycle in the tree.
-        Assumes that the cycle 
         """
-        cycle_len = 0
-        cycle_return = 0
-        node = leaf_node
-
-        if leaf_node.duplicate_state_ancestor is None:
-            raise ValueError('Leaf node does not have a duplicate state ancestor')
-            
-        while node != leaf_node.duplicate_state_ancestor:
-            cycle_return += node.reward * self.object_discount ** cycle_len
-            cycle_len += 1
-            node = node.parent
+        cycle_len = len(cycle_traj)
+        cycle_return = sum([
+            reward * self.object_discount ** t
+            for t, (_, _, reward) in enumerate(cycle_traj)
+        ])
 
         return cycle_return / (1 - self.object_discount**cycle_len)
 
-    def estimate_optimal_q_values(self, state: ObjectState, verbose=False) -> Dict[ObjectState, float]:
+    @staticmethod
+    def find_cycle(
+            state: ObjectState,
+            trajectory: List[Tuple[ObjectState, int, float]]
+    ) -> List[Tuple[ObjectState, int, float]]:
+        state_idxs = [
+            i for i, (s, _, _) in enumerate(trajectory)
+            if s == state
+        ]
+        if state_idxs:
+            i = state_idxs[0]
+            return trajectory[i:]
+        return []
+
+    def estimate_optimal_q_values(
+            self, state: ObjectState, verbose=False, trajectory=None
+    ) -> Dict[ObjectState, float]:
+        trajectory = trajectory or []
 
         q_values = defaultdict(lambda: None)
         state_nodes = self.tree.get_state_nodes(state)
         if verbose:
-            nodes_str = '\n'.join(state_nodes)
+            nodes_str = '\n'.join(map(str, state_nodes)) if state_nodes else '[]'
             print(f'Estimating optimal Q-values for state {state} from nodes:\n{nodes_str}')
 
         for action in state.get_actions():
@@ -78,16 +88,20 @@ class SearchTreePolicy(ABC):
                 q_values[action] = 0
 
                 for child in children:
-                    if child.duplicate_state_ancestor is None:
-                        if verbose:
-                            print()
-                        child_q_values = self.estimate_optimal_q_values(child.state,
-                                                                        verbose=verbose)
-                        value = max(child_q_values.values())
-                    else:
-                        value = self.compute_cycle_value(child)
+                    cycle_trajectory = self.find_cycle(child.state, trajectory)
+                    if cycle_trajectory:
+                        value = self.compute_cycle_value(cycle_trajectory)
                         if verbose:
                             print(f'Cycle value of duplicate child {child}:', value)
+                    else:
+                        if verbose:
+                            print()
+                        child_q_values = self.estimate_optimal_q_values(
+                            child.state,
+                            trajectory=trajectory + [(state, action, child.reward)],
+                            verbose=verbose
+                        )
+                        value = max(child_q_values.values())
 
                     q_values[action] = child.reward + self.object_discount * value
 
@@ -95,7 +109,7 @@ class SearchTreePolicy(ABC):
 
             else:
                 q_values[action] = self.tree.q_function(state, action)
-                
+
                 if verbose:
                     print(f'Computing Q-value from estimator on leaf node:'
                           f'Q({state}, {state.get_action_label(action)}) =', q_values[action])
@@ -111,12 +125,17 @@ class SearchTreePolicy(ABC):
 
     def tree_conditioned_root_value_estimate(
             self, evaluation_tree: SearchTree, debug_verbose=False
-            ) -> float:
+    ) -> float:
         """
         Estimate the value of the given state under the current policy,
         given the evaluation tree.
         """
-        def recursive_compute_value(node: SearchTreeNode) -> float:
+        def recursive_compute_value(
+                node: SearchTreeNode,
+                trajectory: List[Tuple[ObjectState, int, float]] = None
+        ) -> float:
+            trajectory = trajectory or []
+
             probabilities = self.get_action_probabilities(node.state)
             value = 0
             if debug_verbose:
@@ -139,14 +158,19 @@ class SearchTreePolicy(ABC):
                 else:
                     q_value = None
                     for child in children[action]:
-                        if child.duplicate_state_ancestor is None:
-                            q = child.reward + self.object_discount * recursive_compute_value(child)
+                        cycle_trajectory = self.find_cycle(child.state, trajectory)
+                        if cycle_trajectory:
+                            child_value = self.compute_cycle_value(cycle_trajectory)
                         else:
-                            q = child.reward + self.object_discount * self.compute_cycle_value(child)
+                            child_value = recursive_compute_value(
+                                child, trajectory=trajectory + [(node.state, action, child.reward)])
+
+                        q = child.reward + self.object_discount * child_value
 
                         if debug_verbose:
                             action_label = node.state.get_action_label(action)
-                            print(f'Recursive Q-hat({node.state}, {action_label}) = {q:.5f}')
+                            print(f'Recursive Q-hat({node.state}, {action_label}) = {child.reward:.3f} '
+                                  f'+ {self.object_discount:.3f} * {child_value:.3f} = {q:.5f}')
 
                         q_value = self.q_aggregation(q_value, q)
 
@@ -163,8 +187,8 @@ class SearchTreePolicy(ABC):
 class GreedySearchTreePolicy(SearchTreePolicy):
 
     def __init__(self, tree: SearchTree, object_discount: float = 0.99):
-        from mlrl.meta.q_estimation import RecursiveDeterministicEstimator
-        estimator = RecursiveDeterministicEstimator(object_discount)
+        from mlrl.meta.q_estimation import RecursiveDeterministicOptimalQEstimator
+        estimator = RecursiveDeterministicOptimalQEstimator(object_discount)
         super().__init__(tree, estimator, object_discount)
 
     def get_action(self, state: ObjectState) -> int:

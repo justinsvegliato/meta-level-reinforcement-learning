@@ -9,7 +9,7 @@ import silence_tensorflow.auto  # pylint: disable=unused-import
 import tensorflow as tf
 
 
-class SearchQEstimator(ABC):
+class SearchOptimalQEstimator(ABC):
 
     def __init__(self, discount: float = 0.99):
         self.discount = discount
@@ -34,7 +34,7 @@ class SearchQEstimator(ABC):
         return max((self.compute_root_q(search_tree, action) for action in actions), default=0)
 
 
-class RecursiveDeterministicEstimator(SearchQEstimator):
+class RecursiveDeterministicOptimalQEstimator(SearchOptimalQEstimator):
     """
     Assumes a deterministic environment and only uses child nodes to compute Q-values
     """
@@ -78,7 +78,7 @@ class RecursiveDeterministicEstimator(SearchQEstimator):
         return self.compute_q(tree.get_root(), action)
 
 
-class SearchQModelEstimator(SearchQEstimator):
+class SearchQModelEstimator(SearchOptimalQEstimator):
     """
     Uses a Q-model to compute Q-values
     """
@@ -88,7 +88,7 @@ class SearchQModelEstimator(SearchQEstimator):
                  tree_tokeniser: Callable[[SearchTree], tf.Tensor]):
         self.q_net = q_net
         self.tree_tokeniser = tree_tokeniser
-    
+
     @lru_cache
     def compute_root_q_distribution(self, search_tree: SearchTree) -> tf.Tensor:
         """

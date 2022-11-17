@@ -11,6 +11,7 @@ from mlrl.networks.search_value_net import create_value_network
 from mlrl.networks.search_actor_rnn import ActionSearchRNN
 from mlrl.networks.search_value_rnn import ValueSearchRNN
 from mlrl.utils.render_utils import create_policy_eval_video
+from mlrl.utils.progbar_observer import ProgressBarObserver
 
 import os
 from pathlib import Path
@@ -221,7 +222,7 @@ class PPORunner:
             self.collect_policy,
             self.train_step_counter,
             steps_per_run=collect_sequence_length,
-            observers=[self.replay_buffer.add_batch],
+            observers=[self.replay_buffer.add_batch, ProgressBarObserver(collect_sequence_length)],
             metrics=metrics,
             reference_metrics=[collect_env_step_metric],
             summary_dir=os.path.join(self.root_dir, learner.TRAIN_DIR),
@@ -249,6 +250,7 @@ class PPORunner:
                 self.eval_policy,
                 self.train_step_counter,
                 metrics=eval_metrics,
+                observers=[ProgressBarObserver(eval_steps)],
                 reference_metrics=[collect_env_step_metric],
                 summary_dir=os.path.join(self.root_dir, 'eval'),
                 steps_per_run=eval_steps)

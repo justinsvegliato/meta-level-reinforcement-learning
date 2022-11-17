@@ -1,4 +1,4 @@
-from mlrl.meta.q_estimation import SearchQEstimator, RecursiveDeterministicEstimator
+from mlrl.meta.q_estimation import SearchOptimalQEstimator, RecursiveDeterministicOptimalQEstimator
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import GreedySearchTreePolicy, SearchTreePolicy
 from mlrl.meta.tree_tokenisation import NodeActionTokeniser, NodeTokeniser
@@ -42,7 +42,7 @@ class MetaEnv(gym.Env):
                  finish_on_terminate: bool = False,
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
-                 search_q_estimator: Optional[SearchQEstimator] = None,
+                 search_optimal_q_estimator: Optional[SearchOptimalQEstimator] = None,
                  make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
                  tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.array]] = None,
                  object_action_to_string: Callable[[Any], str] = None,
@@ -77,13 +77,13 @@ class MetaEnv(gym.Env):
         self.finish_on_terminate = finish_on_terminate
 
         # Functions
-        self.search_q_estimator = search_q_estimator or \
-            RecursiveDeterministicEstimator(object_env_discount)
+        self.search_optimal_q_estimator = search_optimal_q_estimator or \
+            RecursiveDeterministicOptimalQEstimator(object_env_discount)
         self.make_tree_policy = make_tree_policy or \
             (lambda tree: GreedySearchTreePolicy(tree, object_env_discount))
         self.search_tree_policy = self.make_tree_policy(initial_tree)
         self.tree_policy_renderer = tree_policy_renderer
-    
+
         # Utility params
         self.split_mask_and_tokens = split_mask_and_tokens
         self.dump_debug_images = dump_debug_images
@@ -236,7 +236,7 @@ class MetaEnv(gym.Env):
     def root_q_distribution(self) -> Dict[int, float]:
         root_state = self.tree.get_root().get_state()
         return {
-            a: self.search_q_estimator.compute_root_q(self.tree, a)
+            a: self.search_optimal_q_estimator.compute_root_q(self.tree, a)
             for a in root_state.get_actions()
         }
 
@@ -266,7 +266,7 @@ class MetaEnv(gym.Env):
 
             prior_policy_value = self.search_tree_policy.tree_conditioned_root_value_estimate(self.tree, debug_verbose=verbose)
 
-            self.last_computational_reward =  updated_policy_value - prior_policy_value
+            self.last_computational_reward = updated_policy_value - prior_policy_value
             if verbose:
                 print()
                 print(f'Computational Reward = {updated_policy_value:.3f} - '
@@ -430,7 +430,6 @@ class MetaEnv(gym.Env):
                 print("Debugger attached")
                 debugpy.breakpoint()
                 print('Breakpoint reached')
-
 
     def get_object_level_seed(self) -> Optional[int]:
         get_seed = getattr(self.object_env, 'get_seed')

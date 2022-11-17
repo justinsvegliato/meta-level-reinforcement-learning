@@ -250,13 +250,14 @@ class SearchTreeNode:
             for a in self.children for c in self.children[a]
         ])
 
-        node_str = f'[{self.state}, {self.can_expand()}]'
+        node_str = f'({self.state})' if self.can_expand() else '{' + str(self.state) + '}'
         maybe_newline = '\n' if children_str else ''
 
         if depth == 0:
             return f'{node_str}{maybe_newline}{children_str}'
 
-        transition_str = f'|---[{self.action}, {self.reward}]-->'
+        action_label = self.parent.state.get_action_label(self.action)
+        transition_str = f'|---[{action_label}, {self.reward}]-->'
 
         return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
 
@@ -283,7 +284,7 @@ class SearchTree:
         self.root_node: SearchTreeNode = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
             0, None, root, None, 0, False, q_function
         )
-        root.node_id = 0
+        self.root_node.node_id = 0
         self.node_list: List[SearchTreeNode] = [self.root_node]
 
     def copy(self) -> 'SearchTree':
