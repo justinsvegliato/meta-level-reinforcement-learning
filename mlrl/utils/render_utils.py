@@ -131,7 +131,6 @@ def create_policy_eval_video(policy: TFPolicy,
         return env.render()
 
     with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
-
         video.append_data(get_image())
 
         for _ in range(max_steps):
