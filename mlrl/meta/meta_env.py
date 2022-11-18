@@ -582,7 +582,7 @@ class MetaEnv(gym.Env):
         probs_ax = sns.heatmap(meta_action_probs, annot=True,
                                fmt='.3f', vmin=0, vmax=1, cbar=False)
         label_strings = [r'$\perp$'] + [
-            f'Expand Node {i}'
+            f'Expand Node {i}' if len(self.tree.node_list) < 10 else i
             for i, _ in enumerate(self.tree.node_list)
         ]
         probs_ax.set_xticks(ticks=0.5 + np.arange(len(label_strings)),

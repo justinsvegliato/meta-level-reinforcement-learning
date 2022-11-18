@@ -213,7 +213,7 @@ def create_parser():
     parser.add_argument('--transformer_n_heads', type=int, default=3,
                         help='Number of agent transformer heads.')
     parser.add_argument('--n_lstm_layers', type=int, default=3,
-                        help='Number of agent transformer heads.')
+                        help='Number of lstm layers.')
 
     # DQN parameters
     parser.add_argument('--target_network_update_period', type=int, default=500,
