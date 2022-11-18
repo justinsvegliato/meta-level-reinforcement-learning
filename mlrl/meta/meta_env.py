@@ -77,12 +77,15 @@ class MetaEnv(gym.Env):
         self.finish_on_terminate = finish_on_terminate
 
         # Functions
+        self.tree_policy_renderer = tree_policy_renderer
+
         self.search_optimal_q_estimator = search_optimal_q_estimator or \
             RecursiveDeterministicOptimalQEstimator(object_env_discount)
+
         self.make_tree_policy = make_tree_policy or \
             (lambda tree: GreedySearchTreePolicy(tree, object_env_discount))
         self.search_tree_policy = self.make_tree_policy(initial_tree)
-        self.tree_policy_renderer = tree_policy_renderer
+        self.prev_search_policy = None
 
         # Utility params
         self.split_mask_and_tokens = split_mask_and_tokens
@@ -121,7 +124,7 @@ class MetaEnv(gym.Env):
             # representation of the action to be expanded
             self.tree_token_dim = self.n_meta_feats + \
                 2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
-            
+
             self.tree_tokeniser = NodeTokeniser(self.action_vec_dim,
                                                 self.state_vec_dim,
                                                 max_tree_size)
@@ -132,7 +135,7 @@ class MetaEnv(gym.Env):
             # taken to reach the node and the vector for the action to be expanded
             self.tree_token_dim = self.n_meta_feats + \
                 2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
-            
+
             self.tree_tokeniser = NodeActionTokeniser(self.action_vec_dim,
                                                       self.state_vec_dim,
                                                       max_tree_size)
@@ -167,6 +170,7 @@ class MetaEnv(gym.Env):
         self.object_env.reset()
         self.tree = self.get_root_tree()
         self.search_tree_policy = self.make_tree_policy(self.tree)
+        self.prev_search_policy = None
         self.n_computations = 0
         self.last_meta_action = None
         self.last_meta_reward = 0
@@ -287,6 +291,7 @@ class MetaEnv(gym.Env):
             self.tree = self.get_root_tree()
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
+        self.prev_search_policy = None
 
         info.update({
             'computational_reward': 0,
@@ -346,6 +351,7 @@ class MetaEnv(gym.Env):
             if self.one_hot_action_space and not isinstance(computational_action, int):
                 computational_action = np.argmax(computational_action)
 
+            self.prev_search_policy = self.search_tree_policy
             self.last_computational_reward = 0
             self.last_meta_action = computational_action
             self.steps += 1
@@ -371,6 +377,7 @@ class MetaEnv(gym.Env):
             }
 
             self.search_tree_policy = self.make_tree_policy(self.tree)
+
             return self.get_observation(), self.last_meta_reward, False, info
 
         except Exception as e:

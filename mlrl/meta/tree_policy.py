@@ -204,3 +204,15 @@ class GreedySearchTreePolicy(SearchTreePolicy):
         probabilities = defaultdict(lambda: 0.0)
         probabilities[action] = 1.0
         return probabilities
+
+    def __repr__(self) -> str:
+
+        def build_trajectory(node: SearchTreeNode) -> List[str]:
+            action = self.get_action(node.state)
+            if action in node.children and node.children[action]:
+                child = node.children[action][0]
+                return [node.state.get_action_label(action)] + build_trajectory(child)
+            return [node.state.get_action_label(action)]
+
+        traj_string = ''.join(build_trajectory(self.tree.get_root()))
+        return f'Greedy Policy Trajectory: {traj_string}'
