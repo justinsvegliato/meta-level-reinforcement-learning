@@ -106,7 +106,7 @@ class SearchTreeNode:
     __slots__ = [
         'parent', 'node_id', 'state', 'action', 'reward',
         'children', 'is_terminal_state', 'q_function', 'tried_actions',
-        'duplicate_state_ancestor'
+        '_duplicate_state_ancestor'
     ]
 
     def __init__(self,
@@ -137,7 +137,11 @@ class SearchTreeNode:
         self.children: Dict[int, List['SearchTreeNode']] = dict()
         self.q_function = q_function
         self.tried_actions = []
-        self.duplicate_state_ancestor = self.find_duplicate_state_ancestor()
+        self._duplicate_state_ancestor = None
+
+    @property
+    def duplicate_state_ancestor(self) -> Optional['SearchTreeNode']:
+        return self.find_duplicate_state_ancestor()
 
     def find_duplicate_state_ancestor(self) -> 'SearchTreeNode':
         """
@@ -328,6 +332,8 @@ class SearchTree:
                     recursive_update_node_list(child)
 
         recursive_update_node_list(new_root)
+        new_tree.node_list.sort(key=lambda n: n.node_id)
+
         return new_tree
 
     def get_subtree(self, node_id: int, action: int) -> 'SearchTree':
