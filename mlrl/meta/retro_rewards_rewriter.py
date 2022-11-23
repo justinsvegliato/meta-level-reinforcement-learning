@@ -1,5 +1,6 @@
 import math
 from mlrl.meta.meta_env import MetaEnv
+from mlrl.meta.tree_policy import SearchTreePolicy
 from mlrl.maze.maze_utils import construct_maze_policy_string
 
 from collections import OrderedDict
@@ -20,10 +21,12 @@ class RetroactiveRewardsRewriter:
                  env: PyEnvironment,
                  collect_data_spec,
                  add_batch: callable,
+                 include_info: bool = False,
                  verbose: bool = False):
         self.env = env
         self.collect_data_spec = collect_data_spec
         self.verbose = verbose
+        self.include_info = include_info
 
         self.observation_tensor_spec, *_ = spec_utils.get_tensor_specs(env)
         if isinstance(env, BatchedPyEnvironment):
@@ -35,7 +38,7 @@ class RetroactiveRewardsRewriter:
         self.trajectories_and_policies = [[] for _ in range(self.n_envs)]
 
     def get_env(self, i: int) -> MetaEnv:
-        gym_wrapper_env = self.env if self.n_envs == 1 else self.env.envs[i]
+        gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
         return gym_wrapper_env.gym
 
     def index_tensor(self, tensor_or_nest, spec, i):
@@ -72,19 +75,46 @@ class RetroactiveRewardsRewriter:
     def is_terminate(self, traj: trajectory.Trajectory) -> bool:
         return traj.is_last() or traj.action.numpy() == 0
 
+    def is_first(self, traj: trajectory.Trajectory) -> bool:
+        return traj.is_first()
+
+    def flush_all(self):
+        for i in range(self.n_envs):
+            self.rewrite_rewards_and_flush(i)
+
+    def _get_policy_update_string(self, meta_env, prev_policy, policy):
+        if isinstance(meta_env.object_env, gym_maze.envs.MazeEnv):
+            maze_string_prev = construct_maze_policy_string(meta_env, prev_policy)
+            maze_string_now = construct_maze_policy_string(meta_env, policy)
+            string = 'Previous Policy\t\t\t\tNew Policy\b=n'
+            string += '\n'.join((
+                f'{l1}\t\t{l2}' for l1, l2 in zip(maze_string_prev.splitlines(),
+                                                  maze_string_now.splitlines())
+            ))
+            return string
+        else:
+            return f'{prev_policy} -> {policy}'
+
     def rewrite_rewards_and_flush(self, i: int):
+        if not self.trajectories_and_policies[i]:
+            return
+
         meta_env = self.get_env(i)
-        final_tree = meta_env.tree
+        if len(self.trajectories_and_policies[i]) > 1:
+            *_, last_policy = self.trajectories_and_policies[i][-2]
+            final_tree = last_policy.tree if last_policy is not None else None
+        else:
+            final_tree = None
 
         if self.verbose and len(self.trajectories_and_policies[i]) > 1:
             print(f'Rewriting rewards with the final tree:\n{final_tree}')
 
-        @lru_cache(maxsize=1000)
-        def get_policy_value(policy):
-            return policy.tree_conditioned_root_value_estimate(final_tree)
+        @lru_cache(maxsize=None)
+        def get_policy_value(policy: SearchTreePolicy) -> float:
+            return policy.evaluate(final_tree)
 
         for prev_policy, traj, policy in self.trajectories_and_policies[i]:
-            if prev_policy is not None:
+            if None not in [prev_policy, policy, final_tree]:
                 prev_policy_value = get_policy_value(prev_policy)
                 policy_value = get_policy_value(policy)
 
@@ -92,35 +122,36 @@ class RetroactiveRewardsRewriter:
                 reward = computational_reward - meta_env.cost_of_computation
 
                 if self.verbose and math.fabs(reward - traj.reward) > 1e-9:
-                    if isinstance(meta_env.object_env, gym_maze.envs.MazeEnv):
-                        string1 = construct_maze_policy_string(meta_env, prev_policy)
-                        string2 = construct_maze_policy_string(meta_env, policy)
-                        print('Previous Policy\t\t\t\tNew Policy')
-                        print('\n'.join((
-                            f'{l1}\t\t{l2}' for l1, l2 in zip(string1.splitlines(), string2.splitlines())
-                        )))
-                    else:
-                        print(policy)
+                    print(self._get_policy_update_string(meta_env, prev_policy, policy))
                     print(f'Rewriting reward from {traj.reward:.4f} to '
                           f'{reward:.4f} = ({policy_value:.4f} - {prev_policy_value:.4f})'
                           f' - {meta_env.cost_of_computation:.4f}\n')
 
                 traj = traj._replace(reward=reward)
 
-            self.add_batch(traj)
+            if self.include_info:
+                self.add_batch({
+                    'trajectory': traj,
+                    'policy': policy,
+                    'prev_policy': prev_policy,
+                    'eval_tree': final_tree,
+                    'terminal': self.is_terminate(traj)
+                })
+            else:
+                self.add_batch(traj)
 
         if self.verbose:
             print()
 
         self.trajectories_and_policies[i] = []
 
-    def __call__(self, traj):
+    def __call__(self, traj: trajectory.Trajectory):
         for i in range(self.n_envs):
             env_traj = self.get_env_traj(traj, i)
             env = self.get_env(i)
+            item = (env.prev_search_policy, env_traj, env.search_tree_policy)
+            self.trajectories_and_policies[i].append(item)
+
             if self.is_terminate(env_traj):
                 self.rewrite_rewards_and_flush(i)
                 continue
-
-            item = (env.prev_search_policy, env_traj, env.search_tree_policy)
-            self.trajectories_and_policies[i].append(item)

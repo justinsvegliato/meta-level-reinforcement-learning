@@ -1,3 +1,4 @@
+from typing import List, Union
 from IPython.display import HTML, clear_output
 import base64
 
@@ -8,8 +9,12 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_agents.environments import TFEnvironment
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
+from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.policies import TFPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
+from tf_agents.policies.random_py_policy import RandomPyPolicy
+from tf_agents.trajectories import trajectory
+
 
 import chess
 import chess.svg
@@ -22,6 +27,7 @@ import imageio.core.util
 
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import seaborn as sns
 sns.set()
 
@@ -84,10 +90,105 @@ def embed_mp4(filename: str, clear_before=True) -> HTML:
 
 def create_policy_eval_video(policy: TFPolicy,
                              env: TFEnvironment,
-                             filename: str = 'video',
-                             max_steps: int = 60,
                              max_envs_to_show: int = 2,
-                             fps: int = 1) -> str:
+                             rewrite_rewards: bool = False,
+                             max_steps: int = 60) -> List[np.array]:
+
+    if rewrite_rewards:
+        from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
+        from mlrl.utils.plot_search_tree import plot_tree
+        rewritten_trajs = [{'terminal': False}]
+        rewards_rewriter = RetroactiveRewardsRewriter(
+            env, policy.collect_data_spec, rewritten_trajs.append,
+            include_info=True
+        )
+
+    if not isinstance(env, TFPyEnvironment):
+        env = TFPyEnvironment(env)
+
+    env.reset()
+
+    policy_state = policy.get_initial_state(env.batch_size)
+
+    def render_env(i):
+        gym_env = env.envs[i].gym
+        if not isinstance(policy, RandomTFPolicy) and hasattr(policy, 'distribution'):
+            policy_step = policy.distribution(env.current_time_step(), policy_state)
+            if isinstance(policy_step.action, tfp.distributions.Categorical):
+                probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
+                return gym_env.render(meta_action_probs=probs)
+        return gym_env.render()
+
+    def get_image() -> np.array:
+        if hasattr(env, 'envs'):
+            imgs = np.array([
+                render_env(i)
+                for i in range(min(max_envs_to_show, env.batch_size))
+            ])
+            b, h, w, c = imgs.shape
+            return imgs.reshape((b * h, w, c))
+        return env.render()
+
+    frames = [get_image()]
+    for _ in range(max_steps):
+        time_step = env.current_time_step()
+        action_step = policy.action(env.current_time_step(), policy_state)
+        policy_state = action_step.state
+        next_time_step = env.step(action_step.action)
+
+        if rewrite_rewards:
+            action_step_with_previous_state = action_step._replace(state=policy_state)
+            traj_item = trajectory.from_transition(
+                time_step, action_step_with_previous_state, next_time_step)
+            rewards_rewriter(traj_item)
+
+        frames.append(get_image())
+
+    if rewrite_rewards:
+        rewards_rewriter.flush_all()
+        new_frames = []
+        for traj_item, frame in zip(rewritten_trajs, frames):
+            if 'trajectory' in traj_item:
+                reward = traj_item['trajectory'].reward
+                if isinstance(reward, tf.Tensor):
+                    reward = reward.numpy()
+            else:
+                reward = 0
+
+            fig = plt.figure(tight_layout=True, figsize=(20, 6))
+            gs = gridspec.GridSpec(1, 4)
+
+            env_ax = fig.add_subplot(gs[:, :3])
+            tree_ax = fig.add_subplot(gs[:, 3:])
+            env_ax.axis('off')
+            tree_ax.axis('off')
+
+            env_ax.set_title('Meta-level Environment')
+            env_ax.imshow(frame)
+
+            eval_tree = traj_item.get('eval_tree')
+            if eval_tree is not None and not traj_item['terminal']:
+                plot_tree(eval_tree, ax=tree_ax, show=False,
+                          object_action_to_string=rewards_rewriter.get_env(0).object_action_to_string,
+                          title='Evaluation Tree')
+
+            plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward}', fontsize=16)
+            plt.tight_layout()
+            new_frames.append(plot_to_array(fig))
+            plt.close()
+
+        return new_frames
+
+    return frames
+
+
+def create_and_save_policy_eval_video(policy: TFPolicy,
+                                      env: TFEnvironment,
+                                      filename: str = 'video',
+                                      max_steps: int = 60,
+                                      max_envs_to_show: int = 2,
+                                      rewrite_rewards: bool = False,
+                                      fps: int = 1) -> str:
     """
     Creates and saves a video of the policy being evaluating in an environment.
 
@@ -101,51 +202,27 @@ def create_policy_eval_video(policy: TFPolicy,
     Returns:
         str: The path to the saved video.
     """
-    if not isinstance(env, TFPyEnvironment):
-        env = TFPyEnvironment(env)
+    frames = create_policy_eval_video(
+        policy, env, max_envs_to_show,
+        rewrite_rewards=rewrite_rewards,
+        max_steps=max_steps
+    )
 
     if not filename.endswith('.mp4'):
         filename = filename + '.mp4'
 
-    env.reset()
-
-    policy_state = policy.get_initial_state(env.batch_size)
-
-    def render_env(i):
-        gym_env = env.envs[i].gym
-        if not isinstance(policy, RandomTFPolicy):
-            policy_step = policy.distribution(env.current_time_step(), policy_state)
-            if isinstance(policy_step.action, tfp.distributions.Categorical):
-                probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
-                return gym_env.render(meta_action_probs=probs)
-        return gym_env.render()
-
-    def get_image() -> np.array:
-        if hasattr(env, 'envs'):
-            imgs = np.array([
-                render_env(i)
-                for i in range(max_envs_to_show)
-            ])
-            b, h, w, c = imgs.shape
-            return imgs.reshape((b * h, w, c))
-        return env.render()
-
     with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
-        video.append_data(get_image())
-
-        for _ in range(max_steps):
-            action_step = policy.action(env.current_time_step(), policy_state)
-            policy_state = action_step.state
-            env.step(action_step.action)
-            video.append_data(get_image())
+        for frame in frames:
+            video.append_data(frame)
 
     return filename
 
 
-def create_random_policy_video(env: TFEnvironment,
+def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                                filename: str = 'video',
                                max_steps: int = 60,
                                max_envs_to_show: int = 2,
+                               rewrite_rewards: bool = False,
                                fps: int = 1) -> str:
     """
     Creates and saves a video of a random policy being evaluated in an environment.
@@ -161,7 +238,12 @@ def create_random_policy_video(env: TFEnvironment,
         str: The path to the saved video.
     """
     from mlrl.meta.meta_env import mask_token_splitter
+    if not isinstance(env, TFPyEnvironment):
+        env = TFPyEnvironment(env)
     policy = RandomTFPolicy(env.time_step_spec(),
                             env.action_spec(),
                             observation_and_action_constraint_splitter=mask_token_splitter)
-    return create_policy_eval_video(policy, env, filename, max_steps, max_envs_to_show, fps)
+    return create_and_save_policy_eval_video(policy, env,
+                                             filename=filename, max_steps=max_steps,
+                                             max_envs_to_show=max_envs_to_show, fps=fps,
+                                             rewrite_rewards=rewrite_rewards)

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
-from typing import List, Tuple, Dict, Union
+from typing import List, Optional, Tuple, Dict, Union
 from collections import defaultdict
 
 import gym
@@ -134,7 +134,7 @@ class SearchTreeNode:
         self.action = action
         self.reward = reward
         self.is_terminal_state = done
-        self.children: Dict[int, List['SearchTreeNode']] = defaultdict(list)
+        self.children: Dict[int, List['SearchTreeNode']] = dict()
         self.q_function = q_function
         self.tried_actions = []
         self.duplicate_state_ancestor = self.find_duplicate_state_ancestor()
@@ -189,7 +189,13 @@ class SearchTreeNode:
         return path
 
     def add_child_node(self, node: 'SearchTreeNode'):
-        self.children[node.action].append(node)
+        if node.action not in self.children:
+            self.children[node.action] = [node]
+        else:
+            self.children[node.action].append(node)
+
+    def has_action_children(self, action: int) -> bool:
+        return action in self.children and self.children[action]
 
     def get_q_value(self, action: int) -> float:
         return self.q_function(self.state, action)
@@ -208,14 +214,19 @@ class SearchTreeNode:
             return self.parent.node_id
         return -1
 
-    def get_children(self) -> Dict[int, List['SearchTreeNode']]:
+    def get_children(
+        self, action: Optional[int] = None
+    ) -> Union[Dict[int, List['SearchTreeNode']], List['SearchTreeNode']]:
         """
-            Returns a dictionary of the children of the node.
+            Returns a dictionary of the children of the node for each action
+            if no action is given, or a list of the children of the node for the given action.
             The keys are the actions that led to the children, and the
             values are the children. To account for the environment
             potentially being stochastic, there may be multiple
             children for each action.
         """
+        if action is not None:
+            return self.children[action] if action in self.children else []
         return self.children
 
     def can_expand(self) -> bool:

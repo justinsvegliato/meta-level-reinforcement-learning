@@ -108,6 +108,5 @@ def construct_maze_policy_string(meta_env, policy) -> str:
         return [item]
 
     actions_dict = dict(build_trajectory(policy.tree.root_node))
-
     meta_env.set_environment_to_root_state()
     return construct_maze_string(maze_view, actions_dict)

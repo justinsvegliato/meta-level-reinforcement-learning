@@ -1,8 +1,7 @@
-from mlrl.meta.q_estimation import SearchOptimalQEstimator, RecursiveDeterministicOptimalQEstimator
+from mlrl.meta.q_estimation import SearchOptimalQEstimator, DeterministicOptimalQEstimator
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import GreedySearchTreePolicy, SearchTreePolicy
 from mlrl.meta.tree_tokenisation import NodeActionTokeniser, NodeTokeniser
-from mlrl.utils import one_hot
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
@@ -79,8 +78,8 @@ class MetaEnv(gym.Env):
         # Functions
         self.tree_policy_renderer = tree_policy_renderer
 
-        self.search_optimal_q_estimator = search_optimal_q_estimator or \
-            RecursiveDeterministicOptimalQEstimator(object_env_discount)
+        self.optimal_q_estimator = search_optimal_q_estimator or \
+            DeterministicOptimalQEstimator(object_env_discount)
 
         self.make_tree_policy = make_tree_policy or \
             (lambda tree: GreedySearchTreePolicy(tree, object_env_discount))
@@ -239,10 +238,7 @@ class MetaEnv(gym.Env):
 
     def root_q_distribution(self) -> Dict[int, float]:
         root_state = self.tree.get_root().get_state()
-        return {
-            a: self.search_optimal_q_estimator.compute_root_q(self.tree, a)
-            for a in root_state.get_actions()
-        }
+        return self.optimal_q_estimator.estimate_optimal_q_values(self.tree, root_state)
 
     def get_computational_reward(self, verbose=False) -> float:
         """
@@ -260,15 +256,15 @@ class MetaEnv(gym.Env):
         else:
             updated_policy = self.make_tree_policy(self.tree)
             if verbose:
-                print('Estimating value of policy with updated tree:\n', self.tree)
+                print('Estimating value of new policy:\n', self.tree)
 
-            updated_policy_value = updated_policy.tree_conditioned_root_value_estimate(self.tree, debug_verbose=verbose)
+            updated_policy_value = updated_policy.evaluate(self.tree, verbose=verbose)
 
             if verbose:
                 print()
-                print('Estimating value of policy with prior tree:\n', self.search_tree_policy.tree)
+                print('Estimating value of prior policy:\n', self.search_tree_policy.tree)
 
-            prior_policy_value = self.search_tree_policy.tree_conditioned_root_value_estimate(self.tree, debug_verbose=verbose)
+            prior_policy_value = self.search_tree_policy.evaluate(self.tree, verbose=verbose)
 
             self.last_computational_reward = updated_policy_value - prior_policy_value
             if verbose:
@@ -285,13 +281,14 @@ class MetaEnv(gym.Env):
         self.set_environment_to_root_state()
         _, self.last_meta_reward, done, info = self.object_env.step(action)
 
-        if self.keep_subtree_on_terminate and action in self.tree.get_root().get_children():
+        if self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
         self.prev_search_policy = None
+        self.n_computations = 0
 
         info.update({
             'computational_reward': 0,
@@ -607,7 +604,7 @@ class MetaEnv(gym.Env):
         root_state = self.tree.get_root().get_state()
         action_labels = root_state.get_action_labels()
         if action_labels:
-            q_dist = self.search_tree_policy.estimate_optimal_q_values(root_state)
+            q_dist = self.optimal_q_estimator.estimate_optimal_q_values(self.tree, root_state)
             q_dist = np.array(list(q_dist.values()))
 
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)

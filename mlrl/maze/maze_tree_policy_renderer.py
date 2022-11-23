@@ -38,8 +38,8 @@ def render_tree_policy(env, tree_policy: SearchTreePolicy) -> np.array:
 
         start_cell = tuple(node.state.get_state_vector())
         action = tree_policy.get_action(node.state)
-        if action in node.get_children() and node.get_children()[action]:
-            child, *_ = node.get_children()[action]
+        if node.has_action_children(action):
+            child, *_ = node.get_children(action)
             end_cell = tuple(child.state.get_state_vector())
             return [(start_cell, end_cell)] + recursive_get_arrows(child)
 

@@ -1,7 +1,8 @@
+from collections import defaultdict
 from functools import lru_cache
-from typing import Callable
+from typing import Callable, Dict, List, Tuple
 from mlrl.networks.search_q_net import SearchQNetwork
-from .search_tree import SearchTree, SearchTreeNode
+from .search_tree import ObjectState, SearchTree
 
 from abc import ABC, abstractmethod
 
@@ -15,67 +16,142 @@ class SearchOptimalQEstimator(ABC):
         self.discount = discount
 
     @abstractmethod
-    def compute_root_q(self, tree: SearchTree, action: int) -> float:
-        """
-        Computes the Q-value for a given state and action using the search
-        tree and the Q-hat function to evaluate the leaf nodes.
-
-        Args:
-            search_tree_node: The node in the search tree corresponding to the state
-            action: The action to evaluate
-        """
+    def estimate_optimal_value(
+            self, tree: SearchTree, state: ObjectState) -> float:
         pass
 
-    def compute_root_value(self, search_tree: SearchTree) -> float:
-        """
-        Computes the value of a given state using the search tree and the Q-hat function
-        """
-        actions = search_tree.get_root().get_actions()
-        return max((self.compute_root_q(search_tree, action) for action in actions), default=0)
+    @abstractmethod
+    def estimate_optimal_q_value(
+            self, tree: SearchTree, state: ObjectState, action: int) -> float:
+        pass
+
+    @abstractmethod
+    def estimate_optimal_q_values(
+            self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
+    ) -> Dict[ObjectState, float]:
+        pass
 
 
-class RecursiveDeterministicOptimalQEstimator(SearchOptimalQEstimator):
+class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
     """
     Assumes a deterministic environment and only uses child nodes to compute Q-values
     """
 
     def __init__(self, discount: float = 0.99):
-        self.discount = discount
+        super().__init__(discount)
 
-    def compute_value(self, search_node: SearchTreeNode) -> float:
-        """
-        Computes the value of a given state using the search tree and the Q-hat function
-        """
-        actions = search_node.state.get_actions()
-        return max((self.compute_q(search_node, action) for action in actions), default=0)
+    def estimate_optimal_value(
+            self, tree: SearchTree, state: ObjectState, trajectory=None, verbose=False) -> float:
+        q_values = self.estimate_optimal_q_values(tree, state, trajectory=trajectory, verbose=verbose)
+        return max(q_values.values())
 
-    def compute_q(self, search_tree_node: SearchTreeNode, action: int) -> float:
-        """
-        Computes the Q-value for a given state and action using the search
-        tree and the Q-hat function to evaluate the leaf nodes.
+    def estimate_optimal_q_value(
+            self, tree: SearchTree, state: ObjectState, action: int,
+            trajectory=None, verbose=False
+    ) -> float:
+        trajectory = trajectory or []
 
-        Args:
-            search_tree_node: The node in the search tree corresponding to the state
-            action: The action to evaluate
-        """
-        children = search_tree_node.get_children()
-        if action in children and children[action]:
-            child_node = children[action][0]
-            reward = child_node.get_reward_received()
-            return reward + self.discount * self.compute_value(child_node)
+        state_nodes = tree.get_state_nodes(state)
+        children = sum([node.get_children(action) for node in state_nodes], [])
+        if children:
+            if verbose:
+                print('Aggregating Q-value estimates from children:', children)
 
-        return search_tree_node.get_q_value(action)
+            q_value = 0
 
-    def compute_root_q(self, tree: SearchTree, action: int) -> float:
-        """
-        Computes the Q-value for a given state and action using the search
-        tree and the Q-hat function to evaluate the leaf nodes.
+            for child in children:
+                cycle_trajectory = self.find_cycle(child.state, trajectory)
+                if cycle_trajectory:
+                    value = self.compute_cycle_value(cycle_trajectory)
+                    if verbose:
+                        print(f'Cycle value of duplicate child {child}:', value)
+                else:
+                    if verbose:
+                        print()
+                    child_q_values = self.estimate_optimal_q_values(
+                        tree, child.state,
+                        trajectory=trajectory + [(state, action, child.reward)],
+                        verbose=verbose
+                    )
+                    value = max(child_q_values.values())
 
-        Args:
-            search_tree_node: The node in the search tree corresponding to the state
-            action: The action to evaluate
+                q_value = child.reward + self.discount * value
+
+            q_value /= len(children)
+
+        else:
+            q_value = tree.q_function(state, action)
+
+            if verbose:
+                print(f'Computing Q-value from estimator on leaf node:'
+                      f'Q({state}, {state.get_action_label(action)}) =', q_value)
+
+        return q_value
+
+    def estimate_optimal_q_values(
+            self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
+    ) -> Dict[ObjectState, float]:
+        trajectory = trajectory or []
+
+        if verbose:
+            state_nodes = tree.get_state_nodes(state)
+            nodes_str = '\n'.join(map(str, state_nodes)) if state_nodes else '[]'
+            print(f'Estimating optimal Q-values for state {state} from nodes:\n{nodes_str}')
+
+        q_values = {
+            action: self.estimate_optimal_q_value(tree, state, action,
+                                                  trajectory=trajectory, verbose=verbose)
+            for action in state.get_actions()
+        }
+
+        if verbose:
+            print()
+            print('Optimal Q-values:\n', '\n'.join([
+                f'Q*({state}, {state.get_action_label(a)}) = {q}'
+                for a, q in q_values.items()
+            ]))
+
+        return q_values
+
+    def q_aggregation(self, q_val1: float, q_val2: float) -> float:
         """
-        return self.compute_q(tree.get_root(), action)
+        How to aggregate competing Q-values for the same state and action
+        from different parts of the tree.
+
+        The default implementation returns the minimum value,
+        i.e. a pessimistic estimate of the Q-value.
+        """
+        if q_val1 is None:
+            return q_val2
+        if q_val2 is None:
+            return q_val1
+
+        return min(q_val1, q_val2)
+
+    @staticmethod
+    def find_cycle(
+            state: ObjectState,
+            trajectory: List[Tuple[ObjectState, int, float]]
+    ) -> List[Tuple[ObjectState, int, float]]:
+        state_idxs = [
+            i for i, (s, _, _) in enumerate(trajectory)
+            if s == state
+        ]
+        if state_idxs:
+            i = state_idxs[0]
+            return trajectory[i:]
+        return []
+
+    def compute_cycle_value(self, cycle_traj: List[Tuple[ObjectState, int, float]]) -> float:
+        """
+        Computes the value of a cycle in the tree.
+        """
+        cycle_len = len(cycle_traj)
+        cycle_return = sum([
+            reward * self.discount ** t
+            for t, (_, _, reward) in enumerate(cycle_traj)
+        ])
+        return cycle_return / (1 - self.discount**cycle_len)
 
 
 class SearchQModelEstimator(SearchOptimalQEstimator):

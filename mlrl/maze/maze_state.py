@@ -58,7 +58,7 @@ class MazeState(ObjectState):
         return np.array(self.state_vec, dtype=np.float32)
 
     def get_maximum_number_of_actions(self):
-        return 4
+        return len(self.get_actions())
 
     def get_actions(self) -> list:
         return [0, 1, 2, 3]
