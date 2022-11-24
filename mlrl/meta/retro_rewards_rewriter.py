@@ -15,6 +15,12 @@ import numpy as np
 
 
 class TrajectoryRewriterWrapper:
+    """
+    Wrapper class for a trajectory that allows for rewriting the reward.
+    Specifically, this class handles the case where the trajectory is from a
+    batched environment, and the reward needs to be rewritten for each
+    environment in the batch.
+    """
 
     def __init__(self, env: BatchedPyEnvironment, traj: trajectory.Trajectory):
         self.env = env
@@ -53,6 +59,15 @@ class TrajectoryRewriterWrapper:
         self.traj = self.traj._replace(reward=self.traj.reward * (1 - mask) + new_reward * mask)
 
     def rewrite_reward(self, i: int, final_tree: SearchTree, verbose: bool = False):
+        """
+        Rewrites the reward for the ith environment in the batch.
+        Marks the ith environment as handled.
+
+        Args:
+            i: The index of the environment in the batch.
+            final_tree: The final search tree for the ith environment to use for 
+                evaluating each action.
+        """
         self.is_handled[i] = True
         prev_policy = self.get_prev_policy(i)
         policy = self.get_policy(i)
@@ -93,12 +108,40 @@ class TrajectoryRewriterWrapper:
 
 
 class RetroactiveRewardsRewriter:
+    """
+    The class creates a callable object that can be used as a callback for
+    the tf_agents driver. The callback is called after each meta-env step
+    with a trajectory object. The trajectories are stored in a list
+    as they are recieved, and once a computation is terminated (i.e. the
+    agent takes an action a terminate action or the episode ends), the callback
+    will rewrite each of the stored rewards according to the final search tree.
+    The idea is that this improves the reliability of the reward signal, as
+    the agent will be able to learn from the final search tree, rather than
+    the prior search tree at the time of the action.
+
+    After the rewards are rewritten, the trajectories are flushed from the
+    class using a call to a given callable.
+
+    The class is designed to work with a batched environment, and will
+    rewrite the rewards for each environment in the batch. It will only
+    flush the trajectories once all of the environments have had a chance
+    to rewrite their rewards.
+    """
 
     def __init__(self,
                  env: PyEnvironment,
                  add_batch: Callable[[trajectory.Trajectory], Any],
                  include_info: bool = False,
                  verbose: bool = False):
+        """
+        Args:
+            env: The environment to use for the callback.
+            add_batch: A callable that is called with a trajectory object when
+                the rewards have been rewritten.
+            include_info: Whether to include the info dict with the trajectory
+                when calling add_batch.
+            verbose: Whether to print out information about the policy updates
+        """
         self.env = env
         self.verbose = verbose
         self.include_info = include_info
@@ -122,6 +165,10 @@ class RetroactiveRewardsRewriter:
         self.flush_handled_trajectories()
 
     def flush_handled_trajectories(self):
+        """
+        Flushes trajectories that have had their rewards rewritten across all
+        environments in the batch using the add_batch callable.
+        """
         for traj_wrapper in self.trajectories:
             if traj_wrapper.all_rewrites_handled():
                 if self.include_info:
@@ -151,6 +198,13 @@ class RetroactiveRewardsRewriter:
         return [t for t in self.trajectories if not t.is_rewrite_handled(i)]
 
     def rewrite_rewards(self, i: int):
+        """
+        Rewrites the rewards for the ith environment in the batch using the current
+        search tree for evaluating each of the previous policies.
+
+        The rewards are rewritten in the order that the trajectories were recieved,
+        and marked as handled. This method does not flush the trajectories.
+        """
         unhandled_trajectories = self.get_unhandled_trajectories(i)
         if not unhandled_trajectories:
             return
@@ -175,6 +229,10 @@ class RetroactiveRewardsRewriter:
             print()
 
     def __call__(self, traj: trajectory.Trajectory):
+        """
+        Takes a trajectory and stores it in a list. Once a sequence of trajectories
+        is terminated, the rewards are rewritten and the trajectories are flushed.
+        """
         traj_wrapper = TrajectoryRewriterWrapper(self.env, traj)
         self.trajectories.append(traj_wrapper)
         any_rewrites = False
