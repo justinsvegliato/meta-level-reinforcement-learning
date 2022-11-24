@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Tuple, Union
 from IPython.display import HTML, clear_output
 import base64
 
@@ -88,18 +88,25 @@ def embed_mp4(filename: str, clear_before=True) -> HTML:
     return HTML(tag)
 
 
+def stack_renders(frames) -> np.array:
+    """ Vertically stacks a list of frames into a single image. """
+    imgs = np.array(frames)
+    b, h, w, c = imgs.shape
+    return imgs.reshape((b * h, w, c))
+
+
 def create_policy_eval_video(policy: TFPolicy,
                              env: TFEnvironment,
-                             max_envs_to_show: int = 2,
+                             max_envs_to_show: int = None,
                              rewrite_rewards: bool = False,
                              max_steps: int = 60) -> List[np.array]:
+    max_envs_to_show = max_envs_to_show or env.batch_size or 1
 
     if rewrite_rewards:
         from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
-        rewritten_trajs = [{'terminal': False}]
+        rewritten_trajs = [(None, {'terminal': [False] * env.batch_size})]
         rewards_rewriter = RetroactiveRewardsRewriter(
-            env, policy.collect_data_spec, rewritten_trajs.append,
-            include_info=True
+            env, rewritten_trajs.append, include_info=True
         )
 
     if not isinstance(env, TFPyEnvironment):
@@ -109,26 +116,26 @@ def create_policy_eval_video(policy: TFPolicy,
 
     policy_state = policy.get_initial_state(env.batch_size)
 
-    def render_env(i):
-        gym_env = env.envs[i].gym
+    def render_env(gym_env, i: int = 0):
+
         if not isinstance(policy, RandomTFPolicy) and hasattr(policy, 'distribution'):
             policy_step = policy.distribution(env.current_time_step(), policy_state)
             if isinstance(policy_step.action, tfp.distributions.Categorical):
                 probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
                 return gym_env.render(meta_action_probs=probs)
+
         return gym_env.render()
 
-    def get_image() -> np.array:
+    def get_frames():
         if hasattr(env, 'envs'):
-            imgs = np.array([
-                render_env(i)
-                for i in range(min(max_envs_to_show, env.batch_size))
-            ])
-            b, h, w, c = imgs.shape
-            return imgs.reshape((b * h, w, c))
-        return env.render()
+            return [
+                render_env(e.gym, i) for i, e in enumerate(env.envs)
+                if i < max_envs_to_show
+            ]
+        else:
+            return [render_env(env, 0)]
 
-    frames = [get_image()]
+    frames = [get_frames()]
     for _ in range(max_steps):
         time_step = env.current_time_step()
         action_step = policy.action(env.current_time_step(), policy_state)
@@ -137,66 +144,73 @@ def create_policy_eval_video(policy: TFPolicy,
 
         if rewrite_rewards:
             action_step_with_previous_state = action_step._replace(state=policy_state)
-            traj_item = trajectory.from_transition(
+            traj = trajectory.from_transition(
                 time_step, action_step_with_previous_state, next_time_step)
-            rewards_rewriter(traj_item)
+            rewards_rewriter(traj)
 
-        frames.append(get_image())
+        frames.append(get_frames())
 
     if rewrite_rewards:
-        return _create_rewritten_frames(frames, rewritten_trajs, rewards_rewriter)
+        rewards_rewriter.flush_all()
+        meta_env = rewards_rewriter.get_env(0)
+        frames = _create_rewritten_frames(frames, rewritten_trajs, meta_env.object_action_to_string)
 
-    return frames
+    return [stack_renders(renders) for renders in frames]
 
 
-def _create_rewritten_frames(frames: List[np.array],
-                             rewritten_trajs: List[dict],
-                             rewards_rewriter) -> List[np.array]:
+def _create_rewritten_frames(frames: List[List[np.array]],
+                             rewritten_trajs: List[Tuple[trajectory.Trajectory, dict]],
+                             object_action_to_string: callable) -> List[np.array]:
 
     from mlrl.utils.plot_search_tree import plot_tree
 
-    rewards_rewriter.flush_all()
     new_frames = []
-    new_return = 0
-    old_return = 0
-    for traj_item, frame in zip(rewritten_trajs, frames):
-        if 'trajectory' in traj_item:
-            traj = traj_item['trajectory']
-            reward = traj.reward
-            if isinstance(reward, tf.Tensor):
-                reward = reward.numpy()
-            if traj.is_first():
-                new_return = 0
-                old_return = 0
-        else:
-            reward = 0
+    n_envs = len(frames[0])
+    new_return = [0 for _ in range(n_envs)]
+    old_return = [0 for _ in range(n_envs)]
 
-        new_return += reward
-        old_return += traj_item.get('original_reward', 0)
+    for (traj, info), renders in zip(rewritten_trajs, frames):
+        new_frames.append([])
+        for i, frame in enumerate(renders):
+            if traj is not None:
+                reward = traj.reward[i]
 
-        fig = plt.figure(tight_layout=True, figsize=(20, 6))
-        gs = gridspec.GridSpec(1, 4)
+                if traj.is_first()[i]:
+                    new_return[i] = 0
+                    old_return[i] = 0
+            else:
+                reward = 0
 
-        env_ax = fig.add_subplot(gs[:, :3])
-        tree_ax = fig.add_subplot(gs[:, 3:])
-        env_ax.axis('off')
-        tree_ax.axis('off')
+            new_return[i] += reward
 
-        env_ax.set_title('Meta-level Environment')
-        env_ax.imshow(frame)
+            if 'original_reward' in info:
+                original_reward = info['original_reward'][i]
+                old_return[i] += original_reward
 
-        eval_tree = traj_item.get('eval_tree')
-        if eval_tree is not None and not traj_item['terminal']:
-            meta_env = rewards_rewriter.get_env(0)
-            plot_tree(eval_tree, ax=tree_ax, show=False,
-                      object_action_to_string=meta_env.object_action_to_string,
-                      title='Evaluation Tree')
+            fig = plt.figure(tight_layout=True, figsize=(20, 6))
+            gs = gridspec.GridSpec(1, 4)
 
-        plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward:.4f}.\n'
-                     f'New Return = {new_return:.4f}. Old Return = {old_return:.4f}', fontsize=16)
-        plt.tight_layout()
-        new_frames.append(plot_to_array(fig))
-        plt.close()
+            env_ax = fig.add_subplot(gs[:, :3])
+            tree_ax = fig.add_subplot(gs[:, 3:])
+            env_ax.axis('off')
+            tree_ax.axis('off')
+
+            env_ax.set_title('Meta-level Environment')
+            env_ax.imshow(frame)
+
+            eval_tree = info.get('eval_tree', [None] * n_envs)[i]
+            is_terminal = info.get('terminal', [False] * n_envs)[i]
+            if eval_tree is not None and not is_terminal:
+                plot_tree(eval_tree, ax=tree_ax, show=False,
+                          object_action_to_string=object_action_to_string,
+                          title='Evaluation Tree')
+
+            plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward:.4f}.\n'
+                         f'New Return = {new_return[i]:.4f}. Old Return = {old_return[i]:.4f}', fontsize=16)
+
+            plt.tight_layout()
+            new_frames[-1].append(plot_to_array(fig))
+            plt.close()
 
     return new_frames
 

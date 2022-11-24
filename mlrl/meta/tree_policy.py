@@ -1,8 +1,8 @@
+from functools import lru_cache
 from typing import Dict, List
 from mlrl.meta.search_tree import SearchTree, SearchTreeNode, ObjectState
 
 from abc import ABC, abstractmethod
-from collections import defaultdict
 
 import numpy as np
 
@@ -28,10 +28,12 @@ class SearchTreePolicy(ABC):
         return np.random.choice(list(action_probs.keys()),
                                 p=list(action_probs.values()))
 
+    @lru_cache(maxsize=None)
     @abstractmethod
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
         pass
 
+    @lru_cache(maxsize=100)
     def evaluate(
             self, evaluation_tree: SearchTree, verbose=False
     ) -> float:

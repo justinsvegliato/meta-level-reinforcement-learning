@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
+from functools import lru_cache
 from typing import List, Optional, Tuple, Dict, Union
 
 import gym
@@ -82,6 +83,9 @@ class ObjectState(ABC):
 
     def __eq__(self, other: 'ObjectState') -> bool:
         return np.array_equal(self.get_state_vector(), other.get_state_vector())
+
+    def __hash__(self) -> int:
+        return hash(self.get_state_string())
 
 
 class QFunction(ABC):
@@ -277,6 +281,9 @@ class SearchTreeNode:
 
         return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
 
+    def __hash__(self):
+        return hash((self.node_id, self.state, self.reward, self.action))
+
 
 class SearchTree:
     """
@@ -372,6 +379,7 @@ class SearchTree:
         """
         return self.get_subtree(0, action)
 
+    @lru_cache(maxsize=1000)
     def get_state_nodes(self, state: ObjectState) -> List[SearchTreeNode]:
         """
         Returns all nodes in the tree that correspond to the given state.
@@ -450,3 +458,6 @@ class SearchTree:
 
     def __repr__(self) -> str:
         return str(self.root_node)
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.node_list))
