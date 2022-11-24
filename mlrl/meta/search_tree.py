@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
 from typing import List, Optional, Tuple, Dict, Union
-from collections import defaultdict
 
 import gym
 import numpy as np
@@ -45,7 +44,9 @@ class ObjectState(ABC):
 
     def get_action_label(self, action) -> str:
         """ Returns a label for the action. """
-        return {a: l for a, l in zip(self.get_actions(), self.get_action_labels())}[action]
+        return {
+            a: l for a, l in zip(self.get_actions(), self.get_action_labels())
+        }[action]
 
     def get_action_vector_dim(self) -> int:
         """

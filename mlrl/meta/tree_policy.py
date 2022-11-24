@@ -11,17 +11,22 @@ class SearchTreePolicy(ABC):
 
     def __init__(self,
                  tree: SearchTree,
-                 optimal_q_estimator: 'SearchOptimalQEstimator',
+                 optimal_q_estimator,
                  object_discount: float = 0.99):
         # makes a copy of the tree to avoid changing
         # the policy if the original tree is changed
         self.tree = tree.copy()
         self.object_discount = object_discount
-        self.estimator = optimal_q_estimator
+        from mlrl.meta.q_estimation import SearchOptimalQEstimator
+        self.estimator: SearchOptimalQEstimator = optimal_q_estimator
 
-    @abstractmethod
     def get_action(self, state: ObjectState) -> int:
-        pass
+        """
+        Get the action to take in the given state.
+        """
+        action_probs = self.get_action_probabilities(state)
+        return np.random.choice(list(action_probs.keys()),
+                                p=list(action_probs.values()))
 
     @abstractmethod
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
@@ -76,24 +81,29 @@ class SearchTreePolicy(ABC):
 
 class GreedySearchTreePolicy(SearchTreePolicy):
 
-    def __init__(self, tree: SearchTree, object_discount: float = 0.99):
+    def __init__(self,
+                 tree: SearchTree,
+                 break_ties_randomly: bool = True,
+                 object_discount: float = 0.99):
+        self.break_ties_randomly = break_ties_randomly
+
         from mlrl.meta.q_estimation import DeterministicOptimalQEstimator
         estimator = DeterministicOptimalQEstimator(object_discount)
         super().__init__(tree, estimator, object_discount)
 
-    def get_action(self, state: ObjectState) -> int:
-        """
-        This method returns the action with the highest Q-value for the given
-        state using the tree policy to evaluate the Q-values.
-        """
-        q_values = self.estimator.estimate_optimal_q_values(self.tree, state)
-        return max(q_values, key=q_values.get)
-
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
-        action = self.get_action(state)
-        probabilities = defaultdict(lambda: 0.0)
-        probabilities[action] = 1.0
-        return probabilities
+        q_values = self.estimator.estimate_optimal_q_values(self.tree, state)
+        max_q = max(q_values.values())
+        max_actions = [a for a, q in q_values.items() if q == max_q]
+        probs = {a: 0 for a in range(len(state.actions))}
+
+        if self.break_ties_randomly:
+            for a in max_actions:
+                probs[a] = 1 / len(max_actions)
+        else:
+            probs[max_actions[0]] = 1
+
+        return probs
 
     def __repr__(self) -> str:
 

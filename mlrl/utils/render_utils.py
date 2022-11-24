@@ -96,7 +96,6 @@ def create_policy_eval_video(policy: TFPolicy,
 
     if rewrite_rewards:
         from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
-        from mlrl.utils.plot_search_tree import plot_tree
         rewritten_trajs = [{'terminal': False}]
         rewards_rewriter = RetroactiveRewardsRewriter(
             env, policy.collect_data_spec, rewritten_trajs.append,
@@ -145,41 +144,61 @@ def create_policy_eval_video(policy: TFPolicy,
         frames.append(get_image())
 
     if rewrite_rewards:
-        rewards_rewriter.flush_all()
-        new_frames = []
-        for traj_item, frame in zip(rewritten_trajs, frames):
-            if 'trajectory' in traj_item:
-                reward = traj_item['trajectory'].reward
-                if isinstance(reward, tf.Tensor):
-                    reward = reward.numpy()
-            else:
-                reward = 0
-
-            fig = plt.figure(tight_layout=True, figsize=(20, 6))
-            gs = gridspec.GridSpec(1, 4)
-
-            env_ax = fig.add_subplot(gs[:, :3])
-            tree_ax = fig.add_subplot(gs[:, 3:])
-            env_ax.axis('off')
-            tree_ax.axis('off')
-
-            env_ax.set_title('Meta-level Environment')
-            env_ax.imshow(frame)
-
-            eval_tree = traj_item.get('eval_tree')
-            if eval_tree is not None and not traj_item['terminal']:
-                plot_tree(eval_tree, ax=tree_ax, show=False,
-                          object_action_to_string=rewards_rewriter.get_env(0).object_action_to_string,
-                          title='Evaluation Tree')
-
-            plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward}', fontsize=16)
-            plt.tight_layout()
-            new_frames.append(plot_to_array(fig))
-            plt.close()
-
-        return new_frames
+        return _create_rewritten_frames(frames, rewritten_trajs, rewards_rewriter)
 
     return frames
+
+
+def _create_rewritten_frames(frames: List[np.array],
+                             rewritten_trajs: List[dict],
+                             rewards_rewriter) -> List[np.array]:
+
+    from mlrl.utils.plot_search_tree import plot_tree
+
+    rewards_rewriter.flush_all()
+    new_frames = []
+    new_return = 0
+    old_return = 0
+    for traj_item, frame in zip(rewritten_trajs, frames):
+        if 'trajectory' in traj_item:
+            traj = traj_item['trajectory']
+            reward = traj.reward
+            if isinstance(reward, tf.Tensor):
+                reward = reward.numpy()
+            if traj.is_first():
+                new_return = 0
+                old_return = 0
+        else:
+            reward = 0
+
+        new_return += reward
+        old_return += traj_item.get('original_reward', 0)
+
+        fig = plt.figure(tight_layout=True, figsize=(20, 6))
+        gs = gridspec.GridSpec(1, 4)
+
+        env_ax = fig.add_subplot(gs[:, :3])
+        tree_ax = fig.add_subplot(gs[:, 3:])
+        env_ax.axis('off')
+        tree_ax.axis('off')
+
+        env_ax.set_title('Meta-level Environment')
+        env_ax.imshow(frame)
+
+        eval_tree = traj_item.get('eval_tree')
+        if eval_tree is not None and not traj_item['terminal']:
+            meta_env = rewards_rewriter.get_env(0)
+            plot_tree(eval_tree, ax=tree_ax, show=False,
+                      object_action_to_string=meta_env.object_action_to_string,
+                      title='Evaluation Tree')
+
+        plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward:.4f}.\n'
+                     f'New Return = {new_return:.4f}. Old Return = {old_return:.4f}', fontsize=16)
+        plt.tight_layout()
+        new_frames.append(plot_to_array(fig))
+        plt.close()
+
+    return new_frames
 
 
 def create_and_save_policy_eval_video(policy: TFPolicy,

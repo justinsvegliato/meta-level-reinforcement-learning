@@ -28,7 +28,7 @@ class SearchOptimalQEstimator(ABC):
     @abstractmethod
     def estimate_optimal_q_values(
             self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
-    ) -> Dict[ObjectState, float]:
+    ) -> Dict[int, float]:
         pass
 
 
@@ -90,7 +90,7 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
 
     def estimate_optimal_q_values(
             self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
-    ) -> Dict[ObjectState, float]:
+    ) -> Dict[int, float]:
         trajectory = trajectory or []
 
         if verbose:

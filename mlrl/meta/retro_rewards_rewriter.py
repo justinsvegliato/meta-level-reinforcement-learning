@@ -114,6 +114,8 @@ class RetroactiveRewardsRewriter:
             return policy.evaluate(final_tree)
 
         for prev_policy, traj, policy in self.trajectories_and_policies[i]:
+            original_reward = traj.reward
+
             if None not in [prev_policy, policy, final_tree]:
                 prev_policy_value = get_policy_value(prev_policy)
                 policy_value = get_policy_value(policy)
@@ -135,7 +137,8 @@ class RetroactiveRewardsRewriter:
                     'policy': policy,
                     'prev_policy': prev_policy,
                     'eval_tree': final_tree,
-                    'terminal': self.is_terminate(traj)
+                    'terminal': self.is_terminate(traj),
+                    'original_reward': original_reward
                 })
             else:
                 self.add_batch(traj)
