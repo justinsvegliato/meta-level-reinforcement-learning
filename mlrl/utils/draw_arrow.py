@@ -9,7 +9,7 @@ def draw_arrow(
         body_width: int = 2,
         head_width: int = 4,
         head_height: int = 2,
-    ):
+):
     """
     Draw an arrow between start and end with the arrow head at the end.
 

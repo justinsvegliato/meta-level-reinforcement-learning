@@ -1,4 +1,4 @@
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 from official.nlp.modeling.layers import Transformer
 

@@ -2,7 +2,7 @@ from mlrl.meta.meta_env import MetaEnv
 
 import numpy as np
 
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 import tensorflow_probability as tfp
 from official.nlp.modeling.layers import Transformer

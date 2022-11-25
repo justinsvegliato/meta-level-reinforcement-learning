@@ -25,7 +25,7 @@ class ObjectState(ABC):
         pass
 
     @abstractmethod
-    def get_state_vector(self) -> np.array:
+    def get_state_vector(self) -> np.ndarray:
         """ Returns a vector representation of the state. """
         pass
 
@@ -35,7 +35,7 @@ class ObjectState(ABC):
         pass
 
     @abstractmethod
-    def get_action_vector(self, action) -> np.array:
+    def get_action_vector(self, action) -> np.ndarray:
         """ Returns a vector representation of the action. """
         pass
 
@@ -116,9 +116,9 @@ class SearchTreeNode:
 
     def __init__(self,
                  node_id: int,
-                 parent: 'SearchTreeNode',
+                 parent: Optional['SearchTreeNode'],
                  state: ObjectState,
-                 action: int,
+                 action: Optional[int],
                  reward: float,
                  done: bool,
                  q_function: QFunction):
@@ -148,14 +148,14 @@ class SearchTreeNode:
     def duplicate_state_ancestor(self) -> Optional['SearchTreeNode']:
         return self.find_duplicate_state_ancestor()
 
-    def find_duplicate_state_ancestor(self) -> 'SearchTreeNode':
+    def find_duplicate_state_ancestor(self) -> Optional['SearchTreeNode']:
         """
         Returns the first ancestor of the given child node that has the same state as the given parent node.
         If no such ancestor exists, returns None.
         """
         current_node = self
-        while not current_node.is_root():
-            current_node = current_node.get_parent()
+        while current_node.parent is not None:
+            current_node = current_node.parent
             if current_node.state == self.state:
                 return current_node
 
@@ -192,19 +192,19 @@ class SearchTreeNode:
         """
         path = []
         current_node = self
-        while not current_node.is_root():
-            current_node = current_node.get_parent()
+        while current_node.parent is not None:
+            current_node = current_node.parent
             path.append(current_node)
         return path
 
     def add_child_node(self, node: 'SearchTreeNode'):
         if node.action not in self.children:
-            self.children[node.action] = [node]
+            self.children[node.get_action()] = [node]
         else:
-            self.children[node.action].append(node)
+            self.children[node.get_action()].append(node)
 
     def has_action_children(self, action: int) -> bool:
-        return action in self.children and self.children[action]
+        return action in self.children and len(self.children[action]) > 0
 
     def get_q_value(self, action: int) -> float:
         return self.q_function(self.state, action)
@@ -212,14 +212,14 @@ class SearchTreeNode:
     def get_id(self) -> int:
         return self.node_id
 
-    def get_parent(self) -> 'SearchTreeNode':
+    def get_parent(self) -> Optional['SearchTreeNode']:
         return self.parent
 
     def is_root(self) -> bool:
         return self.parent is None
 
     def get_parent_id(self) -> int:
-        if not self.is_root():
+        if self.parent is not None:
             return self.parent.node_id
         return -1
 
@@ -249,7 +249,7 @@ class SearchTreeNode:
 
         return (not self.is_terminal_state) and (not all_tried)
 
-    def get_trajectory(self) -> Tuple[int, float, ObjectState]:
+    def get_trajectory(self) -> Tuple[Optional[int], float, ObjectState]:
         return (self.action, self.reward, self.state)
 
     def get_state(self) -> ObjectState:
@@ -257,9 +257,6 @@ class SearchTreeNode:
 
     def get_action(self) -> int:
         return self.action or -1
-
-    def get_preceding_action(self) -> int:
-        return self.action
 
     def get_reward_received(self) -> float:
         return self.reward
@@ -276,10 +273,12 @@ class SearchTreeNode:
         if depth == 0:
             return f'{node_str}{maybe_newline}{children_str}'
 
-        action_label = self.parent.state.get_action_label(self.action)
-        transition_str = f'|---[{action_label}, {self.reward}]-->'
+        if self.parent is not None:
+            action_label = self.parent.state.get_action_label(self.action)
+            transition_str = f'|---[{action_label}, {self.reward}]-->'
+            return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
 
-        return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
+        raise AttributeError('Expected node to have a parent.')
 
     def __hash__(self):
         return hash((self.node_id, self.state, self.reward, self.action))
@@ -346,7 +345,7 @@ class SearchTree:
 
     def get_subtree(self, node_id: int, action: int) -> 'SearchTree':
         """
-        Creates the subtree rooted with the child node corresponding to the given node and action. 
+        Creates the subtree rooted with the child node corresponding to the given node and action.
         """
         root_node = self.node_list[node_id].children[action][0]
         root_node.parent = None
@@ -362,7 +361,6 @@ class SearchTree:
                 for child in children:
                     # update child data
                     child.node_id = len(sub_tree.node_list)
-                    child.duplicate_state_ancestor = child.find_duplicate_state_ancestor()
 
                     # add to node list and recurse
                     sub_tree.node_list.append(child)
@@ -375,7 +373,7 @@ class SearchTree:
     def get_root_subtree(self, action: int) -> 'SearchTree':
         """
         Creates the subtree rooted with the child node corresponding to the given action
-        taken from the root of the current tree. 
+        taken from the root of the current tree.
         """
         return self.get_subtree(0, action)
 

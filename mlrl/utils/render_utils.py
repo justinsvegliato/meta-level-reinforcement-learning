@@ -1,10 +1,10 @@
-from typing import List, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 from IPython.display import HTML, clear_output
 import base64
 
 import io
 import numpy as np
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_agents.environments import TFEnvironment
@@ -12,7 +12,6 @@ from tf_agents.environments.tf_py_environment import TFPyEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.policies import TFPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
-from tf_agents.policies.random_py_policy import RandomPyPolicy
 from tf_agents.trajectories import trajectory
 
 
@@ -25,14 +24,13 @@ from io import BytesIO
 import imageio
 import imageio.core.util
 
-
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns
 sns.set()
 
 
-def plot_to_array(fig: plt.Figure) -> np.ndarray:
+def plot_to_array(fig) -> np.ndarray:
     """
     Converts a matplotlib figure to a numpy array.
     """
@@ -88,7 +86,7 @@ def embed_mp4(filename: str, clear_before=True) -> HTML:
     return HTML(tag)
 
 
-def stack_renders(frames) -> np.array:
+def stack_renders(frames) -> np.ndarray:
     """ Vertically stacks a list of frames into a single image. """
     imgs = np.array(frames)
     b, h, w, c = imgs.shape
@@ -97,14 +95,16 @@ def stack_renders(frames) -> np.array:
 
 def create_policy_eval_video(policy: TFPolicy,
                              env: TFEnvironment,
-                             max_envs_to_show: int = None,
+                             max_envs_to_show: Optional[int] = None,
                              rewrite_rewards: bool = False,
-                             max_steps: int = 60) -> List[np.array]:
+                             max_steps: int = 60) -> List[np.ndarray]:
     max_envs_to_show = max_envs_to_show or env.batch_size or 1
 
     if rewrite_rewards:
         from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
-        rewritten_trajs = [(None, {'terminal': [False] * env.batch_size})]
+
+        rewritten_trajs: List[Tuple[Optional[trajectory.Trajectory], dict]] = \
+            [(None, {'terminal': [False] * env.batch_size})]
         rewards_rewriter = RetroactiveRewardsRewriter(
             env, rewritten_trajs.append, include_info=True
         )
@@ -158,9 +158,9 @@ def create_policy_eval_video(policy: TFPolicy,
     return [stack_renders(renders) for renders in frames]
 
 
-def _create_rewritten_frames(frames: List[List[np.array]],
+def _create_rewritten_frames(frames: List[List[np.ndarray]],
                              rewritten_trajs: List[Tuple[trajectory.Trajectory, dict]],
-                             object_action_to_string: callable) -> List[np.array]:
+                             object_action_to_string: Callable) -> List[np.ndarray]:
 
     from mlrl.utils.plot_search_tree import plot_tree
 

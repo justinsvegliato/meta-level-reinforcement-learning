@@ -1,11 +1,12 @@
 import math
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional, Union
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import SearchTreePolicy
 from mlrl.maze.maze_utils import construct_maze_policy_string
 
 from tf_agents.trajectories import trajectory
+from tf_agents.environments.tf_environment import TFEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 from tf_agents.train.utils import spec_utils
@@ -22,50 +23,54 @@ class TrajectoryRewriterWrapper:
     environment in the batch.
     """
 
-    def __init__(self, env: BatchedPyEnvironment, traj: trajectory.Trajectory):
+    def __init__(self,
+                 env: Union[BatchedPyEnvironment, PyEnvironment, TFEnvironment],
+                 traj: trajectory.Trajectory):
         self.env = env
         self.traj = traj
+        self.n_envs = env.batch_size or 1
         self.is_handled = {
-            i: False for i in range(env.batch_size)
+            i: False for i in range(self.n_envs)
         }
         self.original_rewards = np.array(traj.reward)
         self.prev_policies = {
-            i: self.get_env(i).prev_search_policy for i in range(env.batch_size)
+            i: self.get_env(i).prev_search_policy for i in range(self.n_envs)
         }
         self.policies = {
-            i: self.get_env(i).search_tree_policy for i in range(env.batch_size)
+            i: self.get_env(i).search_tree_policy for i in range(self.n_envs)
         }
-        self.eval_trees = {i: None for i in range(env.batch_size)}
+        self.eval_trees = {i: None for i in range(self.n_envs)}
 
     def is_terminal(self, i: int = 0) -> bool:
-        return self.traj.is_last()[i] or self.traj.action[i] == 0
+        return self.traj.is_last()[i] or self.traj.action[i] == 0  # type: ignore
 
     def get_env(self, i: int = 0) -> MetaEnv:
         gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
         return gym_wrapper_env.gym
 
-    def get_policy(self, i: int = 0) -> SearchTreePolicy:
+    def get_policy(self, i: int = 0) -> Optional[SearchTreePolicy]:
         return self.policies[i]
 
-    def get_prev_policy(self, i: int = 0) -> SearchTreePolicy:
+    def get_prev_policy(self, i: int = 0) -> Optional[SearchTreePolicy]:
         return self.prev_policies[i]
 
     def get_reward(self, i: int = 0) -> float:
-        return self.traj.reward[i]
+        return self.traj.reward[i]  # type: ignore
 
     def replace_reward(self, i: int, new_reward: float):
         mask = np.zeros_like(self.traj.reward)
         mask[i] = 1
-        self.traj = self.traj._replace(reward=self.traj.reward * (1 - mask) + new_reward * mask)
+        replaced_reward = self.traj.reward * (1 - mask) + new_reward * mask  # type: ignore
+        self.traj = self.traj._replace(reward=replaced_reward)
 
-    def rewrite_reward(self, i: int, final_tree: SearchTree, verbose: bool = False):
+    def rewrite_reward(self, i: int, final_tree: Optional[SearchTree], verbose: bool = False):
         """
         Rewrites the reward for the ith environment in the batch.
         Marks the ith environment as handled.
 
         Args:
             i: The index of the environment in the batch.
-            final_tree: The final search tree for the ith environment to use for 
+            final_tree: The final search tree for the ith environment to use for
                 evaluating each action.
         """
         self.is_handled[i] = True
@@ -103,7 +108,7 @@ class TrajectoryRewriterWrapper:
             'prev_policy': self.prev_policies,
             'policy': self.policies,
             'eval_tree': self.eval_trees,
-            'terminal': [self.is_terminal(i) for i in range(self.env.batch_size)],
+            'terminal': [self.is_terminal(i) for i in range(self.n_envs)],
         }
 
 
@@ -129,8 +134,8 @@ class RetroactiveRewardsRewriter:
     """
 
     def __init__(self,
-                 env: PyEnvironment,
-                 add_batch: Callable[[trajectory.Trajectory], Any],
+                 env: Union[TFEnvironment, PyEnvironment, BatchedPyEnvironment],
+                 add_batch: Union[Callable[[trajectory.Trajectory], Any], Callable[[trajectory.Trajectory, dict], Any]],
                  include_info: bool = False,
                  verbose: bool = False):
         """

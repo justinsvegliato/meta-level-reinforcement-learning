@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import lru_cache
 from typing import Callable, Dict, List, Tuple
 from mlrl.networks.search_q_net import SearchQNetwork
@@ -6,7 +5,7 @@ from .search_tree import ObjectState, SearchTree
 
 from abc import ABC, abstractmethod
 
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 
 

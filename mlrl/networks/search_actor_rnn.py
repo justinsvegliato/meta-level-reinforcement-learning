@@ -1,7 +1,7 @@
 from mlrl.networks.search_rnn_transformer import SearchRNNTransformer
 from mlrl.meta.meta_env import MetaEnv
 
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_agents.networks import network

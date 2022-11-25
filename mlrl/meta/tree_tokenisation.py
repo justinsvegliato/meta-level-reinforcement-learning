@@ -18,7 +18,7 @@ class TreeTokeniser(ABC):
         self.n_tokens = self.max_tree_size + n_terminate_tokens
 
     @abstractmethod
-    def tokenise(self, tree: SearchTree) -> np.array:
+    def tokenise(self, tree: SearchTree) -> np.ndarray:
         """Tokenise a tree into a list of tokens."""
         pass
 
@@ -32,11 +32,11 @@ class TreeTokeniser(ABC):
         """Get the dimension of the tree token."""
         return len(self.get_token_labels())
 
-    def get_terminate_token(self) -> np.array:
+    def get_terminate_token(self) -> np.ndarray:
         """Get the token for terminate action."""
-        return [1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.]
+        return np.array([1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.])
 
-    def pad(self, tokens: np.array) -> np.array:
+    def pad(self, tokens: np.ndarray) -> np.ndarray:
         """Pad a list of tokens to the maximum tree size."""
         if tokens.size > 0:
             padding = np.zeros((self.n_tokens - tokens.shape[0], tokens.shape[1]))
@@ -57,7 +57,7 @@ class NodeTokeniser(TreeTokeniser):
         self.action_vec_dim = action_vec_dim
         self.state_vec_dim = state_vec_dim
 
-    def node_tokenisation(self, tree: SearchTree, node: SearchTreeNode) -> np.array:
+    def node_tokenisation(self, tree: SearchTree, node: SearchTreeNode) -> np.ndarray:
         """
         Generates a token for the given node.
         This will be used when computational actions correspond to expanding a node by
@@ -103,10 +103,10 @@ class NodeTokeniser(TreeTokeniser):
         return np.concatenate([
             meta_features, id_vec, parent_id_vec,
             action_taken_vec, state_vec,
-            [0.]  # not a terminate token
+            np.array([0.])  # not a terminate token
         ])
 
-    def tokenise(self, tree: SearchTree) -> np.array:
+    def tokenise(self, tree: SearchTree) -> np.ndarray:
         terminate_token = self.get_terminate_token()
         tokens = np.array([terminate_token] + [
             self.node_tokenisation(tree, node)
@@ -123,7 +123,7 @@ class NodeTokeniser(TreeTokeniser):
         action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
         state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
         return meta_features + id_vec + parent_id_vec + \
-                action_taken_vec + state_vec + [r'$\perp$']
+            action_taken_vec + state_vec + [r'$\perp$']
 
 
 class NodeActionTokeniser(NodeTokeniser):
@@ -140,7 +140,7 @@ class NodeActionTokeniser(NodeTokeniser):
         super().__init__(action_vec_dim, max_tree_size, n_terminate_tokens)
         self.n_object_actions = n_object_actions
 
-    def tokenise(self, tree: SearchTree) -> np.array:
+    def tokenise(self, tree: SearchTree) -> np.ndarray:
         terminate_token = self.get_terminate_token()
 
         tree_tokens = []
@@ -154,7 +154,7 @@ class NodeActionTokeniser(NodeTokeniser):
 
         tokens = np.array([terminate_token] + tree_tokens)
         return self.pad(tokens)
-    
+
     def get_token_labels(self) -> List[str]:
         labels = super().get_token_labels()
         action_vec = [f'action_{i}' for i in range(self.action_vec_dim)]

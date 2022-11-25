@@ -1,7 +1,7 @@
 from mlrl.networks.search_transformer import SearchTransformer
 
 import numpy as np
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 import tensorflow_probability as tfp
 

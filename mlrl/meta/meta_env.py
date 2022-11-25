@@ -43,8 +43,8 @@ class MetaEnv(gym.Env):
                  root_based_computational_rewards: bool = False,
                  search_optimal_q_estimator: Optional[SearchOptimalQEstimator] = None,
                  make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
-                 tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.array]] = None,
-                 object_action_to_string: Callable[[Any], str] = None,
+                 tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.ndarray]] = None,
+                 object_action_to_string: Optional[Callable[[Any], str]] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99,
@@ -194,7 +194,7 @@ class MetaEnv(gym.Env):
     def get_token_labels(self) -> List[str]:
         return self.tree_tokeniser.get_token_labels()
 
-    def get_observation(self) -> Dict[str, np.array]:
+    def get_observation(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
         Returns the observation of the meta environment.
 
@@ -313,9 +313,9 @@ class MetaEnv(gym.Env):
             self.tree.expand_action(node_idx, object_action_idx)
 
     def step(self,
-             computational_action: Union[int, list, np.array],
+             computational_action: Union[int, list, np.ndarray],
              verbose=False
-             ) -> Tuple[np.array, float, bool, dict]:
+             ) -> Tuple[Union[np.ndarray, Dict[str, np.ndarray]], float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
         - action == 0: terminate search and perform a step in the underlying environment
@@ -346,7 +346,7 @@ class MetaEnv(gym.Env):
         """
         try:
             if self.one_hot_action_space and not isinstance(computational_action, int):
-                computational_action = np.argmax(computational_action)
+                computational_action = int(np.argmax(computational_action))
 
             self.prev_search_policy = self.search_tree_policy
             self.last_computational_reward = 0
@@ -355,7 +355,7 @@ class MetaEnv(gym.Env):
 
             if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
                 if self.finish_on_terminate:
-                    return self.get_observation(), 0, True, {}
+                    return self.get_observation(), 0., True, {}
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
@@ -383,8 +383,8 @@ class MetaEnv(gym.Env):
 
     def _dump_debug_info(self,
                          e: Exception,
-                         computational_action: int = None,
-                         debug_dir: str = None,
+                         computational_action: Optional[int] = None,
+                         debug_dir: Optional[str] = None,
                          open_debug_server: bool = True):
         """
         Dumps debug information to the provided folder or to `./debug/{timestamp}`.
@@ -497,7 +497,7 @@ class MetaEnv(gym.Env):
     def render(self,
                mode: str = 'rgb_array',
                save_fig_to: Optional[str] = None,
-               meta_action_probs: np.array = None,
+               meta_action_probs: Optional[np.ndarray] = None,
                plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
@@ -610,7 +610,7 @@ class MetaEnv(gym.Env):
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
             ax.set_xticklabels(action_labels)
 
-            min_val = min(self.object_reward_min, min(q_dist)) 
+            min_val = min(self.object_reward_min, min(q_dist))
             max_val = max(self.object_reward_max, max(q_dist))
             ax.set_ylim([min_val, max_val])
 
@@ -619,7 +619,7 @@ class MetaEnv(gym.Env):
         ax.yaxis.tick_right()
 
     def plot_search_tokens(self,
-                           ax: plt.Axes = None,
+                           ax: Optional[plt.Axes] = None,
                            show: bool = True,
                            annot_fmt: str = '.3f'):
         """
@@ -630,7 +630,7 @@ class MetaEnv(gym.Env):
 
         obs = self.get_observation()
         tokens = obs['search_tree_tokens'] if self.split_mask_and_tokens else obs
-        ax = sns.heatmap(tokens, annot=True, fmt=annot_fmt, ax=ax)
+        ax: plt.Axes = sns.heatmap(tokens, annot=True, fmt=annot_fmt, ax=ax)
         for t in ax.texts:
             if t.get_text() and float(t.get_text()) == 0:
                 t.set_text('')

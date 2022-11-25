@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import time
 
-import silence_tensorflow.auto  # pylint: disable=unused-import
+import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.metrics import py_metrics

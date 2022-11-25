@@ -97,13 +97,13 @@ class GreedySearchTreePolicy(SearchTreePolicy):
         q_values = self.estimator.estimate_optimal_q_values(self.tree, state)
         max_q = max(q_values.values())
         max_actions = [a for a, q in q_values.items() if q == max_q]
-        probs = {a: 0 for a in range(len(state.actions))}
+        probs = {a: 0. for a in range(len(state.get_actions()))}
 
         if self.break_ties_randomly:
             for a in max_actions:
                 probs[a] = 1 / len(max_actions)
         else:
-            probs[max_actions[0]] = 1
+            probs[max_actions[0]] = 1.
 
         return probs
 
