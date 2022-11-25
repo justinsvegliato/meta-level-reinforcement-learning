@@ -43,8 +43,7 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState],
         object_env,
         object_state_cls.extract_state(object_env),
         q_hat,
-        args,
-        object_action_to_string=lambda a: object_env.ACTION[a]
+        args
     )
 
 

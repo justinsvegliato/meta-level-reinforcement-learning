@@ -45,6 +45,9 @@ class ObjectState(ABC):
 
     def get_action_label(self, action) -> str:
         """ Returns a label for the action. """
+        if action not in self.get_actions():
+            return ''
+
         return {
             a: l for a, l in zip(self.get_actions(), self.get_action_labels())
         }[action]
@@ -199,9 +202,9 @@ class SearchTreeNode:
 
     def add_child_node(self, node: 'SearchTreeNode'):
         if node.action not in self.children:
-            self.children[node.get_action()] = [node]
+            self.children[node.action] = [node]
         else:
-            self.children[node.get_action()].append(node)
+            self.children[node.action].append(node)
 
     def has_action_children(self, action: int) -> bool:
         return action in self.children and len(self.children[action]) > 0
@@ -256,7 +259,7 @@ class SearchTreeNode:
         return self.state
 
     def get_action(self) -> int:
-        return self.action or -1
+        return self.action if self.action is not None else -1
 
     def get_reward_received(self) -> float:
         return self.reward

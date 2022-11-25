@@ -10,6 +10,7 @@ from tf_agents.environments.tf_environment import TFEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 from tf_agents.train.utils import spec_utils
+from tf_agents.metrics import py_metrics
 
 import gym_maze
 import numpy as np
@@ -135,8 +136,11 @@ class RetroactiveRewardsRewriter:
 
     def __init__(self,
                  env: Union[TFEnvironment, PyEnvironment, BatchedPyEnvironment],
-                 add_batch: Union[Callable[[trajectory.Trajectory], Any], Callable[[trajectory.Trajectory, dict], Any]],
+                 add_batch: Union[Callable[[trajectory.Trajectory], Any],
+                                  Callable[[trajectory.Trajectory, dict], Any]],
                  include_info: bool = False,
+                 metric_buffer_size: int = 10000,
+                 metric_name: str = 'RewrittenAverageReturn',
                  verbose: bool = False):
         """
         Args:
@@ -151,7 +155,6 @@ class RetroactiveRewardsRewriter:
         self.verbose = verbose
         self.include_info = include_info
 
-        self.observation_tensor_spec, *_ = spec_utils.get_tensor_specs(env)
         if hasattr(env, 'batch_size'):
             self.n_envs = env.batch_size or 1
         else:
@@ -160,14 +163,23 @@ class RetroactiveRewardsRewriter:
         self.add_batch: Callable[[trajectory.Trajectory], Any] = add_batch
         self.trajectories: List[TrajectoryRewriterWrapper] = []
 
+        self.return_metric = py_metrics.AverageReturnMetric(buffer_size=metric_buffer_size,
+                                                            batch_size=self.n_envs,
+                                                            name=metric_name)
+
     def get_env(self, i: int = 0) -> MetaEnv:
         gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
         return gym_wrapper_env.gym
+
+    def reset(self):
+        self.trajectories = []
+        self.return_metric.reset()
 
     def flush_all(self):
         for i in range(self.n_envs):
             self.rewrite_rewards(i)
         self.flush_handled_trajectories()
+        self.reset()
 
     def flush_handled_trajectories(self):
         """
@@ -176,6 +188,7 @@ class RetroactiveRewardsRewriter:
         """
         for traj_wrapper in self.trajectories:
             if traj_wrapper.all_rewrites_handled():
+                self.return_metric(traj_wrapper.traj)
                 if self.include_info:
                     self.add_batch((traj_wrapper.traj, traj_wrapper.get_info()))
                 else:
@@ -248,3 +261,6 @@ class RetroactiveRewardsRewriter:
 
         if any_rewrites:
             self.flush_handled_trajectories()
+
+    def get_metrics(self):
+        return [self.return_metric]

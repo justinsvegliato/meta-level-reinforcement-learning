@@ -4,7 +4,7 @@ from tensorflow.keras.utils import Progbar
 
 class ProgressBarObserver:
 
-    def __init__(self, collect_sequence_length: int, update_interval: int = 100):
+    def __init__(self, collect_sequence_length: int, update_interval: int = 128):
         self.collect_sequence_length: int = collect_sequence_length
         self.update_interval: int = update_interval
         self.progress: int = 0

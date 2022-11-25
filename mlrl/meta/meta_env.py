@@ -5,7 +5,7 @@ from mlrl.meta.tree_tokenisation import NodeActionTokeniser, NodeTokeniser
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
-from typing import Callable, List, Optional, Tuple, Dict, Any, Union
+from typing import Callable, List, Optional, Tuple, Dict, Union
 
 import numpy as np
 import gym
@@ -24,8 +24,7 @@ def mask_token_splitter(tokens_and_mask):
 
 class MetaEnv(gym.Env):
     """
-    Class that wraps a gym_maze environment and allows for the
-    meta-learning of the search problem
+    Class that wraps a gym_maze environment and allows for the meta-learning of the search problem
     """
 
     SEARCH_TOKENS_KEY = 'search_tree_tokens'
@@ -44,7 +43,6 @@ class MetaEnv(gym.Env):
                  search_optimal_q_estimator: Optional[SearchOptimalQEstimator] = None,
                  make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
                  tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.ndarray]] = None,
-                 object_action_to_string: Optional[Callable[[Any], str]] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99,
@@ -161,7 +159,6 @@ class MetaEnv(gym.Env):
         self.last_meta_action = None
         self.last_meta_reward = 0
         self.last_computational_reward = 0
-        self.object_action_to_string = object_action_to_string or (lambda a: str(a))
         self.meta_action_strings = self.get_action_strings()
         self.steps = 0
 
@@ -464,13 +461,12 @@ class MetaEnv(gym.Env):
                 }
             }
         else:
-            n = self.n_object_actions
             return {
                 0: 'Terminate Search',
                 **{
-                    i: f'Expand Node {(i - 1) // n} with Action '
-                    + self.object_action_to_string((i - 1) % n)
-                    for i in range(1, self.action_space_size)
+                    i: f'Expand Node {i} with Action {node.state.get_action_label(action)}'
+                    for i, node in enumerate(self.tree.get_nodes())
+                    for action in node.state.get_actions()
                 }
             }
 
@@ -487,10 +483,12 @@ class MetaEnv(gym.Env):
             computational_reward = 0
 
         action = self.get_best_object_action()
+        root_node = self.tree.get_root()
+        action_label = root_node.state.get_action_label(action)
 
         return f'Meta-action: [{action_string}] | '\
                f'Meta-Reward: {self.last_meta_reward:.3f} | '\
-               f'Best Object-action: {self.object_action_to_string(action)} | '\
+               f'Best Object-action: {action_label} | '\
                f'Computational-Reward: {computational_reward:.3f} | '\
                f't = {self.steps}'
 
@@ -547,8 +545,7 @@ class MetaEnv(gym.Env):
             object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=tree_ax, show=False,
-                  object_action_to_string=self.object_action_to_string)
+        plot_tree(self.tree, ax=tree_ax, show=False)
 
         # Render the Q-distribution in the right subplot
         self.plot_root_q_distribution(root_dist_ax)

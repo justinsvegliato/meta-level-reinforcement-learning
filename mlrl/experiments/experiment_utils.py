@@ -33,8 +33,7 @@ def create_meta_env(object_env: gym.Env,
                     init_state: ObjectState,
                     q_hat: QFunction,
                     config: dict,
-                    tree_policy_renderer=None,
-                    object_action_to_string=None) -> MetaEnv:
+                    tree_policy_renderer=None) -> MetaEnv:
     """
     Creates a meta environment from a given object environment,
     an initial state, and a Q-function.
@@ -47,8 +46,7 @@ def create_meta_env(object_env: gym.Env,
                        expand_all_actions=config.get('expand_all_actions', False),
                        computational_rewards=config.get('computational_rewards', True),
                        finish_on_terminate=config.get('finish_on_terminate', False),
-                       tree_policy_renderer=tree_policy_renderer,
-                       object_action_to_string=object_action_to_string)
+                       tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):
         return gym.wrappers.time_limit.TimeLimit(meta_env, config['meta_time_limit'])
@@ -153,7 +151,7 @@ def create_parser():
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
-    parser.add_argument('--experience_batch_size', type=int, default=128,
+    parser.add_argument('--experience_batch_size', type=int, default=512,
                         help='Batch size to use.')
     parser.add_argument('--train_batch_size', type=int, default=32,
                         help='Train batch size to use in PPO')
@@ -167,10 +165,12 @@ def create_parser():
                         help='Number of steps to evaluate for.')
     parser.add_argument('--initial_collect_steps', type=int, default=500,
                         help='Number of steps to collect before training.')
-    parser.add_argument('--video_steps', type=int, default=120,
+    parser.add_argument('--n_video_steps', type=int, default=120,
                         help='Number of steps to record a video for.')
     parser.add_argument('--video_freq', type=int, default=5,
-                        help='Number of steps to record a video for.')
+                        help='Frequency of recording videos.')
+    parser.add_argument('--n_video_envs', type=int, default=5,
+                        help='Number of video environments to record.')
 
     # Meta-level environment parameters
     parser.add_argument('--expand_all_actions', type=bool, default=True,
@@ -184,11 +184,13 @@ def create_parser():
                         help='Maximum number of steps in meta-level environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed.')
-    parser.add_argument('--env_batch_size', type=int, default=4,
+    parser.add_argument('--env_batch_size', type=int, default=32,
                         help='Batch size for the environment.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
-    parser.add_argument('--finish_on_terminate', type=bool, default=False,
+    parser.add_argument('--rewrite_rewards', type=bool, default=True,
+                        help='Whether to rewrite computational rewards.')
+    parser.add_argument('--finish_on_terminate', type=bool, default=True,
                         help='Whether to finish meta-level episode on computational terminate action.')
 
     # Object-level environment parameters

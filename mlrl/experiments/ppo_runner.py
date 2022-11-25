@@ -1,9 +1,11 @@
+from typing import Optional
 from mlrl.meta.meta_env import mask_token_splitter
+from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.networks.search_actor_nets import create_action_distribution_network
 from mlrl.networks.search_value_net import create_value_network
 from mlrl.networks.search_actor_rnn import ActionSearchRNN
 from mlrl.networks.search_value_rnn import ValueSearchRNN
-from mlrl.utils.render_utils import create_policy_eval_video
+from mlrl.utils.render_utils import create_and_save_policy_eval_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
 import os
@@ -23,6 +25,7 @@ from tf_agents.agents.ppo.ppo_agent import PPOAgent
 from tf_agents.train.utils import train_utils
 from tf_agents.networks.mask_splitter_network import MaskSplitterNetwork
 from tf_agents.train.utils import spec_utils
+from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
 import wandb
 
@@ -84,10 +87,9 @@ def time_id():
 class PPORunner:
 
     def __init__(self,
-                 env,
-                 eval_eval=None,
-                 env_batch_size: int = 4,
-                 env_multithreading: bool = True,
+                 collect_env: BatchedPyEnvironment,
+                 eval_env: Optional[BatchedPyEnvironment] = None,
+                 video_env: Optional[BatchedPyEnvironment] = None,
                  train_batch_size: int = 4,
                  train_num_steps: int = 64,
                  summary_interval: int = 1000,
@@ -95,9 +97,11 @@ class PPORunner:
                  policy_save_interval: int = 10000,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
+                 n_video_steps: int = 60,
                  num_iterations: int = 1000,
                  max_envs_to_render_in_video: int = 2,
                  run_name: str = None,
+                 rewrite_rewards: bool = False,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -107,26 +111,30 @@ class PPORunner:
         self.summary_interval = summary_interval
         self.train_num_steps = train_num_steps
         self.train_batch_size = train_batch_size
-        self.env_multithreading = env_multithreading
-        self.env_batch_size = env_batch_size
+        self.env_batch_size = collect_env.batch_size
         self.config = config
         self.max_envs_to_render_in_video = max_envs_to_render_in_video
         self.name = run_name or f'ppo_run_{time_id()}'
         self.root_dir = f'runs/{self.name}/{time_id()}'
 
+        self.collect_env = collect_env
+        self.eval_env = eval_env
+
+        self.collect_metrics = []
+        self.eval_metrics = []
+
+        self.video_env = video_env
         self.videos_dir = self.root_dir + '/videos'
+        self.n_video_steps = n_video_steps
         Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
-        self.env = env
-        self.eval_env = eval_eval
-
         self.train_step_counter = train_utils.create_train_step()
-        self.agent = create_search_ppo_agent(self.env, config, self.train_step_counter)
+        self.agent = create_search_ppo_agent(self.collect_env, config, self.train_step_counter)
 
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=self.agent.collect_data_spec,
-            batch_size=self.env.batch_size or 1,
-            max_length=10000
+            batch_size=self.collect_env.batch_size or 1,
+            max_length=16384
         )
 
         def preprocess_seq(experience, info):
@@ -157,16 +165,31 @@ class PPORunner:
 
         metrics = actor.collect_metrics(buffer_size=collect_sequence_length)
 
+        self.rewrite_rewards = rewrite_rewards
+        collect_observers = []
+        if rewrite_rewards:
+            self.reward_rewriter = RetroactiveRewardsRewriter(self.collect_env,
+                                                              self.replay_buffer.add_batch)
+            collect_observers.append(self.reward_rewriter)
+            self.collect_metrics.extend(self.reward_rewriter.get_metrics())
+        else:
+            self.reward_rewriter = None
+            collect_observers.append(self.replay_buffer.add_batch)
+
+        collect_observers.append(ProgressBarObserver(collect_sequence_length))
+
         self.collect_actor = actor.Actor(
-            self.env,
+            self.collect_env,
             self.collect_policy,
             self.train_step_counter,
             steps_per_run=collect_sequence_length,
-            observers=[self.replay_buffer.add_batch, ProgressBarObserver(collect_sequence_length)],
+            observers=collect_observers,
             metrics=metrics,
             reference_metrics=[collect_env_step_metric],
             summary_dir=os.path.join(self.root_dir, learner.TRAIN_DIR),
             summary_interval=summary_interval)
+
+        self.collect_metrics.extend(self.collect_actor.metrics)
 
         self.ppo_learner = PPOLearner(
             self.root_dir,
@@ -184,13 +207,21 @@ class PPORunner:
                 self.agent.policy, use_tf_function=True, batch_time_steps=False)
 
             eval_metrics = actor.collect_metrics(buffer_size=eval_steps)
+            self.eval_metrics.extend(eval_metrics)
+
+            eval_observers = [ProgressBarObserver(eval_steps)]
+            if rewrite_rewards:
+                self.eval_reward_rewriter = RetroactiveRewardsRewriter(self.eval_env,
+                                                                       lambda _: None)
+                eval_observers.append(self.eval_reward_rewriter)
+                self.eval_metrics.extend(self.eval_reward_rewriter.get_metrics())
 
             self.eval_actor = actor.Actor(
                 self.eval_env,
                 self.eval_policy,
                 self.train_step_counter,
                 metrics=eval_metrics,
-                observers=[ProgressBarObserver(eval_steps)],
+                observers=eval_observers,
                 reference_metrics=[collect_env_step_metric],
                 summary_dir=os.path.join(self.root_dir, 'eval'),
                 steps_per_run=eval_steps)
@@ -215,23 +246,30 @@ class PPORunner:
 
     def run_evaluation(self, i: int):
 
-        self.eval_actor.run_and_log()
+        self.eval_actor.reset()
+        for metric in self.eval_metrics:
+            metric.reset()
+
+        start_time = time.time()
+        self.eval_actor.run()
+        end_time = time.time()
+        logs = {
+            f'Eval{metric.name}': metric.result() for metric in self.eval_metrics
+        }
+        logs['EvalTime'] = end_time - start_time
         print('Evaluation stats:')
         print(', '.join([
-            f'{metric.name}: {metric.result():.3f}'
-            for metric in self.eval_actor.metrics
+            f'{name}: {value:.3f}' for name, value in logs.items()
         ]))
 
-        logs = {
-            f'Eval{metric.name}': metric.result()
-            for metric in self.eval_actor.metrics
-        }
+        if self.reward_rewriter:
+            self.eval_reward_rewriter.reset()
 
         try:
             video_file = f'{self.videos_dir}/video_{i}.mp4'
 
-            create_policy_eval_video(
-                self.agent.policy, self.eval_env, max_steps=120,
+            create_and_save_policy_eval_video(
+                self.agent.policy, self.video_env, max_steps=self.n_video_steps,
                 filename=video_file,
                 max_envs_to_show=self.max_envs_to_render_in_video)
 
@@ -250,10 +288,7 @@ class PPORunner:
         # its very important to reset the actors
         # otherwise the observations can be wrong on the next run
         self.collect_actor.reset()
-        self.eval_actor.reset()
-        for metric in self.eval_actor.metrics:
-            metric.reset()
-        for metric in self.collect_actor.metrics:
+        for metric in self.collect_metrics:
             metric.reset()
 
         self.replay_buffer.clear()
@@ -277,31 +312,41 @@ class PPORunner:
                     iteration_logs.update(eval_logs)
 
                 # collect data
+                start_time = time.time()
                 self.collect_actor.run()
+                end_time = time.time()
+
+                collect_metrics = {
+                    metric.name: metric.result() for metric in self.collect_metrics
+                }
+                collect_metrics['CollectTime'] = end_time - start_time
+                iteration_logs.update(collect_metrics)
                 print('Collect stats:')
                 print(', '.join([
-                    f'{metric.name}: {metric.result():.3f}'
-                    for metric in self.collect_actor.metrics
+                    f'{name}: {value:.3f}' for name, value in collect_metrics.items()
                 ]))
-                iteration_logs.update({
-                    metric.name: metric.result()
-                    for metric in self.collect_actor.metrics
-                })
+
+                if self.rewrite_rewards:
+                    self.reward_rewriter.flush_all()
 
                 # train
+                start_time = time.time()
                 loss_info = self.ppo_learner.run()
+                end_time = time.time()
                 print('Training info:')
                 print(f'Loss: {loss_info.loss:.5f}, '
                       f'KL Penalty Loss: {loss_info.extra.kl_penalty_loss:.5f}, '
                       f'Entropy: {loss_info.extra.entropy_regularization_loss:.5f}, '
                       f'Value Estimation Loss: {loss_info.extra.value_estimation_loss:.5f}, '
-                      f'PG Loss {loss_info.extra.policy_gradient_loss:.5f}')
+                      f'PG Loss {loss_info.extra.policy_gradient_loss:.5f}, '
+                      f'Train Time: {end_time - start_time:.1f} (s)')
                 print()
 
                 iteration_logs.update({
                     'loss': loss_info.loss.numpy(),
                     **tf.nest.map_structure(lambda x: x.numpy(), loss_info.extra._asdict())
                 })
+                iteration_logs['TrainTime'] = end_time - start_time
 
                 wandb.log(iteration_logs)
 

@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 from IPython.display import HTML, clear_output
 import base64
 
@@ -98,6 +98,24 @@ def create_policy_eval_video(policy: TFPolicy,
                              max_envs_to_show: Optional[int] = None,
                              rewrite_rewards: bool = False,
                              max_steps: int = 60) -> List[np.ndarray]:
+    """
+    Creates a video of the policy acting in the given environment.
+    If the environment is a batched environment, then multiple episodes
+    will be shown stacked vertically.
+
+    The option is available to rewrite the rewards of the environment using
+    Retroactive Reward Rewriting.
+
+    Args:
+        policy (TFPolicy): The policy to evaluate.
+        env (TFEnvironment): The environment to evaluate the policy in.
+        max_envs_to_show (Optional[int]): The maximum number of environments to show.
+        rewrite_rewards (bool): Whether to rewrite the rewards of the trajectories.
+        max_steps (int): The maximum number of steps to run the policy for.
+
+    Returns:
+        List[np.ndarray]: A list of numpy arrays containing the frames of the video.
+    """
     max_envs_to_show = max_envs_to_show or env.batch_size or 1
 
     if rewrite_rewards:
@@ -152,15 +170,29 @@ def create_policy_eval_video(policy: TFPolicy,
 
     if rewrite_rewards:
         rewards_rewriter.flush_all()
-        meta_env = rewards_rewriter.get_env(0)
-        frames = _create_rewritten_frames(frames, rewritten_trajs, meta_env.object_action_to_string)
+        frames = _create_rewritten_frames(frames, rewritten_trajs)
 
     return [stack_renders(renders) for renders in frames]
 
 
-def _create_rewritten_frames(frames: List[List[np.ndarray]],
-                             rewritten_trajs: List[Tuple[trajectory.Trajectory, dict]],
-                             object_action_to_string: Callable) -> List[np.ndarray]:
+def _create_rewritten_frames(
+        frames: List[List[np.ndarray]],
+        rewritten_trajs: List[Tuple[trajectory.Trajectory, dict]]
+) -> List[np.ndarray]:
+    """
+    Takes a list of frames and a list of trajectories and returns a list of frames
+    where the rewriten rewards are shown alongside the tree used to evaluate the
+    policies considered at each step.
+
+    Args:
+        frames (List[List[np.ndarray]]): A list of frames. Each frame is a list of
+            numpy arrays containing the frame corresponding to each batch in the environment.
+        rewritten_trajs (List[Tuple[trajectory.Trajectory, dict]]): A list of trajectories
+            and their corresponding info dictionaries.
+
+    Returns:
+        List[np.ndarray]: A list of numpy arrays containing the frames of the video.
+    """
 
     from mlrl.utils.plot_search_tree import plot_tree
 
@@ -202,11 +234,12 @@ def _create_rewritten_frames(frames: List[List[np.ndarray]],
             is_terminal = info.get('terminal', [False] * n_envs)[i]
             if eval_tree is not None and not is_terminal:
                 plot_tree(eval_tree, ax=tree_ax, show=False,
-                          object_action_to_string=object_action_to_string,
                           title='Evaluation Tree')
 
-            plt.suptitle(f'Environment with Reward Rewriting. Rewritten Reward = {reward:.4f}.\n'
-                         f'New Return = {new_return[i]:.4f}. Old Return = {old_return[i]:.4f}', fontsize=16)
+            plt.suptitle(f'Environment with Reward Rewriting. '
+                         f'Rewritten Reward = {reward:.4f}.\n'
+                         f'New Return = {new_return[i]:.4f}. '
+                         f'Old Return = {old_return[i]:.4f}', fontsize=16)
 
             plt.tight_layout()
             new_frames[-1].append(plot_to_array(fig))
@@ -259,7 +292,8 @@ def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                                fps: int = 1) -> str:
     """
     Creates and saves a video of a random policy being evaluated in an environment.
-    Assumes that environment observations are nested and contain search tokens and an action mask.
+    Assumes that environment observations are nested and contain search tokens
+    and an action mask.
 
     Args:
         env (TFEnvironment): The environment to evaluate the policy in.

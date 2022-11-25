@@ -40,44 +40,42 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState],
         enable_render=enable_render
     )
 
-    q_hat = ManhattanQHat(object_env)
+    manhattan_q_hat = ManhattanQHat(object_env)
 
     return create_meta_env(
         object_env,
         object_state_cls.extract_state(object_env),
-        q_hat,
+        manhattan_q_hat,
         args,
-        tree_policy_renderer=render_tree_policy,
-        object_action_to_string=lambda a: object_env.ACTION[a]
+        tree_policy_renderer=render_tree_policy
     )
 
 
-def create_batched_maze_meta_envs(env_batch_size, env_multithreading=True, **config):
-    env = BatchedPyEnvironment([
-        GymWrapper(create_maze_meta_env(
-            RestrictedActionsMazeState, config, enable_render=False
-        ))
-        for _ in range(env_batch_size)
-    ], multithreading=env_multithreading)
-    env.reset()
+def create_batched_maze_meta_envs(
+        env_batch_size, n_video_envs, env_multithreading=True, **config):
 
-    eval_env = BatchedPyEnvironment([
-        GymWrapper(create_maze_meta_env(
-            RestrictedActionsMazeState, config, enable_render=True
-        ))
-        for _ in range(env_batch_size)
-    ], multithreading=env_multithreading)
-    eval_env.reset()
+    def create_envs(n_envs, enable_render=False):
+        return BatchedPyEnvironment([
+            GymWrapper(create_maze_meta_env(
+                RestrictedActionsMazeState, config,
+                enable_render=enable_render
+            ))
+            for _ in range(n_envs)
+        ], multithreading=env_multithreading)
 
-    return env, eval_env
+    env = create_envs(env_batch_size, enable_render=False)
+    eval_env = create_envs(env_batch_size, enable_render=False)
+    video_env = create_envs(n_video_envs, enable_render=True)
+
+    return env, eval_env, video_env
 
 
 def main():
     args = parse_args()
-    env, eval_env = create_batched_maze_meta_envs(**args)
+    env, eval_env, video_env = create_batched_maze_meta_envs(**args)
     ppo_runner = PPORunner(
-        env, eval_env=eval_env, name=get_maze_name(args),
-        **args
+        env, eval_env=eval_env, video_env=video_env,
+        name=get_maze_name(args), **args
     )
     ppo_runner.run()
 
