@@ -9,7 +9,6 @@ from tf_agents.trajectories import trajectory
 from tf_agents.environments.tf_environment import TFEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
-from tf_agents.train.utils import spec_utils
 from tf_agents.metrics import py_metrics
 
 import gym_maze
