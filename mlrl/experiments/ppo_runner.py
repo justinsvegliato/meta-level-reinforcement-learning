@@ -99,7 +99,6 @@ class PPORunner:
                  eval_interval: int = 5,
                  n_video_steps: int = 60,
                  num_iterations: int = 1000,
-                 max_envs_to_render_in_video: int = 2,
                  run_name: str = None,
                  rewrite_rewards: bool = False,
                  **config):
@@ -113,7 +112,6 @@ class PPORunner:
         self.train_batch_size = train_batch_size
         self.env_batch_size = collect_env.batch_size
         self.config = config
-        self.max_envs_to_render_in_video = max_envs_to_render_in_video
         self.name = run_name or f'ppo_run_{time_id()}'
         self.root_dir = f'runs/{self.name}/{time_id()}'
 
@@ -271,7 +269,7 @@ class PPORunner:
             create_and_save_policy_eval_video(
                 self.agent.policy, self.video_env, max_steps=self.n_video_steps,
                 filename=video_file,
-                max_envs_to_show=self.max_envs_to_render_in_video)
+                rewrite_rewards=self.rewrite_rewards)
 
             logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
 

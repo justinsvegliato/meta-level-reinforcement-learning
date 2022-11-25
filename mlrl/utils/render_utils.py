@@ -252,7 +252,6 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
                                       env: TFEnvironment,
                                       filename: str = 'video',
                                       max_steps: int = 60,
-                                      max_envs_to_show: int = 2,
                                       rewrite_rewards: bool = False,
                                       fps: int = 1) -> str:
     """
@@ -269,7 +268,7 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
         str: The path to the saved video.
     """
     frames = create_policy_eval_video(
-        policy, env, max_envs_to_show,
+        policy, env,
         rewrite_rewards=rewrite_rewards,
         max_steps=max_steps
     )
