@@ -1,19 +1,32 @@
 
+from typing import List
 from tensorflow.keras.utils import Progbar
+
+from tf_agents.trajectories.trajectory import Trajectory
+from tf_agents.metrics.py_metric import PyMetric
 
 
 class ProgressBarObserver:
 
-    def __init__(self, collect_sequence_length: int, update_interval: int = 128):
-        self.collect_sequence_length: int = collect_sequence_length
+    def __init__(self,
+                 max_progress: int,
+                 update_interval: int = 5,
+                 metrics: List[PyMetric] = None):
+        self.max_progress: int = max_progress
         self.update_interval: int = update_interval
         self.progress: int = 0
-        self.bar = Progbar(collect_sequence_length)
+        self.bar = Progbar(max_progress)
+        self.metrics = metrics or []
 
-    def __call__(self, _):
-        if self.progress >= self.collect_sequence_length:
+    def __call__(self, traj: Trajectory):
+        for metric in self.metrics:
+            metric(traj)
+
+        if self.progress > self.max_progress:
             self.progress = 0
 
-        self.progress += 1
         if self.progress % self.update_interval == 0:
-            self.bar.update(self.progress)
+            values = [(metric.name, metric.result()) for metric in self.metrics]
+            self.bar.update(self.progress, values=values)
+
+        self.progress += 1

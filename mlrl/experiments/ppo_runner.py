@@ -1,3 +1,4 @@
+import cProfile
 from typing import Optional
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
@@ -93,7 +94,7 @@ class PPORunner:
                  train_batch_size: int = 4,
                  train_num_steps: int = 64,
                  summary_interval: int = 1000,
-                 collect_sequence_length: int = 4096,
+                 collect_steps: int = 4096,
                  policy_save_interval: int = 10000,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
@@ -101,16 +102,18 @@ class PPORunner:
                  num_iterations: int = 1000,
                  run_name: str = None,
                  rewrite_rewards: bool = False,
+                 profile_run: bool = False,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
         self.eval_steps = eval_steps
         self.policy_save_interval = policy_save_interval
-        self.collect_sequence_length = collect_sequence_length
+        self.collect_steps = collect_steps
         self.summary_interval = summary_interval
         self.train_num_steps = train_num_steps
         self.train_batch_size = train_batch_size
         self.env_batch_size = collect_env.batch_size
+        self.profile_run = profile_run
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
         self.root_dir = f'runs/{self.name}/{time_id()}'
@@ -132,7 +135,7 @@ class PPORunner:
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=self.agent.collect_data_spec,
             batch_size=self.collect_env.batch_size or 1,
-            max_length=16384
+            max_length=self.collect_steps // self.collect_env.batch_size
         )
 
         def preprocess_seq(experience, info):
@@ -161,7 +164,7 @@ class PPORunner:
         self.collect_policy = py_tf_eager_policy.PyTFEagerPolicy(
             self.agent.collect_policy, use_tf_function=True, batch_time_steps=False)
 
-        metrics = actor.collect_metrics(buffer_size=collect_sequence_length)
+        metrics = actor.collect_metrics(buffer_size=collect_steps)
 
         self.rewrite_rewards = rewrite_rewards
         collect_observers = []
@@ -174,13 +177,17 @@ class PPORunner:
             self.reward_rewriter = None
             collect_observers.append(self.replay_buffer.add_batch)
 
-        collect_observers.append(ProgressBarObserver(collect_sequence_length))
+        collect_observers.append(ProgressBarObserver(
+            collect_steps / self.collect_env.batch_size or 1,
+            metrics=[m for m in self.collect_metrics if 'return' in m.name.lower()],
+            update_interval=1
+        ))
 
         self.collect_actor = actor.Actor(
             self.collect_env,
             self.collect_policy,
             self.train_step_counter,
-            steps_per_run=collect_sequence_length,
+            steps_per_run=collect_steps,
             observers=collect_observers,
             metrics=metrics,
             reference_metrics=[collect_env_step_metric],
@@ -197,7 +204,7 @@ class PPORunner:
             normalization_dataset_fn=dataset_fn,
             num_samples=1, num_epochs=10,  # num samples * num epochs = train steps per run
             triggers=learning_triggers,
-            shuffle_buffer_size=collect_sequence_length
+            shuffle_buffer_size=collect_steps
         )
 
         if eval_steps > 0:
@@ -207,12 +214,18 @@ class PPORunner:
             eval_metrics = actor.collect_metrics(buffer_size=eval_steps)
             self.eval_metrics.extend(eval_metrics)
 
-            eval_observers = [ProgressBarObserver(eval_steps)]
+            eval_observers = []
             if rewrite_rewards:
                 self.eval_reward_rewriter = RetroactiveRewardsRewriter(self.eval_env,
                                                                        lambda _: None)
                 eval_observers.append(self.eval_reward_rewriter)
                 self.eval_metrics.extend(self.eval_reward_rewriter.get_metrics())
+
+            eval_observers.append(ProgressBarObserver(
+                eval_steps / self.eval_env.batch_size or 1,
+                metrics=[m for m in self.eval_metrics if 'return' in m.name.lower()],
+                update_interval=1
+            ))
 
             self.eval_actor = actor.Actor(
                 self.eval_env,
@@ -232,7 +245,7 @@ class PPORunner:
             'num_iterations': self.num_iterations,
             'eval_steps': self.eval_steps,
             'policy_save_interval': self.policy_save_interval,
-            'collect_sequence_length': self.collect_sequence_length,
+            'collect_steps': self.collect_steps,
             'summary_interval': self.summary_interval,
             'train_num_steps': self.train_num_steps,
             'train_batch_size': self.train_batch_size,
@@ -241,6 +254,17 @@ class PPORunner:
             'num_epochs': self.ppo_learner._num_epochs,
             **self.config
         }
+
+    def create_policy_eval_video(self, i: int) -> str:
+        video_file = f'{self.videos_dir}/video_{i}.mp4'
+
+        create_and_save_policy_eval_video(
+            self.agent.policy, self.video_env,
+            max_steps=self.n_video_steps,
+            filename=video_file,
+            rewrite_rewards=self.rewrite_rewards)
+
+        return video_file
 
     def run_evaluation(self, i: int):
 
@@ -252,7 +276,8 @@ class PPORunner:
         self.eval_actor.run()
         end_time = time.time()
         logs = {
-            f'Eval{metric.name}': metric.result() for metric in self.eval_metrics
+            f'Eval{metric.name}': metric.result()
+            for metric in self.eval_metrics
         }
         logs['EvalTime'] = end_time - start_time
         print('Evaluation stats:')
@@ -264,13 +289,7 @@ class PPORunner:
             self.eval_reward_rewriter.reset()
 
         try:
-            video_file = f'{self.videos_dir}/video_{i}.mp4'
-
-            create_and_save_policy_eval_video(
-                self.agent.policy, self.video_env, max_steps=self.n_video_steps,
-                filename=video_file,
-                rewrite_rewards=self.rewrite_rewards)
-
+            video_file = self.create_policy_eval_video(i)
             logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
 
         except Exception as e:
@@ -291,62 +310,80 @@ class PPORunner:
 
         self.replay_buffer.clear()
 
+    def collect(self):
+        logs = {}
+
+        start_time = time.time()
+        self.collect_actor.run()
+        end_time = time.time()
+
+        collect_metrics = {
+            metric.name: metric.result() for metric in self.collect_metrics
+        }
+        collect_metrics['CollectTime'] = end_time - start_time
+        logs.update(collect_metrics)
+        print('Collect stats:')
+        print(', '.join([
+            f'{name}: {value:.3f}' for name, value in collect_metrics.items()
+        ]))
+
+        if self.rewrite_rewards:
+            self.reward_rewriter.flush_all()
+
+        return logs
+
+    def train(self):
+        logs = {}
+        start_time = time.time()
+        loss_info = self.ppo_learner.run()
+        end_time = time.time()
+        print('Training info:')
+        print(f'Loss: {loss_info.loss:.5f}, '
+              f'KL Penalty Loss: {loss_info.extra.kl_penalty_loss:.5f}, '
+              f'Entropy: {loss_info.extra.entropy_regularization_loss:.5f}, '
+              f'Value Estimation Loss: {loss_info.extra.value_estimation_loss:.5f}, '
+              f'PG Loss {loss_info.extra.policy_gradient_loss:.5f}, '
+              f'Train Time: {end_time - start_time:.1f} (s)')
+        print()
+
+        logs.update({
+            'loss': loss_info.loss.numpy(),
+            **tf.nest.map_structure(lambda x: x.numpy(), loss_info.extra._asdict())
+        })
+        logs['TrainTime'] = end_time - start_time
+
+        return logs
+
+    def _run(self):
+        wandb.init(project='mlrl', entity='drcope',
+                   reinit=True, config=self.get_config())
+
+        for i in range(self.num_iterations):
+            iteration_logs = {'iteration': i}
+            print(f'Iteration: {i}')
+            self.pre_iteration()
+
+            if self.eval_interval > 0 and i % self.eval_interval == 0:
+                eval_logs = self.run_evaluation(i)
+                iteration_logs.update(eval_logs)
+
+            iteration_logs.update(self.collect())
+            iteration_logs.update(self.train())
+
+            wandb.log(iteration_logs)
+
     def run(self):
         """
         Performs iterations of the PPO algorithm collect and train loop.
         """
         try:
-            wandb.init(project='mlrl', entity='drcope',
-                       reinit=True, config=self.get_config())
-
-            for i in range(self.num_iterations):
-                iteration_logs = {'iteration': i}
-
-                print(f'Iteration: {i}')
-                self.pre_iteration()
-
-                if self.eval_interval > 0 and i % self.eval_interval == 0:
-                    eval_logs = self.run_evaluation(i)
-                    iteration_logs.update(eval_logs)
-
-                # collect data
-                start_time = time.time()
-                self.collect_actor.run()
-                end_time = time.time()
-
-                collect_metrics = {
-                    metric.name: metric.result() for metric in self.collect_metrics
-                }
-                collect_metrics['CollectTime'] = end_time - start_time
-                iteration_logs.update(collect_metrics)
-                print('Collect stats:')
-                print(', '.join([
-                    f'{name}: {value:.3f}' for name, value in collect_metrics.items()
-                ]))
-
-                if self.rewrite_rewards:
-                    self.reward_rewriter.flush_all()
-
-                # train
-                start_time = time.time()
-                loss_info = self.ppo_learner.run()
-                end_time = time.time()
-                print('Training info:')
-                print(f'Loss: {loss_info.loss:.5f}, '
-                      f'KL Penalty Loss: {loss_info.extra.kl_penalty_loss:.5f}, '
-                      f'Entropy: {loss_info.extra.entropy_regularization_loss:.5f}, '
-                      f'Value Estimation Loss: {loss_info.extra.value_estimation_loss:.5f}, '
-                      f'PG Loss {loss_info.extra.policy_gradient_loss:.5f}, '
-                      f'Train Time: {end_time - start_time:.1f} (s)')
-                print()
-
-                iteration_logs.update({
-                    'loss': loss_info.loss.numpy(),
-                    **tf.nest.map_structure(lambda x: x.numpy(), loss_info.extra._asdict())
-                })
-                iteration_logs['TrainTime'] = end_time - start_time
-
-                wandb.log(iteration_logs)
+            if self.profile_run:
+                pr = cProfile.Profile()
+                pr.enable()
+                with tf.profiler.experimental.Profile(self.root_dir + '/profile'):
+                    self._run()
+            else:
+                self._run()
 
         except KeyboardInterrupt:
             print('Training interrupted by user.')
@@ -364,3 +401,7 @@ class PPORunner:
 
         finally:
             wandb.finish()
+            if self.profile_run:
+                pr.disable()
+                pr.dump_stats(self.root_dir + '/profile/profile.prof')
+                print('Profile saved to: ' + self.root_dir + '/profile/profile.prof')

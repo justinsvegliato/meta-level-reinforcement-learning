@@ -42,7 +42,7 @@ class TrajectoryRewriterWrapper:
         self.eval_trees = {i: None for i in range(self.n_envs)}
 
     def is_terminal(self, i: int = 0) -> bool:
-        return self.traj.is_last()[i] or self.traj.action[i] == 0  # type: ignore
+        return self.traj.is_last()[i] or self.traj.action[i] == 0
 
     def get_env(self, i: int = 0) -> MetaEnv:
         gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
@@ -55,12 +55,12 @@ class TrajectoryRewriterWrapper:
         return self.prev_policies[i]
 
     def get_reward(self, i: int = 0) -> float:
-        return self.traj.reward[i]  # type: ignore
+        return self.traj.reward[i]
 
     def replace_reward(self, i: int, new_reward: float):
         mask = np.zeros_like(self.traj.reward)
         mask[i] = 1
-        replaced_reward = self.traj.reward * (1 - mask) + new_reward * mask  # type: ignore
+        replaced_reward = self.traj.reward * (1 - mask) + new_reward * mask
         self.traj = self.traj._replace(reward=replaced_reward)
 
     def rewrite_reward(self, i: int, final_tree: Optional[SearchTree], verbose: bool = False):
@@ -140,6 +140,7 @@ class RetroactiveRewardsRewriter:
                  include_info: bool = False,
                  metric_buffer_size: int = 10000,
                  metric_name: str = 'RewrittenAverageReturn',
+                 compute_metrics: bool = True,
                  verbose: bool = False):
         """
         Args:
@@ -153,6 +154,7 @@ class RetroactiveRewardsRewriter:
         self.env = env
         self.verbose = verbose
         self.include_info = include_info
+        self.compute_metrics = compute_metrics
 
         if hasattr(env, 'batch_size'):
             self.n_envs = env.batch_size or 1
@@ -187,7 +189,8 @@ class RetroactiveRewardsRewriter:
         """
         for traj_wrapper in self.trajectories:
             if traj_wrapper.all_rewrites_handled():
-                self.return_metric(traj_wrapper.traj)
+                if self.compute_metrics:
+                    self.return_metric(traj_wrapper.traj)
                 if self.include_info:
                     self.add_batch((traj_wrapper.traj, traj_wrapper.get_info()))
                 else:

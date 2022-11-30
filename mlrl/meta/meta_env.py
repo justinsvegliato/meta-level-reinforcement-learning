@@ -48,6 +48,7 @@ class MetaEnv(gym.Env):
                  object_env_discount: float = 0.99,
                  one_hot_action_space: bool = False,
                  split_mask_and_tokens: bool = True,
+                 min_computation_steps: int = 0,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -72,6 +73,7 @@ class MetaEnv(gym.Env):
         self.computational_rewards = computational_rewards
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
+        self.min_computation_steps = min_computation_steps
 
         # Functions
         self.tree_policy_renderer = tree_policy_renderer
@@ -219,6 +221,9 @@ class MetaEnv(gym.Env):
             )
 
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
+
+        if self.n_computations < self.min_computation_steps:
+            search_tokens[0, 1] = 0.  # Set to 0 so terminal cannot be selected
 
         if self.split_mask_and_tokens:
             action_mask = search_tokens[:, 1].astype(np.int32)

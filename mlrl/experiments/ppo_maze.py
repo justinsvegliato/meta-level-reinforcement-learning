@@ -28,6 +28,7 @@ def get_maze_name(config: dict) -> str:
 
 def create_maze_meta_env(object_state_cls: Type[ObjectState],
                          args: dict,
+                         min_computation_steps: int = 0,
                          enable_render: bool = True) -> MetaEnv:
     maze_n = args.get('maze_size', 5)
     procgen = bool(args.get('procgen_maze', True))
@@ -43,28 +44,31 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState],
     manhattan_q_hat = ManhattanQHat(object_env)
 
     return create_meta_env(
-        object_env,
-        object_state_cls.extract_state(object_env),
-        manhattan_q_hat,
-        args,
-        tree_policy_renderer=render_tree_policy
+        object_env, object_state_cls.extract_state(object_env),
+        manhattan_q_hat, args,
+        tree_policy_renderer=render_tree_policy,
+        min_computation_steps=min_computation_steps
     )
 
 
 def create_batched_maze_meta_envs(
-        env_batch_size, n_video_envs, env_multithreading=True, **config):
+        env_batch_size, n_video_envs, n_eval_envs, min_train_computation_steps,
+        env_multithreading=True, **config):
 
-    def create_envs(n_envs, enable_render=False):
+    def create_envs(n_envs, enable_render=False, min_computation_steps: int = 0):
         return BatchedPyEnvironment([
             GymWrapper(create_maze_meta_env(
                 RestrictedActionsMazeState, config,
-                enable_render=enable_render
+                enable_render=enable_render,
+                min_computation_steps=min_computation_steps
             ))
             for _ in range(n_envs)
         ], multithreading=env_multithreading)
 
-    env = create_envs(env_batch_size, enable_render=False)
-    eval_env = create_envs(env_batch_size, enable_render=False)
+    env = create_envs(env_batch_size,
+                      enable_render=False,
+                      min_computation_steps=min_train_computation_steps)
+    eval_env = create_envs(n_eval_envs, enable_render=False)
     video_env = create_envs(n_video_envs, enable_render=True)
 
     return env, eval_env, video_env

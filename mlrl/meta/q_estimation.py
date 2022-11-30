@@ -1,4 +1,4 @@
-from functools import lru_cache
+# from functools import lru_cache
 from typing import Callable, Dict, List, Tuple
 from mlrl.networks.search_q_net import SearchQNetwork
 from .search_tree import ObjectState, SearchTree
@@ -164,7 +164,7 @@ class SearchQModelEstimator(SearchOptimalQEstimator):
         self.q_net = q_net
         self.tree_tokeniser = tree_tokeniser
 
-    @lru_cache
+    # @lru_cache
     def compute_root_q_distribution(self, search_tree: SearchTree) -> tf.Tensor:
         """
         Computes the Q-value distribution for a given state using the search tree and the Q-hat function

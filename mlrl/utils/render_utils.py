@@ -124,7 +124,7 @@ def create_policy_eval_video(policy: TFPolicy,
         rewritten_trajs: List[Tuple[Optional[trajectory.Trajectory], dict]] = \
             [(None, {'terminal': [False] * env.batch_size})]
         rewards_rewriter = RetroactiveRewardsRewriter(
-            env, rewritten_trajs.append, include_info=True
+            env, rewritten_trajs.append, include_info=True, compute_metrics=False
         )
 
     if not isinstance(env, TFPyEnvironment):

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import copy
-from functools import lru_cache
 from typing import List, Optional, Tuple, Dict, Union
 
 import gym
@@ -380,7 +379,6 @@ class SearchTree:
         """
         return self.get_subtree(0, action)
 
-    @lru_cache(maxsize=1000)
     def get_state_nodes(self, state: ObjectState) -> List[SearchTreeNode]:
         """
         Returns all nodes in the tree that correspond to the given state.

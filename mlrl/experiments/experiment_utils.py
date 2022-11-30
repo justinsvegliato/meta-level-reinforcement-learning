@@ -33,6 +33,7 @@ def create_meta_env(object_env: gym.Env,
                     init_state: ObjectState,
                     q_hat: QFunction,
                     config: dict,
+                    min_computation_steps: int = 1,
                     tree_policy_renderer=None) -> MetaEnv:
     """
     Creates a meta environment from a given object environment,
@@ -46,6 +47,7 @@ def create_meta_env(object_env: gym.Env,
                        expand_all_actions=config.get('expand_all_actions', False),
                        computational_rewards=config.get('computational_rewards', True),
                        finish_on_terminate=config.get('finish_on_terminate', False),
+                       min_computation_steps=config.get('min_computation_steps', min_computation_steps),
                        tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):
@@ -151,26 +153,36 @@ def create_parser():
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
-    parser.add_argument('--experience_batch_size', type=int, default=512,
+    parser.add_argument('--experience_batch_size', type=int, default=32,
                         help='Batch size to use.')
     parser.add_argument('--train_batch_size', type=int, default=32,
                         help='Train batch size to use in PPO')
-    parser.add_argument('--num_epochs', type=int, default=50,
+    parser.add_argument('--train_num_steps', type=int, default=16,
+                        help='Number of steps in each training batch')
+    parser.add_argument('--env_batch_size', type=int, default=256,
+                        help='Batch size for the environment.')
+    parser.add_argument('--num_epochs', type=int, default=1,
                         help='Number of epochs to run for.')
-    parser.add_argument('--steps_per_epoch', type=int, default=1000,
-                        help='Number of epochs to run for.')
+    parser.add_argument('--collect_steps', type=int, default=4096,
+                        help='Number of collection steps per epoch.')
     parser.add_argument('--num_eval_episodes', type=int, default=3,
                         help='Number of episodes to evaluate for.')
-    parser.add_argument('--eval_steps', type=int, default=1600,
+    parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
+    parser.add_argument('--eval_interval', type=int, default=5,
+                        help='How often to evaluate trained agent.')
+    parser.add_argument('--n_eval_envs', type=int, default=256,
+                        help='Number evaluation environments to run in parallel.')
     parser.add_argument('--initial_collect_steps', type=int, default=500,
                         help='Number of steps to collect before training.')
-    parser.add_argument('--n_video_steps', type=int, default=120,
+    parser.add_argument('--n_video_steps', type=int, default=60,
                         help='Number of steps to record a video for.')
     parser.add_argument('--video_freq', type=int, default=5,
                         help='Frequency of recording videos.')
-    parser.add_argument('--n_video_envs', type=int, default=5,
+    parser.add_argument('--n_video_envs', type=int, default=3,
                         help='Number of video environments to record.')
+    parser.add_argument('--profile_run', type=bool, default=False,
+                        help='Whether to run profiling tools.')
 
     # Meta-level environment parameters
     parser.add_argument('--expand_all_actions', type=bool, default=True,
@@ -184,14 +196,14 @@ def create_parser():
                         help='Maximum number of steps in meta-level environment.')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed.')
-    parser.add_argument('--env_batch_size', type=int, default=32,
-                        help='Batch size for the environment.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
     parser.add_argument('--rewrite_rewards', type=bool, default=True,
                         help='Whether to rewrite computational rewards.')
     parser.add_argument('--finish_on_terminate', type=bool, default=True,
                         help='Whether to finish meta-level episode on computational terminate action.')
+    parser.add_argument('--min_train_computation_steps', type=int, default=5,
+                        help='Minimum number of computational steps to train on.')
 
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,
@@ -214,7 +226,7 @@ def create_parser():
                         help='Number of agent transformer layers.')
     parser.add_argument('--transformer_n_heads', type=int, default=3,
                         help='Number of agent transformer heads.')
-    parser.add_argument('--n_lstm_layers', type=int, default=3,
+    parser.add_argument('--n_lstm_layers', type=int, default=0,
                         help='Number of lstm layers.')
 
     # DQN parameters
