@@ -286,7 +286,6 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
 def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                                filename: str = 'video',
                                max_steps: int = 60,
-                               max_envs_to_show: int = 2,
                                rewrite_rewards: bool = False,
                                fps: int = 1) -> str:
     """
@@ -310,6 +309,5 @@ def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                             env.action_spec(),
                             observation_and_action_constraint_splitter=mask_token_splitter)
     return create_and_save_policy_eval_video(policy, env,
-                                             filename=filename, max_steps=max_steps,
-                                             max_envs_to_show=max_envs_to_show, fps=fps,
+                                             filename=filename, max_steps=max_steps, fps=fps,
                                              rewrite_rewards=rewrite_rewards)

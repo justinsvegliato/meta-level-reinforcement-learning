@@ -309,7 +309,9 @@ class SearchTree:
             0, None, root, None, 0, False, q_function
         )
         self.root_node.node_id = 0
-        self.node_list: List[SearchTreeNode] = [self.root_node]
+        self.node_list: List[SearchTreeNode] = []
+        self.state_nodes = {}
+        self.add_node(self.root_node)
 
     def copy(self) -> 'SearchTree':
         """
@@ -335,7 +337,7 @@ class SearchTree:
 
         def recursive_update_node_list(node):
             if node not in new_tree.node_list:
-                new_tree.node_list.append(node)
+                new_tree.add_node(node)
             for a in node.children:
                 for child in node.children[a]:
                     recursive_update_node_list(child)
@@ -361,11 +363,8 @@ class SearchTree:
         def add_children(node: SearchTreeNode):
             for children in node.get_children().values():
                 for child in children:
-                    # update child data
-                    child.node_id = len(sub_tree.node_list)
-
                     # add to node list and recurse
-                    sub_tree.node_list.append(child)
+                    sub_tree.add_node(child)
                     add_children(child)
 
         add_children(root_node)
@@ -383,10 +382,7 @@ class SearchTree:
         """
         Returns all nodes in the tree that correspond to the given state.
         """
-        return [
-            node for node in self.node_list
-            if node.state == state and node.duplicate_state_ancestor is None
-        ]
+        return self.state_nodes.get(state, [])
 
     def is_action_valid(self, node: SearchTreeNode, action_idx: int) -> bool:
         """
@@ -441,7 +437,17 @@ class SearchTree:
         if node.can_expand():
             child_node = node.expand_node(self.env, action_idx, len(self.node_list))
             node.add_child_node(child_node)
-            self.node_list.append(child_node)
+            self.add_node(child_node)
+
+    def add_node(self, node: SearchTreeNode):
+        """ Adds a node to the tree. """
+        node.node_id = len(self.node_list)
+        self.node_list.append(node)
+        if node.duplicate_state_ancestor is None:
+            if node.state not in self.state_nodes:
+                self.state_nodes[node.state] = []
+            else:
+                self.state_nodes[node.state].append(node)
 
     def set_max_size(self, max_size: int):
         self.max_size = max_size

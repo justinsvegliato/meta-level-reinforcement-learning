@@ -107,12 +107,13 @@ class PPORunner:
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
         self.eval_steps = eval_steps
+        self.n_collect_envs = collect_env.batch_size or 1
         self.policy_save_interval = policy_save_interval
         self.collect_steps = collect_steps
         self.summary_interval = summary_interval
-        self.train_num_steps = train_num_steps
+        self.train_num_steps = min(train_num_steps, collect_steps // self.n_collect_envs)
         self.train_batch_size = train_batch_size
-        self.env_batch_size = collect_env.batch_size
+
         self.profile_run = profile_run
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
@@ -135,15 +136,15 @@ class PPORunner:
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=self.agent.collect_data_spec,
             batch_size=self.collect_env.batch_size or 1,
-            max_length=self.collect_steps // self.collect_env.batch_size
+            max_length=2 * self.collect_steps // self.collect_env.batch_size
         )
 
         def preprocess_seq(experience, info):
             return self.agent.preprocess_sequence(experience), info
 
         def dataset_fn():
-            ds = self.replay_buffer.as_dataset(sample_batch_size=train_batch_size,
-                                               num_steps=train_num_steps)
+            ds = self.replay_buffer.as_dataset(sample_batch_size=self.train_batch_size,
+                                               num_steps=self.train_num_steps)
             return ds.map(preprocess_seq).prefetch(5)
 
         self.saved_model_dir = os.path.join(self.root_dir, learner.POLICY_SAVED_MODEL_DIR)
@@ -178,7 +179,7 @@ class PPORunner:
             collect_observers.append(self.replay_buffer.add_batch)
 
         collect_observers.append(ProgressBarObserver(
-            collect_steps / self.collect_env.batch_size or 1,
+            collect_steps / (self.collect_env.batch_size or 1),
             metrics=[m for m in self.collect_metrics if 'return' in m.name.lower()],
             update_interval=1
         ))
@@ -249,9 +250,8 @@ class PPORunner:
             'summary_interval': self.summary_interval,
             'train_num_steps': self.train_num_steps,
             'train_batch_size': self.train_batch_size,
-            'env_batch_size': self.env_batch_size,
+            'env_batch_size': self.n_collect_envs,
             'num_samples': self.ppo_learner._num_samples,
-            'num_epochs': self.ppo_learner._num_epochs,
             **self.config
         }
 

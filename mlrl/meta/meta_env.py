@@ -277,6 +277,9 @@ class MetaEnv(gym.Env):
         return self.last_computational_reward
 
     def terminate_step(self):
+        if self.finish_on_terminate:
+            return self.get_observation(), 0., True, {}
+
         # Perform a step in the underlying environment
         action = self.get_best_object_action()
 
@@ -356,8 +359,6 @@ class MetaEnv(gym.Env):
             self.steps += 1
 
             if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
-                if self.finish_on_terminate:
-                    return self.get_observation(), 0., True, {}
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
