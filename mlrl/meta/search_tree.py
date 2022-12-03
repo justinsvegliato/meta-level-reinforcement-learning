@@ -90,6 +90,20 @@ class ObjectState(ABC):
         return hash(self.get_state_string())
 
 
+def find_cycle(
+        state: ObjectState,
+        trajectory: List[Tuple[ObjectState, int, float]]
+) -> List[Tuple[ObjectState, int, float]]:
+    state_idxs = [
+        i for i, (s, *_) in enumerate(trajectory)
+        if s == state
+    ]
+    if state_idxs:
+        i = state_idxs[0]
+        return trajectory[i:]
+    return []
+
+
 class QFunction(ABC):
     """
     Abstract class for a Q-function
@@ -113,7 +127,7 @@ class SearchTreeNode:
     __slots__ = [
         'parent', 'node_id', 'state', 'action', 'reward',
         'children', 'is_terminal_state', 'q_function', 'tried_actions',
-        '_duplicate_state_ancestor'
+        '_duplicate_state_ancestor', 'q_values'
     ]
 
     def __init__(self,
@@ -143,6 +157,7 @@ class SearchTreeNode:
         self.is_terminal_state = done
         self.children: Dict[int, List['SearchTreeNode']] = dict()
         self.q_function = q_function
+        self.q_values: Dict[int, float] = dict()
         self.tried_actions = []
         self._duplicate_state_ancestor = None
 
@@ -162,6 +177,28 @@ class SearchTreeNode:
                 return current_node
 
         return None
+
+    def get_q_value(self, action: int) -> float:
+        """
+        Returns the Q-value of the given action.
+        If the Q-value has not been computed yet, it is computed using Q-hat and stored.
+        """
+        if action not in self.q_values:
+            self.q_values[action] = self.q_function(self.state, action)
+
+        return self.q_values[action]
+
+    def get_value(self) -> float:
+        """
+        Returns the value of the node, i.e. the maximum Q-value of the node.
+        """
+        return max(self.get_q_value(a) for a in self.state.get_actions())
+
+    def set_q_value(self, action: int, q_value: float):
+        """
+        Sets the Q-value of the given action.
+        """
+        self.q_values[action] = q_value
 
     def expand_node(self,
                     env: gym.Env,
@@ -207,9 +244,6 @@ class SearchTreeNode:
 
     def has_action_children(self, action: int) -> bool:
         return action in self.children and len(self.children[action]) > 0
-
-    def get_q_value(self, action: int) -> float:
-        return self.q_function(self.state, action)
 
     def get_id(self) -> int:
         return self.node_id
@@ -277,7 +311,11 @@ class SearchTreeNode:
 
         if self.parent is not None:
             action_label = self.parent.state.get_action_label(self.action)
-            transition_str = f'|---[{action_label}, {self.reward}]-->'
+            if self.action in self.parent.q_values:
+                q = self.parent.q_values[self.action]
+                transition_str = f'|---[{action_label}, {self.reward:.3f}, {q:.3f}]-->'
+            else:
+                transition_str = f'|---[{action_label}, {self.reward:.3f}]-->'
             return '\t' * (depth - 1) + f'{transition_str} {node_str}{maybe_newline}{children_str}'
 
         raise AttributeError('Expected node to have a parent.')
@@ -445,7 +483,7 @@ class SearchTree:
         self.node_list.append(node)
         if node.duplicate_state_ancestor is None:
             if node.state not in self.state_nodes:
-                self.state_nodes[node.state] = []
+                self.state_nodes[node.state] = [node]
             else:
                 self.state_nodes[node.state].append(node)
 

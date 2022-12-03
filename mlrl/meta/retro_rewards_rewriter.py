@@ -112,6 +112,28 @@ class TrajectoryRewriterWrapper:
         }
 
 
+class MeanFinalPolicyValueMetric:
+
+    def __init__(self, name: str = 'FinalPolicyValue'):
+        self.name = name
+        self.value = None
+        self.count = 0
+
+    def __call__(self, value):
+        self.count += 1
+        if self.value is None:
+            self.value = value
+        else:
+            self.value = (self.value * (self.count - 1) + value) / self.count
+
+    def result(self):
+        return self.value
+
+    def reset(self):
+        self.value = None
+        self.count = 0
+
+
 class RetroactiveRewardsRewriter:
     """
     The class creates a callable object that can be used as a callback for
@@ -167,6 +189,7 @@ class RetroactiveRewardsRewriter:
         self.return_metric = py_metrics.AverageReturnMetric(buffer_size=metric_buffer_size,
                                                             batch_size=self.n_envs,
                                                             name=metric_name)
+        self.mean_policy_value_metric = MeanFinalPolicyValueMetric()
 
     def get_env(self, i: int = 0) -> MetaEnv:
         gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
@@ -235,6 +258,7 @@ class RetroactiveRewardsRewriter:
             # and so the policy has already been reset
             last_policy = unhandled_trajectories[-2].get_policy(i)
             final_tree = last_policy.tree if last_policy is not None else None
+            self.mean_policy_value_metric(final_tree.root_node.get_value())
         else:
             final_tree = None  # implies that terminate was the first and only action
 
@@ -265,4 +289,4 @@ class RetroactiveRewardsRewriter:
             self.flush_handled_trajectories()
 
     def get_metrics(self):
-        return [self.return_metric]
+        return [self.return_metric, self.mean_policy_value_metric]

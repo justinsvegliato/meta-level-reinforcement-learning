@@ -165,8 +165,6 @@ class PPORunner:
         self.collect_policy = py_tf_eager_policy.PyTFEagerPolicy(
             self.agent.collect_policy, use_tf_function=True, batch_time_steps=False)
 
-        metrics = actor.collect_metrics(buffer_size=collect_steps)
-
         self.rewrite_rewards = rewrite_rewards
         collect_observers = []
         if rewrite_rewards:
@@ -190,7 +188,7 @@ class PPORunner:
             self.train_step_counter,
             steps_per_run=collect_steps,
             observers=collect_observers,
-            metrics=metrics,
+            metrics=actor.collect_metrics(buffer_size=collect_steps),
             reference_metrics=[collect_env_step_metric],
             summary_dir=os.path.join(self.root_dir, learner.TRAIN_DIR),
             summary_interval=summary_interval)
@@ -212,9 +210,6 @@ class PPORunner:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
                 self.agent.policy, use_tf_function=True, batch_time_steps=False)
 
-            eval_metrics = actor.collect_metrics(buffer_size=eval_steps)
-            self.eval_metrics.extend(eval_metrics)
-
             eval_observers = []
             if rewrite_rewards:
                 self.eval_reward_rewriter = RetroactiveRewardsRewriter(self.eval_env,
@@ -232,11 +227,13 @@ class PPORunner:
                 self.eval_env,
                 self.eval_policy,
                 self.train_step_counter,
-                metrics=eval_metrics,
+                metrics=actor.collect_metrics(buffer_size=eval_steps),
                 observers=eval_observers,
                 reference_metrics=[collect_env_step_metric],
                 summary_dir=os.path.join(self.root_dir, 'eval'),
                 steps_per_run=eval_steps)
+
+            self.eval_metrics.extend(self.eval_actor.metrics)
 
     def get_config(self):
         """ Returns the config of the runner. """
@@ -297,11 +294,7 @@ class PPORunner:
 
         return logs
 
-    def pre_iteration(self):
-        """
-        Called before each iteration.
-        Resets actors and clears replay buffer.
-        """
+    def collect(self):
         # its very important to reset the actors
         # otherwise the observations can be wrong on the next run
         self.collect_actor.reset()
@@ -310,7 +303,6 @@ class PPORunner:
 
         self.replay_buffer.clear()
 
-    def collect(self):
         logs = {}
 
         start_time = time.time()
@@ -361,7 +353,6 @@ class PPORunner:
         for i in range(self.num_iterations):
             iteration_logs = {'iteration': i}
             print(f'Iteration: {i}')
-            self.pre_iteration()
 
             if self.eval_interval > 0 and i % self.eval_interval == 0:
                 eval_logs = self.run_evaluation(i)

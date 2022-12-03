@@ -1,7 +1,7 @@
 # from functools import lru_cache
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, NoReturn, Tuple
 from mlrl.networks.search_q_net import SearchQNetwork
-from .search_tree import ObjectState, SearchTree
+from .search_tree import ObjectState, SearchTree, find_cycle
 
 from abc import ABC, abstractmethod
 
@@ -15,19 +15,15 @@ class SearchOptimalQEstimator(ABC):
         self.discount = discount
 
     @abstractmethod
-    def estimate_optimal_value(
-            self, tree: SearchTree, state: ObjectState) -> float:
-        pass
-
-    @abstractmethod
     def estimate_optimal_q_value(
             self, tree: SearchTree, state: ObjectState, action: int) -> float:
         pass
 
     @abstractmethod
-    def estimate_optimal_q_values(
-            self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
-    ) -> Dict[int, float]:
+    def estimate_and_cache_optimal_q_values(self, tree: SearchTree, verbose=False):
+        """
+        Estimates the optimal Q values for all states in the tree and stores them in the tree.
+        """
         pass
 
 
@@ -38,11 +34,6 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
 
     def __init__(self, discount: float = 0.99):
         super().__init__(discount)
-
-    def estimate_optimal_value(
-            self, tree: SearchTree, state: ObjectState, trajectory=None, verbose=False) -> float:
-        q_values = self.estimate_optimal_q_values(tree, state, trajectory=trajectory, verbose=verbose)
-        return max(q_values.values())
 
     def estimate_optimal_q_value(
             self, tree: SearchTree, state: ObjectState, action: int,
@@ -59,7 +50,7 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
             q_value = 0
 
             for child in children:
-                cycle_trajectory = self.find_cycle(child.state, trajectory)
+                cycle_trajectory = find_cycle(child.state, trajectory)
                 if cycle_trajectory:
                     value = self.compute_cycle_value(cycle_trajectory)
                     if verbose:
@@ -67,7 +58,7 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
                 else:
                     if verbose:
                         print()
-                    child_q_values = self.estimate_optimal_q_values(
+                    child_q_values = self.estimate_optimal_q_distribution(
                         tree, child.state,
                         trajectory=trajectory + [(state, action, child.reward)],
                         verbose=verbose
@@ -85,10 +76,14 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
                 print(f'Computing Q-value from estimator on leaf node:'
                       f'Q({state}, {state.get_action_label(action)}) =', q_value)
 
+        for node in state_nodes:
+            node.set_q_value(action, q_value)
+
         return q_value
 
-    def estimate_optimal_q_values(
-            self, tree: SearchTree, state: ObjectState, verbose=False, trajectory=None
+    def estimate_optimal_q_distribution(
+            self, tree: SearchTree, state: ObjectState,
+            verbose=False, trajectory=None
     ) -> Dict[int, float]:
         trajectory = trajectory or []
 
@@ -112,34 +107,8 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
 
         return q_values
 
-    def q_aggregation(self, q_val1: float, q_val2: float) -> float:
-        """
-        How to aggregate competing Q-values for the same state and action
-        from different parts of the tree.
-
-        The default implementation returns the minimum value,
-        i.e. a pessimistic estimate of the Q-value.
-        """
-        if q_val1 is None:
-            return q_val2
-        if q_val2 is None:
-            return q_val1
-
-        return min(q_val1, q_val2)
-
-    @staticmethod
-    def find_cycle(
-            state: ObjectState,
-            trajectory: List[Tuple[ObjectState, int, float]]
-    ) -> List[Tuple[ObjectState, int, float]]:
-        state_idxs = [
-            i for i, (s, _, _) in enumerate(trajectory)
-            if s == state
-        ]
-        if state_idxs:
-            i = state_idxs[0]
-            return trajectory[i:]
-        return []
+    def estimate_and_cache_optimal_q_values(self, tree: SearchTree, verbose=False) -> NoReturn:
+        self.estimate_optimal_q_distribution(tree, tree.root_node.state, verbose=verbose)
 
     def compute_cycle_value(self, cycle_traj: List[Tuple[ObjectState, int, float]]) -> float:
         """

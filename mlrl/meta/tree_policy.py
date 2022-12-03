@@ -1,7 +1,7 @@
 # from functools import lru_cache
 from functools import lru_cache
-from typing import Dict, List
-from mlrl.meta.search_tree import SearchTree, SearchTreeNode, ObjectState
+from typing import Dict, List, Tuple
+from mlrl.meta.search_tree import SearchTree, SearchTreeNode, ObjectState, find_cycle
 
 from abc import ABC, abstractmethod
 
@@ -33,6 +33,21 @@ class SearchTreePolicy(ABC):
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
         pass
 
+    def compute_exp_cycle_value(
+            self, cycle_traj: List[Tuple[ObjectState, int, float, float]]) -> float:
+        """
+        Computes the expected value of a cycle in the tree.
+        """
+        cycle_len = len(cycle_traj)
+        cycle_return = sum([
+            reward * self.object_discount ** t
+            for t, (*_, reward, _) in enumerate(cycle_traj)
+        ])
+
+        traj_prob = np.prod([p for *_, p in cycle_traj])
+
+        return cycle_return / (1 - traj_prob * self.object_discount**cycle_len)
+
     @lru_cache(maxsize=100)
     def evaluate(
             self, evaluation_tree: SearchTree, verbose=False
@@ -41,7 +56,12 @@ class SearchTreePolicy(ABC):
         Estimate the value of the given state under the current policy,
         given the evaluation tree.
         """
-        def recursive_compute_value(node: SearchTreeNode) -> float:
+        def recursive_compute_value(node: SearchTreeNode, trajectory=None) -> float:
+            trajectory = trajectory or []
+
+            cycle = find_cycle(node.state, trajectory)
+            if cycle:
+                return self.compute_exp_cycle_value(cycle)
 
             probabilities = self.get_action_probabilities(node.state)
             value = 0
@@ -55,18 +75,20 @@ class SearchTreePolicy(ABC):
                 if prob == 0:
                     continue
 
-                children = node.get_children()
-                if action in children and children[action]:
+                children: List[SearchTreeNode] = node.get_children(action)
+                if children:
                     q_value = np.mean([
-                        child.reward + self.object_discount * recursive_compute_value(child)
-                        for child in children[action]
+                        child.reward + self.object_discount * recursive_compute_value(
+                            child, trajectory + [(node.state, action, child.reward, prob)]
+                        )
+                        for child in children
                     ])
                     if verbose:
                         action_label = node.state.get_action_label(action)
                         print(f'Recursive Q-hat({node.state}, {action_label}) = {q_value:.3f} ')
 
                 else:
-                    q_value = self.estimator.estimate_optimal_q_value(evaluation_tree, node.state, action)
+                    q_value = evaluation_tree.q_function(node.state, action)
                     if verbose:
                         action_label = node.state.get_action_label(action)
                         print(f'Leaf evaluation: Q-hat({node.state}, {action_label}) = {q_value:.5f}')
@@ -78,7 +100,7 @@ class SearchTreePolicy(ABC):
 
             return value
 
-        return recursive_compute_value(self.tree.get_root())
+        return recursive_compute_value(evaluation_tree.get_root())
 
 
 class GreedySearchTreePolicy(SearchTreePolicy):
@@ -93,9 +115,24 @@ class GreedySearchTreePolicy(SearchTreePolicy):
         estimator = DeterministicOptimalQEstimator(object_discount)
         super().__init__(tree, estimator, object_discount)
 
+        self.estimator.estimate_and_cache_optimal_q_values(self.tree)
+
     @lru_cache(maxsize=100)
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
-        q_values = self.estimator.estimate_optimal_q_values(self.tree, state)
+
+        state_nodes = self.tree.get_state_nodes(state)
+        if not state_nodes:
+            q_values = {
+                action: self.tree.q_function(state, action)
+                for action in state.get_actions()
+            }
+        else:
+            node, *_ = state_nodes  # all nodes should have the same q-values
+            q_values = {
+                action: node.get_q_value(action)
+                for action in node.state.get_actions()
+            }
+
         max_q = max(q_values.values())
         max_actions = [a for a, q in q_values.items() if q == max_q]
         probs = {a: 0. for a in range(len(state.get_actions()))}

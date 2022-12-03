@@ -1,4 +1,9 @@
+from mlrl.maze.maze_state import MazeState, RestrictedActionsMazeState
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
+from gym_maze.envs import MazeEnv
 
 
 def construct_maze_string(maze_view, actions_dict=None) -> str:
@@ -110,3 +115,41 @@ def construct_maze_policy_string(meta_env, policy) -> str:
     actions_dict = dict(build_trajectory(policy.tree.root_node))
     meta_env.set_environment_to_root_state()
     return construct_maze_string(maze_view, actions_dict)
+
+
+def create_maze_state(pos: np.array, env: MazeEnv) -> MazeState:
+    gym_state = (pos, 0, np.array_equal(pos, env.maze_view.goal))
+    return MazeState(pos, gym_state)
+
+
+def create_restricted_maze_state(pos: np.array, env: MazeEnv) -> MazeState:
+    gym_state = (pos, 0, np.array_equal(pos, env.maze_view.goal))
+    actions = [
+        a for a, str_a in enumerate(env.ACTION)
+        if not env.maze_view.is_wall(pos, str_a)
+    ]
+    return RestrictedActionsMazeState(pos, gym_state, actions)
+
+
+def visualise_q_hat(q_hat, env):
+    """ Function to visualise the Q function for a maze environment. """
+    maze_w, maze_h = env.maze_size
+    _, axs = plt.subplots(1, 5, figsize=(25, 5))
+
+    axs[0].imshow(env.render())
+    axs[0].axis('off')
+
+    for action, ax in enumerate(axs[1:]):
+        q_vals = np.array([[
+            q_hat(create_maze_state(np.array([x, y]), env), action)
+            for x in range(maze_w)
+        ] for y in range(maze_h)])
+
+        q_vals[env.maze_view.goal[1], env.maze_view.goal[0]] = 0
+
+        ax.set_title(f'Action: {env.ACTION[action]}')
+        sns.heatmap(q_vals, annot=True, square=maze_w == maze_h, fmt='.2f',
+                    cbar=False, ax=ax, vmin=0, vmax=1)
+        ax.axis('off')
+
+    plt.show()

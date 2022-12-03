@@ -239,8 +239,9 @@ class MetaEnv(gym.Env):
         return self.search_tree_policy.get_action(root_state)
 
     def root_q_distribution(self) -> Dict[int, float]:
-        root_state = self.tree.get_root().get_state()
-        return self.optimal_q_estimator.estimate_optimal_q_values(self.tree, root_state)
+        self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
+        root_node = self.tree.get_root()
+        return {a: root_node.get_q_value(a) for a in root_node.state.get_actions()}
 
     def get_computational_reward(self, verbose=False) -> float:
         """
@@ -607,7 +608,7 @@ class MetaEnv(gym.Env):
         root_state = self.tree.get_root().get_state()
         action_labels = root_state.get_action_labels()
         if action_labels:
-            q_dist = self.optimal_q_estimator.estimate_optimal_q_values(self.tree, root_state)
+            q_dist = self.root_q_distribution()
             q_dist = np.array(list(q_dist.values()))
 
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
