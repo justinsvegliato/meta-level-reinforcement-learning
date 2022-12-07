@@ -39,6 +39,9 @@ class TreeTokeniser(ABC):
     def pad(self, tokens: np.ndarray) -> np.ndarray:
         """Pad a list of tokens to the maximum tree size."""
         if tokens.size > 0:
+            if len(tokens.shape) < 2:
+                raise ValueError(f'Tokens must be a 2D array. {tokens.shape=}')
+
             padding = np.zeros((self.n_tokens - tokens.shape[0], tokens.shape[1]))
             return np.concatenate([tokens, padding], axis=0)
         else:
@@ -111,7 +114,7 @@ class NodeTokeniser(TreeTokeniser):
         tokens = np.array([terminate_token] + [
             self.node_tokenisation(tree, node)
             for node in tree.node_list
-        ])
+        ], dtype=np.float32)
         return self.pad(tokens)
 
     def get_token_labels(self) -> List[str]:
@@ -132,27 +135,18 @@ class NodeActionTokeniser(NodeTokeniser):
     token corresponding to each node-action pair.
     """
 
-    def __init__(self,
-                 n_object_actions: int,
-                 action_vec_dim: int,
-                 max_tree_size: int,
-                 n_terminate_tokens: int = 1):
-        super().__init__(action_vec_dim, max_tree_size, n_terminate_tokens)
-        self.n_object_actions = n_object_actions
-
     def tokenise(self, tree: SearchTree) -> np.ndarray:
-        terminate_token = self.get_terminate_token()
-
         tree_tokens = []
         # appends each action vector to each node token
         for node in tree.node_list:
-            node_token = self.node_tokenisation(node)
+            node_token = self.node_tokenisation(tree, node)
             for action in node.state.get_actions():
                 action_vec = node.state.get_action_vector(action)
                 token = np.concatenate([node_token, action_vec])
                 tree_tokens.append(token)
 
-        tokens = np.array([terminate_token] + tree_tokens)
+        terminate_token = self.get_terminate_token()
+        tokens = np.array([terminate_token] + tree_tokens, dtype=np.float32)
         return self.pad(tokens)
 
     def get_token_labels(self) -> List[str]:

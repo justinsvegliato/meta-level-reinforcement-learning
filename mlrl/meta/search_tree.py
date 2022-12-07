@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
-from typing import List, Optional, Tuple, Dict, Union
+from typing import Generic, List, Optional, Tuple, Dict, TypeVar, Union
 
 import gym
 import numpy as np
@@ -117,7 +117,10 @@ class QFunction(ABC):
         return self.compute_q(state, action)
 
 
-class SearchTreeNode:
+StateType = TypeVar('StateType', bound=ObjectState)
+
+
+class SearchTreeNode(Generic[StateType]):
     """
     A class to represent a node in the search tree.
     The node contains the state of the environment, the action that led to this state,
@@ -132,8 +135,8 @@ class SearchTreeNode:
 
     def __init__(self,
                  node_id: int,
-                 parent: Optional['SearchTreeNode'],
-                 state: ObjectState,
+                 parent: Optional['SearchTreeNode[StateType]'],
+                 state: StateType,
                  action: Optional[int],
                  reward: float,
                  done: bool,
@@ -151,7 +154,7 @@ class SearchTreeNode:
         """
         self.node_id = node_id
         self.parent = parent
-        self.state = state
+        self.state: StateType = state
         self.action = action
         self.reward = reward
         self.is_terminal_state = done
@@ -162,10 +165,10 @@ class SearchTreeNode:
         self._duplicate_state_ancestor = None
 
     @property
-    def duplicate_state_ancestor(self) -> Optional['SearchTreeNode']:
+    def duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
         return self.find_duplicate_state_ancestor()
 
-    def find_duplicate_state_ancestor(self) -> Optional['SearchTreeNode']:
+    def find_duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
         """
         Returns the first ancestor of the given child node that has the same state as the given parent node.
         If no such ancestor exists, returns None.
@@ -214,7 +217,7 @@ class SearchTreeNode:
         self.state.set_environment_to_state(env)
         object_action = self.state.get_actions()[action_idx]
         _, reward, done, *_ = env.step(object_action)
-        next_state: ObjectState = self.state.extract_state(env)
+        next_state: StateType = self.state.extract_state(env)
 
         child_node = SearchTreeNode(
             new_node_id, self, next_state, object_action,
@@ -223,7 +226,7 @@ class SearchTreeNode:
         self.tried_actions.append(action_idx)
         return child_node
 
-    def get_path_to_root(self) -> List['SearchTreeNode']:
+    def get_path_to_root(self) -> List['SearchTreeNode[StateType]']:
         """
         Returns a list of nodes from the root to the current node.
         The list is ordered from the current node to the root.
@@ -236,7 +239,7 @@ class SearchTreeNode:
             path.append(current_node)
         return path
 
-    def add_child_node(self, node: 'SearchTreeNode'):
+    def add_child_node(self, node: 'SearchTreeNode[StateType]'):
         if node.action not in self.children:
             self.children[node.action] = [node]
         else:
@@ -248,7 +251,7 @@ class SearchTreeNode:
     def get_id(self) -> int:
         return self.node_id
 
-    def get_parent(self) -> Optional['SearchTreeNode']:
+    def get_parent(self) -> Optional['SearchTreeNode[StateType]']:
         return self.parent
 
     def is_root(self) -> bool:
@@ -261,7 +264,8 @@ class SearchTreeNode:
 
     def get_children(
         self, action: Optional[int] = None
-    ) -> Union[Dict[int, List['SearchTreeNode']], List['SearchTreeNode']]:
+    ) -> Union[Dict[int, List['SearchTreeNode[StateType]']],
+               List['SearchTreeNode[StateType]']]:
         """
             Returns a dictionary of the children of the node for each action
             if no action is given, or a list of the children of the node for the given action.
@@ -285,10 +289,10 @@ class SearchTreeNode:
 
         return (not self.is_terminal_state) and (not all_tried)
 
-    def get_trajectory(self) -> Tuple[Optional[int], float, ObjectState]:
+    def get_trajectory(self) -> Tuple[Optional[int], float, StateType]:
         return (self.action, self.reward, self.state)
 
-    def get_state(self) -> ObjectState:
+    def get_state(self) -> StateType:
         return self.state
 
     def get_action(self) -> int:
@@ -324,7 +328,7 @@ class SearchTreeNode:
         return hash((self.node_id, self.state, self.reward, self.action))
 
 
-class SearchTree:
+class SearchTree(Generic[StateType]):
     """
     A class to represent the search tree.
     Serves as a wrapper for the root node of the search tree that provides O(1)
@@ -335,7 +339,7 @@ class SearchTree:
 
     def __init__(self,
                  env: gym.Env,
-                 root: Union[ObjectState, SearchTreeNode],
+                 root: Union[StateType, SearchTreeNode],
                  q_function: QFunction,
                  max_size: int = 10,
                  deterministic: bool = True):
@@ -343,11 +347,11 @@ class SearchTree:
         self.deterministic = deterministic
         self.q_function = q_function
         self.max_size = max_size
-        self.root_node: SearchTreeNode = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
+        self.root_node: SearchTreeNode[StateType] = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
             0, None, root, None, 0, False, q_function
         )
         self.root_node.node_id = 0
-        self.node_list: List[SearchTreeNode] = []
+        self.node_list: List[SearchTreeNode[StateType]] = []
         self.state_nodes = {}
         self.add_node(self.root_node)
 
@@ -416,7 +420,7 @@ class SearchTree:
         """
         return self.get_subtree(0, action)
 
-    def get_state_nodes(self, state: ObjectState) -> List[SearchTreeNode]:
+    def get_state_nodes(self, state: StateType) -> List[SearchTreeNode[StateType]]:
         """
         Returns all nodes in the tree that correspond to the given state.
         """

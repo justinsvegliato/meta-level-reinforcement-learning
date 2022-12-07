@@ -7,10 +7,11 @@ from tf_agents.specs import tensor_spec
 
 
 def create_value_network(observation_tensor_spec: tensor_spec.TensorSpec,
+                         search_transformer: dict = None,
                          **network_kwargs) -> ValueNetwork:
     return ValueNetwork(
         observation_tensor_spec,
-        preprocessing_layers=SearchTransformer(**network_kwargs),
+        preprocessing_layers=search_transformer or SearchTransformer(**network_kwargs),
         preprocessing_combiner=tf.keras.layers.Lambda(lambda x: tf.reduce_sum(x[0], axis=-2)),
         batch_squash=True,
         fc_layer_params=None

@@ -23,13 +23,20 @@ def get_maze_name(config: dict) -> str:
     agent = config.get('agent', 'ppo')
     name += f'{n}x{n}_maze_{agent}'
 
+    if config.get('rewrite_rewards', False):
+        name += '_rrr'
+    if config.get('finish_on_terminate', False):
+        name += '_fot'
+
     return name
 
 
-def create_maze_meta_env(object_state_cls: Type[ObjectState],
-                         args: dict,
+def create_maze_meta_env(object_state_cls: Type[ObjectState] = RestrictedActionsMazeState,
+                         args: dict = None,
                          min_computation_steps: int = 0,
                          enable_render: bool = True) -> MetaEnv:
+    args = args or {}
+
     maze_n = args.get('maze_size', 5)
     procgen = bool(args.get('procgen_maze', True))
 
@@ -52,10 +59,14 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState],
 
 
 def create_batched_maze_meta_envs(
-        env_batch_size, n_video_envs, n_eval_envs, min_train_computation_steps,
+        env_batch_size,
+        n_video_envs=0, n_eval_envs=0, min_train_computation_steps=0,
         env_multithreading=True, **config):
 
     def create_envs(n_envs, enable_render=False, min_computation_steps: int = 0):
+        if n_envs == 0:
+            return None
+
         return BatchedPyEnvironment([
             GymWrapper(create_maze_meta_env(
                 RestrictedActionsMazeState, config,

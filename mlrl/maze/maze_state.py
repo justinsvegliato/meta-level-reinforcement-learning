@@ -17,21 +17,23 @@ class MazeState(ObjectState):
     __slots__ = ['state_vec', 'gym_state']
 
     @staticmethod
-    def extract_state(env) -> 'MazeState':
+    def extract_state(env: MazeEnv) -> 'MazeState':
         """
         A static method to extract the state of the environment
         for later restoring and representation.
         """
-        state_vec = np.array(env.maze_view._MazeView2D__robot.copy(),
-                             dtype=np.int32)
+        x, y = env.maze_view._MazeView2D__robot.copy()
+        w, h = env.maze_view.maze_size
+        state_vec = np.array([x / w, y / h], dtype=np.float32)
 
+        maze_pos = (x, y)
         if hasattr(env, '_elapsed_steps'):
             gym_state = (
-                state_vec, env.steps_beyond_done, env.done, env._elapsed_steps
+                maze_pos, env.steps_beyond_done, env.done, env._elapsed_steps
             )
         else:
             gym_state = (
-                state_vec, env.steps_beyond_done, env.done
+                maze_pos, env.steps_beyond_done, env.done
             )
 
         return MazeState(state_vec, gym_state)
@@ -39,6 +41,7 @@ class MazeState(ObjectState):
     def __init__(self, state_vec: np.array, gym_state: tuple):
         self.state_vec = state_vec
         self.gym_state = gym_state
+        self.maze_pos, *_ = gym_state
 
     def set_environment_to_state(self, env):
         robot_pos, steps_beyond_done, done, *_ = self.gym_state
@@ -53,6 +56,9 @@ class MazeState(ObjectState):
 
         if hasattr(env, '_elapsed_steps'):
             env._elapsed_steps = self.gym_state[3]
+
+    def get_maze_pos(self) -> tuple:
+        return self.maze_pos
 
     def get_state_vector(self) -> np.array:
         return np.array(self.state_vec, dtype=np.float32)
@@ -75,7 +81,7 @@ class MazeState(ObjectState):
         return np.zeros((4,))
 
     def get_state_string(self) -> str:
-        return ', '.join(map(lambda x: str(int(x)), self.state_vec))
+        return str(self.maze_pos)
 
     def __repr__(self) -> str:
         return f'MazeState({self.get_state_string()})'

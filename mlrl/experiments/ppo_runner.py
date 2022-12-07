@@ -1,8 +1,10 @@
 import cProfile
+import math
 from typing import Optional
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.networks.search_actor_nets import create_action_distribution_network
+from mlrl.networks.search_transformer import SearchTransformer
 from mlrl.networks.search_value_net import create_value_network
 from mlrl.networks.search_actor_rnn import ActionSearchRNN
 from mlrl.networks.search_value_rnn import ValueSearchRNN
@@ -36,7 +38,6 @@ def create_search_ppo_agent(env, config, train_step=None):
     observation_tensor_spec, action_tensor_spec, time_step_tensor_spec = (
         spec_utils.get_tensor_specs(env))
 
-    # network_kwargs = config.get('network_kwargs', None) or {
     network_kwargs = {
         'n_heads': 3,
         'n_layers': 2,
@@ -48,11 +49,13 @@ def create_search_ppo_agent(env, config, train_step=None):
         value_net = ValueSearchRNN(observation_tensor_spec, **config)
         actor_net = ActionSearchRNN(observation_tensor_spec, **config)
     else:
-        value_net = create_value_network(observation_tensor_spec, **network_kwargs)
+        search_transformer = SearchTransformer(**network_kwargs)
+        value_net = create_value_network(observation_tensor_spec,
+                                         search_transformer=search_transformer)
 
         actor_net = create_action_distribution_network(observation_tensor_spec['search_tree_tokens'],
                                                        action_tensor_spec,
-                                                       **network_kwargs)
+                                                       search_transformer=search_transformer)
 
         actor_net = MaskSplitterNetwork(mask_token_splitter,
                                         actor_net,
@@ -111,7 +114,8 @@ class PPORunner:
         self.policy_save_interval = policy_save_interval
         self.collect_steps = collect_steps
         self.summary_interval = summary_interval
-        self.train_num_steps = min(train_num_steps, collect_steps // self.n_collect_envs)
+        self.train_num_steps = min(train_num_steps,
+                                   math.ceil(collect_steps / self.n_collect_envs))
         self.train_batch_size = train_batch_size
 
         self.profile_run = profile_run
@@ -136,7 +140,7 @@ class PPORunner:
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=self.agent.collect_data_spec,
             batch_size=self.collect_env.batch_size or 1,
-            max_length=2 * self.collect_steps // self.collect_env.batch_size
+            max_length=self.train_num_steps
         )
 
         def preprocess_seq(experience, info):
@@ -201,12 +205,13 @@ class PPORunner:
             self.agent,
             experience_dataset_fn=dataset_fn,
             normalization_dataset_fn=dataset_fn,
-            num_samples=1, num_epochs=10,  # num samples * num epochs = train steps per run
+            num_samples=max(1, self.collect_steps // (self.train_batch_size * self.train_num_steps)),
             triggers=learning_triggers,
             shuffle_buffer_size=collect_steps
         )
 
-        if eval_steps > 0:
+        # set up evaluation attributes
+        if eval_steps > 0 and self.eval_env is not None:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
                 self.agent.policy, use_tf_function=True, batch_time_steps=False)
 
@@ -253,6 +258,9 @@ class PPORunner:
         }
 
     def create_policy_eval_video(self, i: int) -> str:
+        if self.video_env is None:
+            return None
+
         video_file = f'{self.videos_dir}/video_{i}.mp4'
 
         create_and_save_policy_eval_video(
@@ -265,29 +273,35 @@ class PPORunner:
 
     def run_evaluation(self, i: int):
 
-        self.eval_actor.reset()
-        for metric in self.eval_metrics:
-            metric.reset()
+        logs = {}
 
-        start_time = time.time()
-        self.eval_actor.run()
-        end_time = time.time()
-        logs = {
-            f'Eval{metric.name}': metric.result()
-            for metric in self.eval_metrics
-        }
-        logs['EvalTime'] = end_time - start_time
-        print('Evaluation stats:')
-        print(', '.join([
-            f'{name}: {value:.3f}' for name, value in logs.items()
-        ]))
+        if self.eval_env is not None:
+            self.eval_actor.reset()
+            for metric in self.eval_metrics:
+                metric.reset()
 
-        if self.reward_rewriter:
-            self.eval_reward_rewriter.reset()
+            start_time = time.time()
+            self.eval_actor.run()
+            end_time = time.time()
+
+            logs.update({
+                f'Eval{metric.name}': metric.result()
+                for metric in self.eval_metrics
+            })
+            logs['EvalTime'] = end_time - start_time
+
+            print('Evaluation stats:')
+            print(', '.join([
+                f'{name}: {value:.3f}' for name, value in logs.items()
+            ]))
+
+            if self.eval_reward_rewriter is not None:
+                self.eval_reward_rewriter.reset()
 
         try:
-            video_file = self.create_policy_eval_video(i)
-            logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
+            if self.video_env is not None:
+                video_file = self.create_policy_eval_video(i)
+                logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
 
         except Exception as e:
             print(f'Error creating video: {e}')

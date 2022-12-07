@@ -1,5 +1,6 @@
 from typing import List, Tuple
 from mlrl.maze.manhattan_q import ManhattanQHat
+from mlrl.maze.maze_state import MazeState
 from mlrl.maze.maze_utils import create_restricted_maze_state
 from mlrl.utils.draw_arrow import draw_arrow
 from mlrl.meta.tree_policy import SearchTreePolicy
@@ -29,7 +30,7 @@ def draw_arrow_on_maze(env, cell_start: tuple, cell_end: tuple,
     draw_arrow(env.maze_view.maze_layer, start, end, colour, w, w * 3, w * 2)
 
 
-def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy, 
+def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy,
                        include_leaf_actions=False, show_outside_tree=True) -> np.array:
     """
     Renders the sequence of actions of a tree policy on the maze.
@@ -42,11 +43,11 @@ def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy,
         - A numpy array of the rendered image
     """
 
-    def recursive_get_arrows(node: SearchTreeNode) -> List[Tuple[int, int]]:
+    def recursive_get_arrows(node: SearchTreeNode[MazeState]) -> List[Tuple[int, int]]:
         if node.is_terminal_state:
             return []
 
-        start_cell = tuple(node.state.get_state_vector())
+        start_cell = node.state.get_maze_pos()
         action_probs = tree_policy.get_action_probabilities(node.state)
         arrows = []
         for action, prob in action_probs.items():
@@ -55,7 +56,7 @@ def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy,
 
             if node.has_action_children(action):
                 child, *_ = node.get_children(action)
-                end_cell = tuple(child.state.get_state_vector())
+                end_cell = child.state.get_maze_pos()
                 arrows.extend([(start_cell, end_cell, prob)] + recursive_get_arrows(child))
 
             elif include_leaf_actions:

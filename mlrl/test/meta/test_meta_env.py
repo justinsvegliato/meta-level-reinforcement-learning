@@ -11,7 +11,7 @@ def test_meta_env_expand_all():
 
     for seed in range(10):
         config['seed'] = seed
-        env = create_maze_meta_env(RestrictedActionsMazeState, config)
+        env: MetaEnv = create_maze_meta_env(RestrictedActionsMazeState, config)
         assert env.expand_all_actions
         env.reset()
 

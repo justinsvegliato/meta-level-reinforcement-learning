@@ -22,10 +22,10 @@ class ManhattanQHat(QFunction):
         Uses the environment to simulate taking the action and return the next state position
         """
         action_str = self.maze_env.ACTION[action]
-        state_vec = np.int32(state.get_state_vector())
-        if self.maze_env.maze_view.is_wall(state_vec, action_str):
-            return state_vec
-        return state_vec + self.maze_env.maze_view.maze.COMPASS[action_str]
+        curr_pos = np.int32(state.get_maze_pos())
+        if self.maze_env.maze_view.is_wall(curr_pos, action_str):
+            return curr_pos
+        return curr_pos + self.maze_env.maze_view.maze.COMPASS[action_str]
 
     def distance_to_goal_after_taking_action(self, state: MazeState, action: int) -> float:
         """
@@ -47,8 +47,7 @@ class ManhattanQHat(QFunction):
         """
         Estimates the Q-value of the given state and action using the Manhattan distance to the goal.
         """
-
-        state_pos = np.int32(state.get_state_vector())
+        state_pos = np.int32(state.get_maze_pos())
         if np.array_equal(state_pos, self.goal_state):
             return 0
 

@@ -1,3 +1,4 @@
+from typing import Optional
 from mlrl.networks.search_transformer import SearchTransformer
 
 import numpy as np
@@ -17,6 +18,7 @@ def get_action_mask(search_tokens: tf.Tensor) -> tf.Tensor:
 
 def create_action_distribution_network(observation_tensor_spec: tensor_spec.TensorSpec,
                                        action_tensor_spec: tensor_spec.TensorSpec,
+                                       search_transformer: Optional[SearchTransformer] = None,
                                        **network_kwargs) -> ActorDistributionNetwork:
     custom_objects = {
         'SearchActorLogitsNetwork': SearchActorLogitsNetwork,
@@ -26,7 +28,8 @@ def create_action_distribution_network(observation_tensor_spec: tensor_spec.Tens
     with tf.keras.utils.custom_object_scope(custom_objects):
         return ActorDistributionNetwork(
             observation_tensor_spec, action_tensor_spec,
-            preprocessing_layers=SearchActorLogitsNetwork(**network_kwargs),
+            preprocessing_layers=SearchActorLogitsNetwork(search_transformer=search_transformer,
+                                                          **network_kwargs),
             fc_layer_params=None,
             discrete_projection_net=lambda spec: CategoricalNetwork(spec)
         )
@@ -97,10 +100,11 @@ class SearchActorLogitsNetwork(tf.keras.Model):
                  d_model=16,
                  n_layers=2,
                  name='search_actor_logits',
+                 search_transformer: Optional[SearchTransformer] = None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        self.transformer = SearchTransformer(n_heads, d_model, n_layers)
+        self.transformer = search_transformer or SearchTransformer(n_heads, d_model, n_layers)
 
         self.to_logits = tf.keras.Sequential([
             tf.keras.layers.Dense(1),

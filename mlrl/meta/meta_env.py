@@ -49,6 +49,7 @@ class MetaEnv(gym.Env):
                  one_hot_action_space: bool = False,
                  split_mask_and_tokens: bool = True,
                  min_computation_steps: int = 0,
+                 open_debug_server_on_fail: bool = False,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -89,6 +90,7 @@ class MetaEnv(gym.Env):
         # Utility params
         self.split_mask_and_tokens = split_mask_and_tokens
         self.dump_debug_images = dump_debug_images
+        self.open_debug_server_on_fail = open_debug_server_on_fail
 
         # Meta env state
         self.tree = initial_tree
@@ -236,7 +238,7 @@ class MetaEnv(gym.Env):
 
     def get_best_object_action(self) -> int:
         root_state = self.tree.get_root().get_state()
-        return self.search_tree_policy.get_action(root_state)
+        return int(self.search_tree_policy.get_action(root_state))
 
     def root_q_distribution(self) -> Dict[int, float]:
         self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
@@ -382,7 +384,8 @@ class MetaEnv(gym.Env):
             return self.get_observation(), self.last_meta_reward, False, info
 
         except Exception as e:
-            self._dump_debug_info(e, computational_action)
+            self._dump_debug_info(e, computational_action,
+                                  open_debug_server=self.open_debug_server_on_fail)
             raise e
 
     def _dump_debug_info(self,

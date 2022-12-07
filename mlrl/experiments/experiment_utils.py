@@ -159,17 +159,17 @@ def create_parser():
                         help='Train batch size to use in PPO')
     parser.add_argument('--train_num_steps', type=int, default=16,
                         help='Number of steps in each training batch')
-    parser.add_argument('--env_batch_size', type=int, default=32,
+    parser.add_argument('--env_batch_size', type=int, default=16,
                         help='Batch size for the environment.')
-    parser.add_argument('--num_iterations', type=int, default=50,
+    parser.add_argument('--num_iterations', type=int, default=200,
                         help='Number of times to run the training loop.')
-    parser.add_argument('--collect_steps', type=int, default=4096,
+    parser.add_argument('--collect_steps', type=int, default=1024,
                         help='Number of collection steps per epoch.')
     parser.add_argument('--num_eval_episodes', type=int, default=3,
                         help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=5,
+    parser.add_argument('--eval_interval', type=int, default=10,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=256,
                         help='Number evaluation environments to run in parallel.')
