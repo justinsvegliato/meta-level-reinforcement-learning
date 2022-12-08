@@ -85,8 +85,7 @@ def create_batched_maze_meta_envs(
     return env, eval_env, video_env
 
 
-def main():
-    args = parse_args()
+def main(args):
     env, eval_env, video_env = create_batched_maze_meta_envs(**args)
     ppo_runner = PPORunner(
         env, eval_env=eval_env, video_env=video_env,
@@ -96,4 +95,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)

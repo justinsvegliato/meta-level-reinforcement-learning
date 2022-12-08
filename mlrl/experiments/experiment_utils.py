@@ -153,33 +153,29 @@ def create_parser():
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
-    parser.add_argument('--experience_batch_size', type=int, default=32,
-                        help='Batch size to use.')
+    # parser.add_argument('--experience_batch_size', type=int, default=512,
+    #                     help='Batch size to use.')
     parser.add_argument('--train_batch_size', type=int, default=32,
                         help='Train batch size to use in PPO')
-    parser.add_argument('--train_num_steps', type=int, default=16,
+    parser.add_argument('--train_num_steps', type=int, default=64,
                         help='Number of steps in each training batch')
-    parser.add_argument('--env_batch_size', type=int, default=16,
+    parser.add_argument('--env_batch_size', type=int, default=64,
                         help='Batch size for the environment.')
     parser.add_argument('--num_iterations', type=int, default=200,
                         help='Number of times to run the training loop.')
-    parser.add_argument('--collect_steps', type=int, default=1024,
+    parser.add_argument('--collect_steps', type=int, default=4096,
                         help='Number of collection steps per epoch.')
-    parser.add_argument('--num_eval_episodes', type=int, default=3,
-                        help='Number of episodes to evaluate for.')
+    # parser.add_argument('--num_eval_episodes', type=int, default=3,
+    #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
     parser.add_argument('--eval_interval', type=int, default=10,
                         help='How often to evaluate trained agent.')
-    parser.add_argument('--n_eval_envs', type=int, default=256,
+    parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')
-    parser.add_argument('--initial_collect_steps', type=int, default=500,
-                        help='Number of steps to collect before training.')
-    parser.add_argument('--n_video_steps', type=int, default=60,
+    parser.add_argument('--n_video_steps', type=int, default=32,
                         help='Number of steps to record a video for.')
-    parser.add_argument('--video_freq', type=int, default=5,
-                        help='Frequency of recording videos.')
-    parser.add_argument('--n_video_envs', type=int, default=3,
+    parser.add_argument('--n_video_envs', type=int, default=2,
                         help='Number of video environments to record.')
     parser.add_argument('--profile_run', type=bool, default=False,
                         help='Whether to run profiling tools.')
@@ -230,10 +226,12 @@ def create_parser():
                         help='Number of lstm layers.')
 
     # DQN parameters
-    parser.add_argument('--target_network_update_period', type=int, default=500,
-                        help='Maximum number of nodes in the search tree.')
-    parser.add_argument('--epsilon_greedy', type=float, default=0.1,
-                        help='Epsilon for epsilon-greedy exploration.')
+    # parser.add_argument('--target_network_update_period', type=int, default=500,
+    #                     help='Maximum number of nodes in the search tree.')
+    # parser.add_argument('--epsilon_greedy', type=float, default=0.1,
+    #                     help='Epsilon for epsilon-greedy exploration.')
+    # parser.add_argument('--initial_collect_steps', type=int, default=500,
+    #                     help='Number of steps to collect before training.')
 
     return parser
 

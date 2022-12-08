@@ -79,6 +79,7 @@ def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy,
             (x, y) for x in range(w) for y in range(h)
             if (x, y) not in tree_states
         ]
+
         q_func = ManhattanQHat(env)
         for start_cell in not_tree_states:
             if start_cell == tuple(env.maze_view.goal):

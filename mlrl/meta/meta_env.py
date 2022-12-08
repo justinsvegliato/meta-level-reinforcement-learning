@@ -193,6 +193,7 @@ class MetaEnv(gym.Env):
         )
 
     def get_token_labels(self) -> List[str]:
+        """ Returns the labels for the tokens in the observation """
         return self.tree_tokeniser.get_token_labels()
 
     def get_observation(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:

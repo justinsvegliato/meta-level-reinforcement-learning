@@ -67,8 +67,6 @@ def test_retro_reward_rewriting_traj_handling():
         assert mock_rewrite_1.call_count == 1, 'the second batch of the second trajectory should be rewritten'
         args, _ = mock_rewrite_1.call_args
         assert args[0] == 1, 'the second batch of the second trajectory should be rewritten'
-        # args, _ = mock_rewrite.call_args
-        # assert args[0] == 1, 'the first batch of the trajectory should be rewritten'
 
     # the first trajectory should be rewritten when both have terminated
     assert len(rewritten_trajs) == 2, 'the first trajectory should be rewritten'

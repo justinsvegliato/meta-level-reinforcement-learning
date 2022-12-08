@@ -1,6 +1,3 @@
-import cProfile
-import math
-from typing import Optional
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.networks.search_actor_nets import create_action_distribution_network
@@ -11,6 +8,10 @@ from mlrl.networks.search_value_rnn import ValueSearchRNN
 from mlrl.utils.render_utils import create_and_save_policy_eval_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
+import cProfile
+import gc
+from typing import Optional
+import math
 import os
 from pathlib import Path
 import time
@@ -95,7 +96,6 @@ class PPORunner:
                  eval_env: Optional[BatchedPyEnvironment] = None,
                  video_env: Optional[BatchedPyEnvironment] = None,
                  train_batch_size: int = 4,
-                 train_num_steps: int = 64,
                  summary_interval: int = 1000,
                  collect_steps: int = 4096,
                  policy_save_interval: int = 10000,
@@ -106,6 +106,7 @@ class PPORunner:
                  run_name: str = None,
                  rewrite_rewards: bool = False,
                  profile_run: bool = False,
+                 gc_interval: int = 10,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -114,14 +115,14 @@ class PPORunner:
         self.policy_save_interval = policy_save_interval
         self.collect_steps = collect_steps
         self.summary_interval = summary_interval
-        self.train_num_steps = min(train_num_steps,
-                                   math.ceil(collect_steps / self.n_collect_envs))
+        self.train_num_steps = math.ceil(collect_steps / self.n_collect_envs)
         self.train_batch_size = train_batch_size
 
         self.profile_run = profile_run
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
         self.root_dir = f'runs/{self.name}/{time_id()}'
+        self.gc_interval = gc_interval
 
         self.collect_env = collect_env
         self.eval_env = eval_env
@@ -205,7 +206,7 @@ class PPORunner:
             self.agent,
             experience_dataset_fn=dataset_fn,
             normalization_dataset_fn=dataset_fn,
-            num_samples=max(1, self.collect_steps // (self.train_batch_size * self.train_num_steps)),
+            num_samples=5 * max(1, self.collect_steps // (self.train_batch_size * self.train_num_steps)),
             triggers=learning_triggers,
             shuffle_buffer_size=collect_steps
         )
@@ -221,6 +222,8 @@ class PPORunner:
                                                                        lambda _: None)
                 eval_observers.append(self.eval_reward_rewriter)
                 self.eval_metrics.extend(self.eval_reward_rewriter.get_metrics())
+            else:
+                self.eval_reward_rewriter = None
 
             eval_observers.append(ProgressBarObserver(
                 eval_steps / self.eval_env.batch_size or 1,
@@ -253,7 +256,7 @@ class PPORunner:
             'train_num_steps': self.train_num_steps,
             'train_batch_size': self.train_batch_size,
             'env_batch_size': self.n_collect_envs,
-            'num_samples': self.ppo_learner._num_samples,
+            'num_learn_samples': self.ppo_learner._num_samples,
             **self.config
         }
 
@@ -376,6 +379,9 @@ class PPORunner:
             iteration_logs.update(self.train())
 
             wandb.log(iteration_logs)
+
+            if self.gc_interval > 0 and i % self.gc_interval == 0:
+                gc.collect()
 
     def run(self):
         """

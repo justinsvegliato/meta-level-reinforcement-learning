@@ -58,7 +58,7 @@ class MazeState(ObjectState):
             env._elapsed_steps = self.gym_state[3]
 
     def get_maze_pos(self) -> tuple:
-        return self.maze_pos
+        return tuple(self.maze_pos)
 
     def get_state_vector(self) -> np.array:
         return np.array(self.state_vec, dtype=np.float32)
@@ -81,7 +81,8 @@ class MazeState(ObjectState):
         return np.zeros((4,))
 
     def get_state_string(self) -> str:
-        return str(self.maze_pos)
+        x, y = self.maze_pos
+        return f'{x}, {y}'
 
     def __repr__(self) -> str:
         return f'MazeState({self.get_state_string()})'
