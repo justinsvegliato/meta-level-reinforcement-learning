@@ -244,7 +244,7 @@ class SearchTreeNode(Generic[StateType]):
 
     def get_exp_root_return(self) -> float:
         """
-        Returns the expected return from the root node passing through the current node.
+        Returns the expected discounted return from the root node passing through the current node.
         """
         return self.path_return + self.get_value() * self.discount ** self.depth
 
