@@ -1,7 +1,7 @@
 from mlrl.experiments.experiment_utils import create_agent, create_training_run
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.meta_env import MetaEnv
-from mlrl.meta.search_networks import SearchQNetwork
+from mlrl.meta.meta_policies.search_networks import SearchQNetwork
 from mlrl.chess.chess_env import ChessVsRandom
 from mlrl.chess.chess_state import ChessState, ChessQFunction
 

@@ -1,4 +1,4 @@
-from mlrl.meta.search_networks import SearchTransformer
+from mlrl.meta.meta_policies.search_networks import SearchTransformer
 
 import silence_tensorflow.auto  # noqa
 import tensorflow as tf
