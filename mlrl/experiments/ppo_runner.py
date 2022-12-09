@@ -106,7 +106,7 @@ class PPORunner:
                  run_name: str = None,
                  rewrite_rewards: bool = False,
                  profile_run: bool = False,
-                 gc_interval: int = 10,
+                 gc_interval: int = 5,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -380,7 +380,8 @@ class PPORunner:
 
             wandb.log(iteration_logs)
 
-            if self.gc_interval > 0 and i % self.gc_interval == 0:
+            if (self.gc_interval > 0 and i % self.gc_interval == 0) or \
+                    iteration_logs['CollectTime'] + iteration_logs['TrainTime'] > 180:
                 gc.collect()
 
     def run(self):

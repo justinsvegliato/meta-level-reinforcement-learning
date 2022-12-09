@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
+from functools import cached_property
 from typing import Generic, List, Optional, Tuple, Dict, TypeVar, Union
 
 import gym
@@ -127,11 +128,12 @@ class SearchTreeNode(Generic[StateType]):
     the reward received, and the children of the node, and other important data.
     """
 
-    __slots__ = [
-        'parent', 'node_id', 'state', 'action', 'reward',
-        'children', 'is_terminal_state', 'q_function', 'tried_actions',
-        '_duplicate_state_ancestor', 'q_values'
-    ]
+    # __slots__ = [
+    #     'parent', 'node_id', 'state', 'action', 'reward',
+    #     'children', 'is_terminal_state', 'q_function', 'tried_actions',
+    #     '_duplicate_state_ancestor', 'q_values', 'depth', 'path', 'path_actions',
+    #     'path_return'
+    # ]
 
     def __init__(self,
                  node_id: int,
@@ -140,6 +142,7 @@ class SearchTreeNode(Generic[StateType]):
                  action: Optional[int],
                  reward: float,
                  done: bool,
+                 discount: float,
                  q_function: QFunction):
         """
         Args:
@@ -157,12 +160,54 @@ class SearchTreeNode(Generic[StateType]):
         self.state: StateType = state
         self.action = action
         self.reward = reward
+        self.discount = discount
         self.is_terminal_state = done
         self.children: Dict[int, List['SearchTreeNode']] = dict()
         self.q_function = q_function
         self.q_values: Dict[int, float] = dict()
         self.tried_actions = []
         self._duplicate_state_ancestor = None
+
+    @cached_property
+    def depth(self) -> int:
+        """
+        Returns the depth of the node in the search tree.
+        The root node has depth 0.
+        """
+        if self.parent is None:
+            return 0
+
+        return self.parent.depth + 1
+
+    @cached_property
+    def path(self) -> List['SearchTreeNode[StateType]']:
+        """
+        Returns the path from the root to the current node.
+        The root node is the first element of the list.
+        """
+        if self.parent is None:
+            return [self]
+
+        return self.parent.path + [self]
+
+    @cached_property
+    def path_actions(self) -> List[int]:
+        """
+        Returns the actions taken from the root to the current node.
+        The root node has action -1.
+        """
+        if self.depth == 0:
+            return []
+        return [node.action for node in self.path[1:]]
+
+    @cached_property
+    def path_return(self) -> float:
+        """
+        Returns the return of the path from the root to the current node.
+        """
+        if self.depth == 0:
+            return 0
+        return self.parent.path_return + self.reward * self.discount ** (self.depth - 1)
 
     @property
     def duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
@@ -197,6 +242,12 @@ class SearchTreeNode(Generic[StateType]):
         """
         return max(self.get_q_value(a) for a in self.state.get_actions())
 
+    def get_exp_root_return(self) -> float:
+        """
+        Returns the expected return from the root node passing through the current node.
+        """
+        return self.path_return + self.get_value() * self.discount ** self.depth
+
     def set_q_value(self, action: int, q_value: float):
         """
         Sets the Q-value of the given action.
@@ -221,7 +272,7 @@ class SearchTreeNode(Generic[StateType]):
 
         child_node = SearchTreeNode(
             new_node_id, self, next_state, object_action,
-            reward, done, self.q_function
+            reward, done, self.discount, self.q_function
         )
         self.tried_actions.append(action_idx)
         return child_node
@@ -342,13 +393,15 @@ class SearchTree(Generic[StateType]):
                  root: Union[StateType, SearchTreeNode],
                  q_function: QFunction,
                  max_size: int = 10,
+                 discount: float = 0.99,
                  deterministic: bool = True):
         self.env = env
         self.deterministic = deterministic
         self.q_function = q_function
         self.max_size = max_size
+        self.discount = discount
         self.root_node: SearchTreeNode[StateType] = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
-            0, None, root, None, 0, False, q_function
+            0, None, root, None, 0, False, self.discount, q_function
         )
         self.root_node.node_id = 0
         self.node_list: List[SearchTreeNode[StateType]] = []
@@ -366,7 +419,7 @@ class SearchTree(Generic[StateType]):
         def recursive_copy(node, parent):
             new_node = SearchTreeNode(
                 node.node_id, parent, node.state, node.action, node.reward,
-                node.is_terminal_state, self.q_function
+                node.is_terminal_state, self.discount, self.q_function
             )
             new_node.tried_actions = copy.deepcopy(node.tried_actions)
             for a in node.children:
@@ -375,7 +428,9 @@ class SearchTree(Generic[StateType]):
             return new_node
 
         new_root = recursive_copy(root, None)
-        new_tree = SearchTree(self.env, new_root, self.q_function, self.max_size, self.deterministic)
+        new_tree = SearchTree(
+            self.env, new_root, self.q_function, self.max_size,
+            self.discount, self.deterministic)
 
         def recursive_update_node_list(node):
             if node not in new_tree.node_list:
@@ -400,6 +455,7 @@ class SearchTree(Generic[StateType]):
                               root_node,
                               self.q_function,
                               self.max_size,
+                              self.discount,
                               self.deterministic)
 
         def add_children(node: SearchTreeNode):

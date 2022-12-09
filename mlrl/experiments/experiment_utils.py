@@ -39,7 +39,8 @@ def create_meta_env(object_env: gym.Env,
     Creates a meta environment from a given object environment,
     an initial state, and a Q-function.
     """
-    initial_tree = SearchTree(object_env, init_state, q_hat)
+    initial_tree = SearchTree(object_env, init_state, q_hat,
+                              discount=config.get('object_discount', .99))
     meta_env = MetaEnv(object_env,
                        initial_tree,
                        max_tree_size=config.get('max_tree_size', 10),

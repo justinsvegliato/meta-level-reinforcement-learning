@@ -11,6 +11,7 @@ from tf_agents.environments import TFEnvironment
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.policies import TFPolicy
+from tf_agents.policies.tf_py_policy import TFPyPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 from tf_agents.trajectories import trajectory
 
@@ -129,6 +130,9 @@ def create_policy_eval_video(policy: TFPolicy,
 
     if not isinstance(env, TFPyEnvironment):
         env = TFPyEnvironment(env)
+
+    # if not isinstance(policy, TFPolicy):
+    #     policy = TFPyPolicy(policy)
 
     env.reset()
 

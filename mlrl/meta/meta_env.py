@@ -189,6 +189,7 @@ class MetaEnv(gym.Env):
         return SearchTree(
             self.object_env, new_root_state, self.tree.q_function,
             deterministic=self.tree.deterministic,
+            discount=self.tree.discount,
             max_size=self.max_tree_size
         )
 
@@ -260,17 +261,16 @@ class MetaEnv(gym.Env):
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
-            updated_policy = self.make_tree_policy(self.tree)
             if verbose:
                 print('Estimating value of new policy:\n', self.tree)
 
-            updated_policy_value = updated_policy.evaluate(self.tree, verbose=verbose)
+            updated_policy_value = self.search_tree_policy.evaluate(self.tree, verbose=verbose)
 
             if verbose:
                 print()
                 print('Estimating value of prior policy:\n', self.search_tree_policy.tree)
 
-            prior_policy_value = self.search_tree_policy.evaluate(self.tree, verbose=verbose)
+            prior_policy_value = self.prev_search_policy.evaluate(self.tree, verbose=verbose)
 
             self.last_computational_reward = updated_policy_value - prior_policy_value
             if verbose:
@@ -366,6 +366,7 @@ class MetaEnv(gym.Env):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
+            self.search_tree_policy = self.make_tree_policy(self.tree)
 
             # Compute reward (named "last_meta_reward" for readability in later access)
             self.last_meta_reward = -self.cost_of_computation
@@ -379,8 +380,6 @@ class MetaEnv(gym.Env):
                 'computational_reward': self.last_computational_reward,
                 'object_level_reward': 0
             }
-
-            self.search_tree_policy = self.make_tree_policy(self.tree)
 
             return self.get_observation(), self.last_meta_reward, False, info
 
