@@ -1,12 +1,8 @@
-from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
-from mlrl.networks.search_actor_nets import create_action_distribution_network
-from mlrl.networks.search_transformer import SearchTransformer
-from mlrl.networks.search_value_net import create_value_network
-from mlrl.networks.search_actor_rnn import ActionSearchRNN
-from mlrl.networks.search_value_rnn import ValueSearchRNN
-from mlrl.utils.render_utils import create_and_save_policy_eval_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
+from mlrl.utils import time_id
+from mlrl.experiments.eval_runner import EvalRunner
+from mlrl.experiments.search_ppo_agent import create_search_ppo_agent
 
 import cProfile
 import gc
@@ -25,71 +21,18 @@ from tf_agents.train import actor
 from tf_agents.train import learner
 from tf_agents.train import triggers
 from tf_agents.train.ppo_learner import PPOLearner
-from tf_agents.agents.ppo.ppo_agent import PPOAgent
 from tf_agents.train.utils import train_utils
-from tf_agents.networks.mask_splitter_network import MaskSplitterNetwork
-from tf_agents.train.utils import spec_utils
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
 import wandb
 
 
-def create_search_ppo_agent(env, config, train_step=None):
-
-    observation_tensor_spec, action_tensor_spec, time_step_tensor_spec = (
-        spec_utils.get_tensor_specs(env))
-
-    network_kwargs = {
-        'n_heads': 3,
-        'n_layers': 2,
-        'd_model': 32,
-    }
-
-    use_lstms = config.get('n_lstm_layers', 0) > 0
-    if use_lstms:
-        value_net = ValueSearchRNN(observation_tensor_spec, **config)
-        actor_net = ActionSearchRNN(observation_tensor_spec, **config)
-    else:
-        search_transformer = SearchTransformer(**network_kwargs)
-        value_net = create_value_network(observation_tensor_spec,
-                                         search_transformer=search_transformer)
-
-        actor_net = create_action_distribution_network(observation_tensor_spec['search_tree_tokens'],
-                                                       action_tensor_spec,
-                                                       search_transformer=search_transformer)
-
-        actor_net = MaskSplitterNetwork(mask_token_splitter,
-                                        actor_net,
-                                        input_tensor_spec=observation_tensor_spec,
-                                        passthrough_mask=True)
-
-    train_step = train_step or train_utils.create_train_step()
-
-    return PPOAgent(
-        time_step_tensor_spec,
-        action_tensor_spec,
-        actor_net=actor_net,
-        value_net=value_net,
-        optimizer=tf.keras.optimizers.Adam(1e-5),
-        greedy_eval=False,
-        importance_ratio_clipping=0.2,
-        train_step_counter=train_step,
-        compute_value_and_advantage_in_train=False,
-        update_normalizers_in_train=False,
-        normalize_observations=False,
-        use_gae=False,
-        use_td_lambda_return=False,
-        discount_factor=0.99,
-        num_epochs=1,  # deprecated param
-    )
-
-
-def time_id():
-    """ Returns an id based on the current time. """
-    return int(time.time() * 1e7)
-
-
 class PPORunner:
+    """
+    Class for running PPO experiments.
+    Handles collecting data, training, and evaluation.
+    Creates a new directory for each run and syncs it with wandb.
+    """
 
     def __init__(self,
                  collect_env: BatchedPyEnvironment,
@@ -128,7 +71,6 @@ class PPORunner:
         self.eval_env = eval_env
 
         self.collect_metrics = []
-        self.eval_metrics = []
 
         self.video_env = video_env
         self.videos_dir = self.root_dir + '/videos'
@@ -182,7 +124,7 @@ class PPORunner:
             collect_observers.append(self.replay_buffer.add_batch)
 
         collect_observers.append(ProgressBarObserver(
-            collect_steps / (self.collect_env.batch_size or 1),
+            collect_steps,
             metrics=[m for m in self.collect_metrics if 'return' in m.name.lower()],
             update_interval=1
         ))
@@ -211,37 +153,18 @@ class PPORunner:
             shuffle_buffer_size=collect_steps
         )
 
-        # set up evaluation attributes
+        # set up evaluation runner
         if eval_steps > 0 and self.eval_env is not None:
-            self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
-                self.agent.policy, use_tf_function=True, batch_time_steps=False)
-
-            eval_observers = []
-            if rewrite_rewards:
-                self.eval_reward_rewriter = RetroactiveRewardsRewriter(self.eval_env,
-                                                                       lambda _: None)
-                eval_observers.append(self.eval_reward_rewriter)
-                self.eval_metrics.extend(self.eval_reward_rewriter.get_metrics())
-            else:
-                self.eval_reward_rewriter = None
-
-            eval_observers.append(ProgressBarObserver(
-                eval_steps / self.eval_env.batch_size or 1,
-                metrics=[m for m in self.eval_metrics if 'return' in m.name.lower()],
-                update_interval=1
-            ))
-
-            self.eval_actor = actor.Actor(
-                self.eval_env,
-                self.eval_policy,
-                self.train_step_counter,
-                metrics=actor.collect_metrics(buffer_size=eval_steps),
-                observers=eval_observers,
-                reference_metrics=[collect_env_step_metric],
-                summary_dir=os.path.join(self.root_dir, 'eval'),
-                steps_per_run=eval_steps)
-
-            self.eval_metrics.extend(self.eval_actor.metrics)
+            self.evaluator = EvalRunner(
+                eval_steps,
+                eval_env,
+                self.agent.policy,
+                video_env=video_env,
+                videos_dir=self.videos_dir,
+                rewrite_rewards=rewrite_rewards,
+                step_counter=self.train_step_counter)
+        else:
+            self.evaluator = None
 
     def get_config(self):
         """ Returns the config of the runner. """
@@ -260,50 +183,17 @@ class PPORunner:
             **self.config
         }
 
-    def create_policy_eval_video(self, i: int) -> str:
-        if self.video_env is None:
-            return None
-
-        video_file = f'{self.videos_dir}/video_{i}.mp4'
-
-        create_and_save_policy_eval_video(
-            self.agent.policy, self.video_env,
-            max_steps=self.n_video_steps,
-            filename=video_file,
-            rewrite_rewards=self.rewrite_rewards)
-
-        return video_file
-
     def run_evaluation(self, i: int):
-
         logs = {}
 
-        if self.eval_env is not None:
-            self.eval_actor.reset()
-            for metric in self.eval_metrics:
-                metric.reset()
-
-            start_time = time.time()
-            self.eval_actor.run()
-            end_time = time.time()
-
-            logs.update({
-                f'Eval{metric.name}': metric.result()
-                for metric in self.eval_metrics
-            })
-            logs['EvalTime'] = end_time - start_time
-
-            print('Evaluation stats:')
-            print(', '.join([
-                f'{name}: {value:.3f}' for name, value in logs.items()
-            ]))
-
-            if self.eval_reward_rewriter is not None:
-                self.eval_reward_rewriter.reset()
+        if self.evaluator is not None:
+            eval_logs = self.evaluator.run()
+            logs.update(eval_logs)
 
         try:
             if self.video_env is not None:
-                video_file = self.create_policy_eval_video(i)
+                video_file = self.evaluator.create_policy_eval_video(self.n_video_steps,
+                                                                     f'video_{i}')
                 logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
 
         except Exception as e:

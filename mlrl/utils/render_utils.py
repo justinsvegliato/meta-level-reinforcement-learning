@@ -11,10 +11,8 @@ from tf_agents.environments import TFEnvironment
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.policies import TFPolicy
-from tf_agents.policies.tf_py_policy import TFPyPolicy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 from tf_agents.trajectories import trajectory
-
 
 import chess
 import chess.svg
