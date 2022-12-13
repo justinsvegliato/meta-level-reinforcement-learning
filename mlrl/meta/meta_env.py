@@ -16,6 +16,12 @@ import seaborn as sns
 sns.set()
 
 
+gym.envs.register(
+    id='MetaEnv-v0',
+    entry_point='mlrl.meta.meta_env:MetaEnv',
+)
+
+
 def mask_token_splitter(tokens_and_mask):
     tokens = tokens_and_mask[MetaEnv.SEARCH_TOKENS_KEY]
     mask = tokens_and_mask[MetaEnv.ACTION_MASK_KEY]

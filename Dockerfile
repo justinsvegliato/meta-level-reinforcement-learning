@@ -21,6 +21,8 @@ ENV LD_LIBRARY_PATH="/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH"
 ENV PYTHONPATH="/tf/project:$PYTHONPATH"
 RUN rm -rf tensorflow-tutorials
 
+RUN echo "" > wandb_key && export WANDB_API_KEY=$(cat wandb_key)
+
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 RUN git clone https://github.com/DylanCope/gym-maze /tmp/gym-maze
 RUN cd /tmp/gym-maze; python setup.py install

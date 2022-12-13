@@ -1,5 +1,6 @@
 data
 debug
+wandb_key
 
 # TODO: add version control for these
 runs

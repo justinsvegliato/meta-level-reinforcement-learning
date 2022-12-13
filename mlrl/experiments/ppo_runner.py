@@ -2,7 +2,7 @@ from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.utils.progbar_observer import ProgressBarObserver
 from mlrl.utils import time_id
 from mlrl.experiments.eval_runner import EvalRunner
-from mlrl.meta.policies.search_ppo_agent import create_search_ppo_agent
+from mlrl.meta.meta_policies.search_ppo_agent import create_search_ppo_agent
 
 import cProfile
 import gc
