@@ -11,7 +11,7 @@ def test_meta_env_expand_all():
 
     for seed in range(10):
         config['seed'] = seed
-        env: MetaEnv = create_maze_meta_env(RestrictedActionsMazeState, config)
+        env: MetaEnv = create_maze_meta_env(RestrictedActionsMazeState, **config)
         assert env.expand_all_actions
         env.reset()
 
@@ -36,7 +36,7 @@ def test_meta_env_expand_all_correct_obs_and_action():
 
     max_tree_size = 10
     config = {'expand_all_actions': True, 'max_tree_size': max_tree_size}
-    env = create_maze_meta_env(RestrictedActionsMazeState, config)
+    env = create_maze_meta_env(RestrictedActionsMazeState, **config)
     env.reset()
     obs = env.get_observation()
 
@@ -68,7 +68,7 @@ def test_meta_env_expand_one():
 
     for seed in range(10):
         config['seed'] = seed
-        env = create_maze_meta_env(RestrictedActionsMazeState, config)
+        env = create_maze_meta_env(RestrictedActionsMazeState, **config)
         assert not env.expand_all_actions
         env.reset()
 

@@ -78,6 +78,16 @@ class PPORunner:
         Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
         self.train_step_counter = train_utils.create_train_step()
+
+        start_lr = config.get('learning_rate', 3e-4)
+
+        def learning_rate_fn():
+            # Linearly decay the learning rate.
+            p = self.train_step_counter / self.num_iterations
+            return start_lr * (1 - p)
+
+        config['learning_rate'] = learning_rate_fn
+
         self.agent = create_search_ppo_agent(self.collect_env, config, self.train_step_counter)
 
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(

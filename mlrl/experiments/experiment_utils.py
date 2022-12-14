@@ -162,7 +162,7 @@ def create_parser():
                         help='Number of steps in each training batch')
     parser.add_argument('--env_batch_size', type=int, default=64,
                         help='Batch size for the environment.')
-    parser.add_argument('--num_iterations', type=int, default=200,
+    parser.add_argument('--num_iterations', type=int, default=2000,
                         help='Number of times to run the training loop.')
     parser.add_argument('--collect_steps', type=int, default=4096,
                         help='Number of collection steps per epoch.')
@@ -170,7 +170,7 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=10,
+    parser.add_argument('--eval_interval', type=int, default=25,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')

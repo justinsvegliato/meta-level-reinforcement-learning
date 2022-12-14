@@ -23,8 +23,9 @@ class MazeState(ObjectState):
         for later restoring and representation.
         """
         x, y = env.maze_view._MazeView2D__robot.copy()
-        w, h = env.maze_view.maze_size
-        state_vec = np.array([x / w, y / h], dtype=np.float32)
+        # w, h = env.maze_view.maze_size
+        # state_vec = np.array([x / w, y / h], dtype=np.float32)
+        state_vec = np.array([x, y], dtype=np.float32)
 
         maze_pos = (x, y)
         if hasattr(env, '_elapsed_steps'):

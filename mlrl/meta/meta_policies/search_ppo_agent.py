@@ -29,13 +29,13 @@ def create_search_ppo_agent(env, config, train_step=None):
         value_net = ValueSearchRNN(observation_tensor_spec, **config)
         actor_net = ActionSearchRNN(observation_tensor_spec, **config)
     else:
-        search_transformer = SearchTransformer(**network_kwargs)
+        # search_transformer = SearchTransformer(**network_kwargs)
         value_net = create_value_network(observation_tensor_spec,
-                                         search_transformer=search_transformer)
+                                         search_transformer=SearchTransformer(**network_kwargs))
 
         actor_net = create_action_distribution_network(observation_tensor_spec['search_tree_tokens'],
                                                        action_tensor_spec,
-                                                       search_transformer=search_transformer)
+                                                       search_transformer=SearchTransformer(**network_kwargs))
 
         actor_net = MaskSplitterNetwork(mask_token_splitter,
                                         actor_net,
@@ -49,15 +49,16 @@ def create_search_ppo_agent(env, config, train_step=None):
         action_tensor_spec,
         actor_net=actor_net,
         value_net=value_net,
-        optimizer=tf.keras.optimizers.Adam(1e-5),
+        optimizer=tf.compat.v1.train.AdamOptimizer(
+            learning_rate=config.get('learning_rate', 3e-4), epsilon=1e-5),
         greedy_eval=False,
-        importance_ratio_clipping=0.2,
+        importance_ratio_clipping=0.1,
         train_step_counter=train_step,
         compute_value_and_advantage_in_train=False,
         update_normalizers_in_train=False,
         normalize_observations=False,
-        use_gae=False,
-        use_td_lambda_return=False,
+        use_gae=True,
+        use_td_lambda_return=True,
         discount_factor=0.99,
         num_epochs=1,  # deprecated param
     )

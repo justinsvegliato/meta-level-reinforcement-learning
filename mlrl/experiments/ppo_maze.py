@@ -32,19 +32,18 @@ def get_maze_name(config: dict) -> str:
 
 
 def create_maze_meta_env(object_state_cls: Type[ObjectState] = RestrictedActionsMazeState,
-                         args: dict = None,
                          min_computation_steps: int = 0,
-                         enable_render: bool = True) -> MetaEnv:
-    args = args or {}
-
-    maze_n = args.get('maze_size', 5)
-    procgen = bool(args.get('procgen_maze', True))
+                         enable_render: bool = True,
+                         maze_size: int = 5,
+                         procgen_maze: bool = True,
+                         seed: int = 0,
+                         **config) -> MetaEnv:
 
     object_env = make_maze_env(
-        seed=args.get('seed', 0),
-        maze_size=(maze_n, maze_n),
+        seed=seed,
+        maze_size=(maze_size, maze_size),
         goal_reward=1,
-        generate_new_maze_on_reset=procgen,
+        generate_new_maze_on_reset=procgen_maze,
         enable_render=enable_render
     )
 
@@ -52,7 +51,7 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState] = RestrictedActions
 
     return create_meta_env(
         object_env, object_state_cls.extract_state(object_env),
-        manhattan_q_hat, args,
+        manhattan_q_hat, config,
         tree_policy_renderer=render_tree_policy,
         min_computation_steps=min_computation_steps
     )
@@ -69,11 +68,13 @@ def create_batched_maze_meta_envs(
 
         return BatchedPyEnvironment([
             GymWrapper(create_maze_meta_env(
-                RestrictedActionsMazeState, config,
+                RestrictedActionsMazeState,
                 enable_render=enable_render,
-                min_computation_steps=min_computation_steps
+                min_computation_steps=min_computation_steps,
+                seed=config.get('seed', 0) + i,
+                **{k: v for k, v in config.items() if k != 'seed'}
             ))
-            for _ in range(n_envs)
+            for i in range(n_envs)
         ], multithreading=env_multithreading)
 
     env = create_envs(env_batch_size,
