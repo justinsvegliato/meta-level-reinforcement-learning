@@ -3,6 +3,7 @@ from typing import Any, Callable, List, Optional, Union
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import SearchTreePolicy
+from mlrl.meta.metrics import MeanFinalPolicyValueMetric
 from mlrl.maze.maze_utils import construct_maze_policy_string
 
 from tf_agents.trajectories import trajectory
@@ -110,28 +111,6 @@ class TrajectoryRewriterWrapper:
             'eval_tree': self.eval_trees,
             'terminal': [self.is_terminal(i) for i in range(self.n_envs)],
         }
-
-
-class MeanFinalPolicyValueMetric:
-
-    def __init__(self, name: str = 'FinalPolicyValue'):
-        self.name = name
-        self.value = None
-        self.count = 0
-
-    def __call__(self, value):
-        self.count += 1
-        if self.value is None:
-            self.value = value
-        else:
-            self.value = (self.value * (self.count - 1) + value) / self.count
-
-    def result(self):
-        return self.value
-
-    def reset(self):
-        self.value = None
-        self.count = 0
 
 
 class RetroactiveRewardsRewriter:

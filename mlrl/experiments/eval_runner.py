@@ -1,4 +1,12 @@
+import argparse
+import json
+from pathlib import Path
+from mlrl.meta.meta_policies.a_star_policy import AStarPolicy
+from mlrl.meta.meta_policies.random_policy import (
+    create_random_search_policy, create_random_search_policy_no_terminate
+)
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
+from mlrl.utils import sanitize_dict, time_id
 from mlrl.utils.render_utils import create_and_save_policy_eval_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
@@ -92,7 +100,8 @@ class EvalRunner:
 
         return logs
 
-    def create_policy_eval_video(self, steps: int, filename: str = 'video') -> str:
+    def create_policy_eval_video(
+            self, steps: int, filename: str = 'video') -> str:
         if self.video_env is None:
             return None
 
@@ -105,3 +114,105 @@ class EvalRunner:
             rewrite_rewards=self.rewrite_rewards)
 
         return video_file
+
+
+def run_evaluator(
+        eval_policy,
+        eval_env,
+        eval_steps: int = 16384,
+        eval_dir: str = 'outputs/eval',
+        **config):
+
+    no_tf_fn = ['random_no_terminate', 'a_star']
+    runner = EvalRunner(
+        policy=eval_policy,
+        eval_env=eval_env,
+        eval_steps=eval_steps,
+        use_tf_function=config['policy'] not in no_tf_fn,
+        rewrite_rewards=config.get('rewrite_rewards', True),
+    )
+
+    print('Running evaluation...')
+    logs = runner.run()
+
+    print('Evaluation stats:')
+    for name, value in logs.items():
+        print(f'{name}: {value:.3f}')
+
+    eval_path = Path(eval_dir)
+    eval_path.mkdir(parents=True, exist_ok=True)
+
+    stats_path = eval_path / 'stats.json'
+    with open(stats_path, 'w') as f:
+        json.dump(sanitize_dict(logs), f, indent=4)
+
+    config_path = eval_path / 'config.json'
+    with open(config_path, 'w') as f:
+        config_json = {
+            'eval_steps': eval_steps, **config
+        }
+        json.dump(sanitize_dict(config_json), f, indent=4)
+
+
+if __name__ == '__main__':
+    # TODO: generalise to other environments (currently only works for maze env)
+    # TODO: add support for video recording
+    # TODO: add support loading trained policy from checkpoint
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--eval_steps', type=int, default=8196)
+    parser.add_argument('--n_eval_envs', type=int, default=64)
+    parser.add_argument('--env_multithreading', type=bool, default=True)
+    parser.add_argument('--policy', type=str, default='random',
+                        help='Policy to evaluate, one of: "all", "random", '
+                             '"random_no_terminate", "a_star"')
+
+    parser.add_argument('--expand_all_actions', type=bool, default=True,
+                        help='Whether to expand all actions in the meta environment '
+                             'with each computational action.')
+    parser.add_argument('--max_tree_size', type=int, default=32,
+                        help='Maximum number of nodes in the search tree.')
+    parser.add_argument('--meta_discount', type=float, default=0.99,
+                        help='Discount factor in meta-level environment.')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='Random seed.')
+    parser.add_argument('--computational_rewards', type=bool, default=True,
+                        help='Whether to use computational rewards.')
+    parser.add_argument('--rewrite_rewards', type=bool, default=True,
+                        help='Whether to rewrite computational rewards.')
+    parser.add_argument('--finish_on_terminate', type=bool, default=True,
+                        help='Whether to finish meta-level episode on computational terminate action.')
+
+    config = vars(parser.parse_args())
+
+    n_eval_envs = config.get('n_eval_envs', 64)
+    env_multithreading = config.get('env_multithreading', True)
+
+    from mlrl.experiments.ppo_maze import create_batched_maze_envs
+    eval_env = create_batched_maze_envs(
+        n_eval_envs,
+        enable_render=False,
+        **config)
+
+    make_policy_fns = {
+        'random': create_random_search_policy,
+        'random_no_terminate': create_random_search_policy_no_terminate,
+        'a_star': AStarPolicy,
+    }
+
+    eval_policy_name = config['policy']
+    if eval_policy_name == 'all':
+        for policy_name in make_policy_fns:
+            eval_policy = make_policy_fns[policy_name](eval_env)
+            eval_dir = f'outputs/baselines/maze-gym/{policy_name}/{time_id()}'
+            run_evaluator(eval_policy, eval_env, eval_dir=eval_dir, **config)
+
+    else:
+        if eval_policy_name in make_policy_fns:
+            eval_policy = make_policy_fns[eval_policy_name](eval_env)
+        else:
+            raise ValueError(f'Unknown eval policy: {eval_policy_name}')
+
+        eval_dir = f'outputs/baselines/maze-gym/{eval_policy_name}/{time_id()}'
+
+        run_evaluator(eval_policy, eval_env, eval_dir=eval_dir, **config)

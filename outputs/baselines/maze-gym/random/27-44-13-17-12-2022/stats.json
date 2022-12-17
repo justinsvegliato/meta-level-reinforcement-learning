@@ -1,0 +1,7 @@
+{
+    "EvalNumberOfEpisodes": 3377,
+    "EvalEnvironmentSteps": 8225,
+    "EvalAverageReturn": 0.008598333224654198,
+    "EvalAverageEpisodeLength": 2.4101274013519287,
+    "EvalTime": 55.72129464149475
+}

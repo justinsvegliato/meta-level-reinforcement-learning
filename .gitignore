@@ -3,7 +3,8 @@ debug
 wandb_key
 
 # TODO: add version control for these
-runs
+outputs/runs
+outputs/debug
 wandb
 stockfish
 

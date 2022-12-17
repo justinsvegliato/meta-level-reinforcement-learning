@@ -2,6 +2,7 @@ from mlrl.meta.q_estimation import SearchOptimalQEstimator, DeterministicOptimal
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import GreedySearchTreePolicy, SearchTreePolicy
 from mlrl.meta.tree_tokenisation import NodeActionTokeniser, NodeTokeniser
+from mlrl.utils import time_id
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
@@ -400,7 +401,7 @@ class MetaEnv(gym.Env):
                          debug_dir: Optional[str] = None,
                          open_debug_server: bool = True):
         """
-        Dumps debug information to the provided folder or to `./debug/{timestamp}`.
+        Dumps debug information to the provided folder or to `./outputs/debug/{timestamp}`.
         Starts a debug server on port 5678 to allow inspection of the program state.
 
         Args:
@@ -410,8 +411,7 @@ class MetaEnv(gym.Env):
             open_debug_server: Whether to open a debug server
         """
         try:
-            import time
-            debug_dir = debug_dir or f'./debug/{int(time.time() * 1000)}'
+            debug_dir = debug_dir or f'./outputs/debug/{time_id()}'
 
             from pathlib import Path
             Path(debug_dir).mkdir(parents=True, exist_ok=True)
@@ -428,7 +428,7 @@ class MetaEnv(gym.Env):
 
             import json
             with open(f'{debug_dir}/env_info.json', 'w') as f:
-                json.dump(info, f)
+                json.dump(info, f, indent=4)
 
             self.plot_search_tokens(show=False)
             plt.savefig(f'{debug_dir}/crash_search_tokens.png')

@@ -1,0 +1,9 @@
+{
+    "EvalRewrittenAverageReturn": 0.6283601522445679,
+    "EvalFinalPolicyValue": 0.8535318316555944,
+    "EvalNumberOfEpisodes": 478,
+    "EvalEnvironmentSteps": 8228,
+    "EvalAverageReturn": 1.4962877035140991,
+    "EvalAverageEpisodeLength": 15.99372386932373,
+    "EvalTime": 232.63382983207703
+}

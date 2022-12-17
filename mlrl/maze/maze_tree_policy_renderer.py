@@ -42,6 +42,8 @@ def render_tree_policy(env: MazeEnv, tree_policy: SearchTreePolicy,
     Returns:
         - A numpy array of the rendered image
     """
+    if not hasattr(env.maze_view, '_MazeView2D__screen_size'):
+        return np.zeros((1, 1, 3))
 
     def recursive_get_arrows(node: SearchTreeNode[MazeState]) -> List[Tuple[int, int]]:
         if node.is_terminal_state:
