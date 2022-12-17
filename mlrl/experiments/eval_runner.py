@@ -6,7 +6,7 @@ from mlrl.meta.meta_policies.random_policy import (
     create_random_search_policy, create_random_search_policy_no_terminate
 )
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
-from mlrl.utils import sanitize_dict, time_id
+from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
 from mlrl.utils.render_utils import create_and_save_policy_eval_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
@@ -149,7 +149,9 @@ def run_evaluator(
     config_path = eval_path / 'config.json'
     with open(config_path, 'w') as f:
         config_json = {
-            'eval_steps': eval_steps, **config
+            'eval_steps': eval_steps,
+            'git_commit': get_current_git_commit(),
+            **config
         }
         json.dump(sanitize_dict(config_json), f, indent=4)
 
