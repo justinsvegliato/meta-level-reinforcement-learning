@@ -213,6 +213,11 @@ def create_parser():
                         help='Whether to use a procgen maze.')
     parser.add_argument('--restricted_maze_states', type=bool, default=True,
                         help='Whether to restrict movements and node expansions to only free spaces.')
+    parser.add_argument('--q_hat_inadmissable_action', type=str, default=None,
+                        help='Action to estimate inadmissably.')
+    parser.add_argument('--q_hat_inadmissable_overestimation', type=float, default=2.0,
+                        help='Distance overestimation to use for inadmissable action.')
+
 
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',

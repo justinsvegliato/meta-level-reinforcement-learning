@@ -3,7 +3,7 @@ from mlrl.experiments.ppo_runner import PPORunner
 from mlrl.meta.search_tree import ObjectState
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.maze.maze_state import MazeState, RestrictedActionsMazeState
-from mlrl.maze.manhattan_q import ManhattanQHat
+from mlrl.maze.manhattan_q import ManhattanQHat, InadmissableManhattanQHat
 from mlrl.maze.maze_env import make_maze_env
 from mlrl.maze.maze_tree_policy_renderer import render_tree_policy
 
@@ -48,11 +48,18 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState] = None,
         enable_render=enable_render
     )
 
-    manhattan_q_hat = ManhattanQHat(object_env)
+    if config.get('q_hat_inadmissable_action', None) is not None:
+        q_hat = InadmissableManhattanQHat(
+            bad_action = object_env.ACTION.index(config['q_hat_inadmissable_action']),
+            overestimation_factor = config.get('q_hat_overestimation_factor', 2.0),
+            maze_env=object_env
+        )
+    else:
+        q_hat = ManhattanQHat(object_env)
 
     return create_meta_env(
         object_env, object_state_cls.extract_state(object_env),
-        manhattan_q_hat, config,
+        q_hat, config,
         tree_policy_renderer=render_tree_policy,
         min_computation_steps=min_computation_steps
     )
