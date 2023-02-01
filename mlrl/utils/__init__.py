@@ -20,6 +20,20 @@ def one_hot(x: int, n: int) -> np.array:
     return vec
 
 
+def compute_positional_encoding(position: int, d_model: int) -> np.ndarray:
+    """Compute positional encoding for a given position and dimension."""
+    encoding = np.zeros((d_model,))
+
+    for i in range(d_model):
+        if i % 2 == 0:
+            encoding[i] = np.sin(position / 10000 ** (i / d_model))
+        else:
+            encoding[i] = np.cos(position / 10000 ** ((i - 1) / d_model))
+
+    return encoding
+
+
+
 def time_id() -> str:
     """ Returns an id string based on the current time. """
     now = datetime.now()

@@ -64,7 +64,7 @@ class PPORunner:
         self.profile_run = profile_run
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
-        self.root_dir = f'outputs/runs/{self.name}/{time_id()}'
+        self.root_dir = f'outputs/runs/{self.name}/'
         self.gc_interval = gc_interval
 
         self.collect_env = collect_env
@@ -190,6 +190,7 @@ class PPORunner:
             'train_batch_size': self.train_batch_size,
             'env_batch_size': self.n_collect_envs,
             'num_learn_samples': self.ppo_learner._num_samples,
+            'root_dir': self.root_dir,
             **self.config
         }
 

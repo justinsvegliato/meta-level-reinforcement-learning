@@ -50,8 +50,8 @@ def create_maze_meta_env(object_state_cls: Type[ObjectState] = None,
 
     if config.get('q_hat_inadmissable_action', None) is not None:
         q_hat = InadmissableManhattanQHat(
-            bad_action = object_env.ACTION.index(config['q_hat_inadmissable_action']),
-            overestimation_factor = config.get('q_hat_overestimation_factor', 2.0),
+            bad_action=object_env.ACTION.index(config['q_hat_inadmissable_action']),
+            overestimation_factor=config.get('q_hat_overestimation_factor', 2.0),
             maze_env=object_env
         )
     else:

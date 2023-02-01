@@ -101,7 +101,6 @@ class MetaEnv(gym.Env):
 
         # Meta env state
         self.tree = initial_tree
-        self.tree.set_max_size(max_tree_size)
         self.n_computations = 0
 
         # Setup gym spaces
@@ -129,24 +128,26 @@ class MetaEnv(gym.Env):
 
         if self.expand_all_actions:
             # If we are expanding all actions, then the token does not include a
-            # representation of the action to be expanded
-            self.tree_token_dim = self.n_meta_feats + \
-                2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
+            # representation of the  to be expanded
+            # self.tree_token_dim = self.n_meta_feats + \
+            #     2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
 
-            self.tree_tokeniser = NodeTokeniser(self.action_vec_dim,
-                                                self.state_vec_dim,
-                                                max_tree_size)
+            self.tree_tokeniser = NodeTokeniser(self.max_tree_size,
+                                                self.action_vec_dim,
+                                                self.state_vec_dim)
         else:
             # 2 * max_tree_size because we include the id of the corresponding node
             # and the id of the parent node
             # 2 * self.action_vec_dim because we include the vector for the action
             # taken to reach the node and the vector for the action to be expanded
-            self.tree_token_dim = self.n_meta_feats + \
-                2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
+            # self.tree_token_dim = self.n_meta_feats + \
+            #     2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
-            self.tree_tokeniser = NodeActionTokeniser(self.action_vec_dim,
-                                                      self.state_vec_dim,
-                                                      max_tree_size)
+            self.tree_tokeniser = NodeActionTokeniser(self.max_tree_size,
+                                                      self.action_vec_dim,
+                                                      self.state_vec_dim)
+
+        self.tree_token_dim = self.tree_tokeniser.tree_token_dim()
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -196,8 +197,7 @@ class MetaEnv(gym.Env):
         return SearchTree(
             self.object_env, new_root_state, self.tree.q_function,
             deterministic=self.tree.deterministic,
-            discount=self.tree.discount,
-            max_size=self.max_tree_size
+            discount=self.tree.discount
         )
 
     def get_token_labels(self) -> List[str]:
@@ -225,10 +225,9 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-        if len(self.tree.node_list) > self.max_tree_size:
+        if not self.tree_tokeniser.can_tokenise(self.tree):
             raise RuntimeError(
-                f'Tree has {len(self.tree.node_list)} nodes, '
-                f'but max_tree_size is {self.max_tree_size}'
+                f'Cannot tokenise tree: {self.tree}'
             )
 
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
@@ -320,7 +319,7 @@ class MetaEnv(gym.Env):
         self.n_computations += 1
         if self.expand_all_actions:
             # Expand all actions from the given node
-            node_idx = (computational_action - 1)
+            node_idx = self.tree_tokeniser.get_node_idx(self.tree, computational_action)
             self.tree.expand_all(node_idx)
         else:
             # perform a computational action on the search tree
@@ -369,7 +368,7 @@ class MetaEnv(gym.Env):
             self.last_meta_action = computational_action
             self.steps += 1
 
-            if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
+            if computational_action == 0 and (not self.tree_tokeniser.can_tokenise(self.tree)):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
