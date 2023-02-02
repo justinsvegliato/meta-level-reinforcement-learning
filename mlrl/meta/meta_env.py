@@ -147,7 +147,7 @@ class MetaEnv(gym.Env):
                                                       self.action_vec_dim,
                                                       self.state_vec_dim)
 
-        self.tree_token_dim = self.tree_tokeniser.tree_token_dim()
+        self.tree_token_dim = self.tree_tokeniser.tree_token_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -225,10 +225,6 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-        if not self.tree_tokeniser.can_tokenise(self.tree):
-            raise RuntimeError(
-                f'Cannot tokenise tree: {self.tree}'
-            )
 
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
 
@@ -368,7 +364,7 @@ class MetaEnv(gym.Env):
             self.last_meta_action = computational_action
             self.steps += 1
 
-            if computational_action == 0 and (not self.tree_tokeniser.can_tokenise(self.tree)):
+            if computational_action == 0 or (not self.tree_tokeniser.can_tokenise(self.tree)):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
@@ -511,6 +507,7 @@ class MetaEnv(gym.Env):
                mode: str = 'rgb_array',
                save_fig_to: Optional[str] = None,
                meta_action_probs: Optional[np.ndarray] = None,
+               remove_duplicate_tree_states: bool = True,
                plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
@@ -560,7 +557,8 @@ class MetaEnv(gym.Env):
             object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=tree_ax, show=False)
+        plot_tree(self.tree, ax=tree_ax, show=False,
+                  remove_duplicate_states=remove_duplicate_tree_states)
 
         # Render the Q-distribution in the right subplot
         self.plot_root_q_distribution(root_dist_ax)

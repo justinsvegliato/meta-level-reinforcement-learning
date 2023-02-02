@@ -46,6 +46,9 @@ class TreeTokeniser(ABC):
             if len(tokens.shape) < 2:
                 raise ValueError(f'Tokens must be a 2D array. {tokens.shape=}')
 
+            if tokens.shape[0] >= self.n_tokens:
+                return tokens[:self.n_tokens]
+
             padding = np.zeros((self.n_tokens - tokens.shape[0], tokens.shape[1]))
             return np.concatenate([tokens, padding], axis=0)
         else:
@@ -115,7 +118,7 @@ class NodeTokeniser(TreeTokeniser):
 
         id_vec = self.encode_node_id(node.get_id())
         if node.is_root():
-            parent_id_vec = np.zeros((self.max_tokens,), dtype=np.float32)
+            parent_id_vec = np.zeros((id_vec.size,), dtype=np.float32)
             action_taken_vec = np.zeros((self.action_vec_dim,), dtype=np.float32)
         else:
             parent_id_vec = self.encode_node_id(node.get_parent_id())

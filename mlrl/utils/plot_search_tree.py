@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def construct_tree(tree: nx.DiGraph,
                    node: SearchTreeNode,
-                   env):
+                   remove_duplicate_states=True):
 
     tree.add_node(
         node.node_id,
@@ -17,7 +17,9 @@ def construct_tree(tree: nx.DiGraph,
 
     for action, children in node.get_children().items():
         for child in children:
-            construct_tree(tree, child, env)
+            if remove_duplicate_states and child.duplicate_state_ancestor is not None:
+                continue
+            construct_tree(tree, child, remove_duplicate_states=remove_duplicate_states)
             tree.add_edge(node.node_id, child.node_id,
                           action=node.state.get_action_label(action),
                           reward=child.get_reward_received(),
@@ -27,10 +29,11 @@ def construct_tree(tree: nx.DiGraph,
 def plot_tree(search_tree: SearchTree, figsize=(20, 20),
               show_reward=False, show_id=False, ax=None,
               can_expand_colour='tab:green',
+              remove_duplicate_states=True,
               show=True, title='Search Tree'):
 
     nx_tree = nx.DiGraph()
-    construct_tree(nx_tree, search_tree.get_root(), search_tree.env)
+    construct_tree(nx_tree, search_tree.get_root(), remove_duplicate_states=remove_duplicate_states)
 
     pos = hierarchy_pos_large_tree(nx_tree, search_tree.get_root().node_id, width=250, height=250)
     edge_labels = {
