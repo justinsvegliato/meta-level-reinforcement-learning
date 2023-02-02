@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import List
+from typing import List, Dict
 from mlrl.meta.search_tree import SearchTree, SearchTreeNode
 from mlrl.utils import one_hot, compute_positional_encoding
 
@@ -14,12 +14,14 @@ class TreeTokeniser(ABC):
     def __init__(self,
                  max_tokens: int,
                  one_hot_node_id: bool = False,
-                 pos_enc_dim: int = 16,
+                 pos_enc_dim: int = 8,
                  n_terminate_tokens: int = 1):
         self.max_tokens = max_tokens  # (non-terminate) tokens
         self.one_hot_node_id = one_hot_node_id
         self.pos_enc_dim = pos_enc_dim
         self.n_tokens = self.max_tokens + n_terminate_tokens
+        self.meta_vars = dict()
+        self.meta_vec = np.array([])
 
     @abstractmethod
     def tokenise(self, tree: SearchTree) -> np.ndarray:
@@ -39,6 +41,11 @@ class TreeTokeniser(ABC):
     def get_terminate_token(self) -> np.ndarray:
         """Get the token for terminate action."""
         return np.array([1., 1.] + [0.] * (self.tree_token_dim - 3) + [1.])
+
+    def set_meta_vars(self, **kwargs: Dict[str, float]):
+        """Set the meta variables."""
+        self.meta_vars = kwargs
+        self.meta_vec = np.array([v for v in self.meta_vars.values()])
 
     def pad(self, tokens: np.ndarray) -> np.ndarray:
         """Pad a list of tokens to the maximum tree size."""
@@ -125,15 +132,15 @@ class NodeTokeniser(TreeTokeniser):
             action_taken_vec = state.get_action_vector(node.get_action())
 
         # meta features contains a mask attention and the reward
-        meta_features = np.array([
+        node_features = np.array([
             1., tree.has_valid_expansions(node), node.reward
         ], dtype=np.float32)
 
         state_vec = state.get_state_vector()
 
         return np.concatenate([
-            meta_features, id_vec, parent_id_vec,
-            action_taken_vec, state_vec,
+            node_features, id_vec, parent_id_vec,
+            action_taken_vec, state_vec, self.meta_vec,
             np.array([0.])  # not a terminate token
         ])
 
@@ -156,8 +163,9 @@ class NodeTokeniser(TreeTokeniser):
         parent_id_vec = [f'parent_id_{i}' for i in range(id_dim)]
         action_taken_vec = [f'action_taken_{i}' for i in range(self.action_vec_dim)]
         state_vec = [f'state_{i}' for i in range(self.state_vec_dim)]
+        meta_labels = [f'meta_{var}' for var in self.meta_vars]
         return meta_features + id_vec + parent_id_vec + \
-            action_taken_vec + state_vec + [r'$\perp$']
+            action_taken_vec + state_vec + meta_labels + [r'$\perp$']
 
     def can_tokenise(self, tree: SearchTree) -> bool:
         """ Check if a tree can be tokenised."""

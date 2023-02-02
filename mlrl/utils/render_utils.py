@@ -143,6 +143,12 @@ def create_policy_eval_video(policy: TFPolicy,
             if isinstance(policy_step.action, tfp.distributions.Categorical):
                 probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
                 return gym_env.render(meta_action_probs=probs)
+        else:
+            policy_step = policy.action(env.current_time_step(), policy_state)
+            info = policy_step.info
+            if info is not None and 'dist_params' in info and 'logits' in info['dist_params']:
+                probs = tf.nn.softmax(info['dist_params']['logits'][i]).numpy()
+                return gym_env.render(meta_action_probs=probs)
 
         return gym_env.render()
 

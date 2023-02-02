@@ -207,7 +207,7 @@ def create_parser():
                         help='Discount factor in object-level environment.')
 
     # Maze parameters
-    parser.add_argument('--maze_size', type=int, default=5,
+    parser.add_argument('--maze_size', type=int, default=10,
                         help='Size of the maze.')
     parser.add_argument('--procgen_maze', type=bool, default=True,
                         help='Whether to use a procgen maze.')
@@ -217,7 +217,6 @@ def create_parser():
                         help='Action to estimate inadmissably.')
     parser.add_argument('--q_hat_inadmissable_overestimation', type=float, default=2.0,
                         help='Distance overestimation to use for inadmissable action.')
-
 
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',

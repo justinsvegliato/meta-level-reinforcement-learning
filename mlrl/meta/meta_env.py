@@ -55,6 +55,8 @@ class MetaEnv(gym.Env):
                  object_env_discount: float = 0.99,
                  one_hot_action_space: bool = False,
                  split_mask_and_tokens: bool = True,
+                 random_cost_of_computation: bool = True,
+                 cost_of_computation_interval: Tuple[float, float] = (0.0, 0.01),
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  dump_debug_images: bool = True):
@@ -77,11 +79,16 @@ class MetaEnv(gym.Env):
         self.expand_all_actions = expand_all_actions
         self.keep_subtree_on_terminate = keep_subtree_on_terminate
         self.object_env_discount = object_env_discount
-        self.cost_of_computation = cost_of_computation
+
         self.computational_rewards = computational_rewards
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
         self.min_computation_steps = min_computation_steps
+
+        self.random_cost_of_computation = random_cost_of_computation
+        self.cost_of_computation_interval = cost_of_computation_interval
+        self.cost_of_computation = cost_of_computation
+        self.cost_of_computation = self.get_next_computation_cost()
 
         # Functions
         self.tree_policy_renderer = tree_policy_renderer
@@ -147,6 +154,7 @@ class MetaEnv(gym.Env):
                                                       self.action_vec_dim,
                                                       self.state_vec_dim)
 
+        self.update_tree_meta_vars()
         self.tree_token_dim = self.tree_tokeniser.tree_token_dim
 
         tree_token_space = gym.spaces.Box(
@@ -174,6 +182,15 @@ class MetaEnv(gym.Env):
         self.meta_action_strings = self.get_action_strings()
         self.steps = 0
 
+    def get_next_computation_cost(self):
+        if self.random_cost_of_computation:
+            return np.random.uniform(*self.cost_of_computation_interval)
+        else:
+            return self.cost_of_computation
+
+    def update_tree_meta_vars(self):
+        self.tree_tokeniser.set_meta_vars(cost_of_computation=self.cost_of_computation)
+
     def reset(self):
         self.object_env.reset()
         self.tree = self.get_root_tree()
@@ -184,6 +201,8 @@ class MetaEnv(gym.Env):
         self.last_meta_reward = 0
         self.last_computational_reward = 0
         self.steps = 0
+        self.cost_of_computation = self.get_next_computation_cost()
+        self.update_tree_meta_vars()
         return self.get_observation()
 
     def get_root_tree(self) -> SearchTree:
@@ -500,7 +519,8 @@ class MetaEnv(gym.Env):
         return f'Meta-action: [{action_string}] | '\
                f'Meta-Reward: {self.last_meta_reward:.3f} | '\
                f'Best Object-action: {action_label} | '\
-               f'Computational-Reward: {computational_reward:.3f} | '\
+               f'Comp-Reward: {computational_reward:.3f} | '\
+               f'Comp-Cost: {self.cost_of_computation:.3f} | '\
                f't = {self.steps}'
 
     def render(self,
@@ -645,7 +665,7 @@ class MetaEnv(gym.Env):
             if t.get_text() and float(t.get_text()) == 0:
                 t.set_text('')
 
-        ax.set_xticklabels(self.get_token_labels(), rotation=45)
+        ax.set_xticklabels(self.get_token_labels(), rotation=65)
         ax.set_title(
             'Search Tree Tokens: Each token represents a node and '
             'object-level action, i.e. a potential expansion of the search tree.'
