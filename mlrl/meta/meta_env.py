@@ -56,7 +56,7 @@ class MetaEnv(gym.Env):
                  one_hot_action_space: bool = False,
                  split_mask_and_tokens: bool = True,
                  random_cost_of_computation: bool = True,
-                 cost_of_computation_interval: Tuple[float, float] = (0.0, 0.01),
+                 cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  dump_debug_images: bool = True):
@@ -189,7 +189,10 @@ class MetaEnv(gym.Env):
             return self.cost_of_computation
 
     def update_tree_meta_vars(self):
-        self.tree_tokeniser.set_meta_vars(cost_of_computation=self.cost_of_computation)
+        min_cost = self.cost_of_computation_interval[0]
+        max_cost = self.cost_of_computation_interval[1]
+        normed_cost = (self.cost_of_computation - min_cost) / (max_cost - min_cost)
+        self.tree_tokeniser.set_meta_vars(cost_of_computation=normed_cost)
 
     def reset(self):
         self.object_env.reset()
@@ -474,7 +477,7 @@ class MetaEnv(gym.Env):
             'last_computation_reward': float(self.last_computational_reward),
             'last_meta_action': int(self.last_meta_action),
             'tree': str(self.tree),
-            'object_level_seed': self.get_object_level_seed()
+            'object_level_seed': self.get_object_level_seed(),
         }
 
     def set_environment_to_root_state(self):

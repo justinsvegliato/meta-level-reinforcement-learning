@@ -31,13 +31,17 @@ class EvalRunner:
                  video_env: Optional[BatchedPyEnvironment] = None,
                  videos_dir: str = None,
                  use_tf_function: bool = True,
+                 convert_to_eager: bool = True,
                  step_counter=None):
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
         self.videos_dir = videos_dir or '.'
 
-        self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
-            policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        if convert_to_eager:
+            self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
+                policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        else:
+            self.eval_policy = policy
 
         self.metrics = []
 
@@ -81,7 +85,11 @@ class EvalRunner:
         self.progbar.reset()
 
         start_time = time.time()
-        self.eval_actor.run()
+        try:
+            self.eval_actor.run()
+        except KeyboardInterrupt:
+            print('\nEvaluation interrupted.')
+
         end_time = time.time()
 
         logs = {

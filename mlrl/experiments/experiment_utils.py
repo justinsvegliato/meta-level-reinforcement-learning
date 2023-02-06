@@ -41,6 +41,10 @@ def create_meta_env(object_env: gym.Env,
     """
     initial_tree = SearchTree(object_env, init_state, q_hat,
                               discount=config.get('object_discount', .99))
+
+    cost_of_computation_interval = (
+        config.get('min_cost_of_computation', 0), config.get('max_cost_of_computation', 0.05)
+    )
     meta_env = MetaEnv(object_env,
                        initial_tree,
                        max_tree_size=config.get('max_tree_size', 10),
@@ -49,6 +53,9 @@ def create_meta_env(object_env: gym.Env,
                        computational_rewards=config.get('computational_rewards', True),
                        finish_on_terminate=config.get('finish_on_terminate', False),
                        min_computation_steps=config.get('min_computation_steps', min_computation_steps),
+                       random_cost_of_computation=config.get('random_cost_of_computation', True),
+                       cost_of_computation_interval=cost_of_computation_interval,
+                       cost_of_computation=config.get('cost_of_computation', 0.001),
                        tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):

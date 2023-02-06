@@ -129,9 +129,6 @@ def create_policy_eval_video(policy: TFPolicy,
     if not isinstance(env, TFPyEnvironment):
         env = TFPyEnvironment(env)
 
-    # if not isinstance(policy, TFPolicy):
-    #     policy = TFPyPolicy(policy)
-
     env.reset()
 
     policy_state = policy.get_initial_state(env.batch_size)
@@ -142,12 +139,6 @@ def create_policy_eval_video(policy: TFPolicy,
             policy_step = policy.distribution(env.current_time_step(), policy_state)
             if isinstance(policy_step.action, tfp.distributions.Categorical):
                 probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
-                return gym_env.render(meta_action_probs=probs)
-        else:
-            policy_step = policy.action(env.current_time_step(), policy_state)
-            info = policy_step.info
-            if info is not None and 'dist_params' in info and 'logits' in info['dist_params']:
-                probs = tf.nn.softmax(info['dist_params']['logits'][i]).numpy()
                 return gym_env.render(meta_action_probs=probs)
 
         return gym_env.render()
@@ -294,6 +285,7 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
 def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                                filename: str = 'video',
                                max_steps: int = 60,
+                               max_envs_to_show: int = 2,
                                rewrite_rewards: bool = False,
                                fps: int = 1) -> str:
     """
@@ -317,5 +309,6 @@ def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
                             env.action_spec(),
                             observation_and_action_constraint_splitter=mask_token_splitter)
     return create_and_save_policy_eval_video(policy, env,
-                                             filename=filename, max_steps=max_steps, fps=fps,
+                                             filename=filename, max_steps=max_steps,
+                                             max_envs_to_show=max_envs_to_show, fps=fps,
                                              rewrite_rewards=rewrite_rewards)
