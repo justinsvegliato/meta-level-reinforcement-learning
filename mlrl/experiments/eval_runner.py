@@ -72,6 +72,8 @@ class EvalRunner:
             observers=eval_observers,
             reference_metrics=[py_metrics.EnvironmentSteps()],
             steps_per_run=eval_steps)
+        
+        py_metrics.AverageEpisodeLengthMetric()
 
         self.metrics.extend(self.eval_actor.metrics)
 
