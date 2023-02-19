@@ -133,7 +133,8 @@ class NodeTokeniser(TreeTokeniser):
 
         # meta features contains a mask attention and the reward
         node_features = np.array([
-            1., tree.has_valid_expansions(node), node.reward
+            1., tree.has_valid_expansions(node), node.reward,
+            node.get_exp_root_return(), node.path_return, node.get_value()
         ], dtype=np.float32)
 
         state_vec = state.get_state_vector()
@@ -155,7 +156,8 @@ class NodeTokeniser(TreeTokeniser):
 
     def get_token_labels(self) -> List[str]:
         meta_features = [
-            'obs_mask', 'can_expand', 'reward'
+            'obs_mask', 'can_expand', 'reward',
+            'exp_root_return', 'path_return', 'exp_value'
         ]
 
         id_dim = self.get_id_dim()
