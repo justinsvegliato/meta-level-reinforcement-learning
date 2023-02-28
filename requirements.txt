@@ -18,7 +18,8 @@ jupyterlab==3.2.9
 ipykernel==6.16.0
 plotly==5.5.0
 statsmodels
-imageio-ffmpeg==0.4.7
+# imageio-ffmpeg>=0.4.7
 gym-chess
 cairosvg==2.5.2
-git+https://github.com/dkappe/badgyal.git#egg=badgyal
+procgen==0.10.7
+# git+https://github.com/dkappe/badgyal.git#egg=badgyal

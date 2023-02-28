@@ -7,7 +7,7 @@ from mlrl.meta.meta_policies.random_policy import (
 )
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
-from mlrl.utils.render_utils import create_and_save_policy_eval_video
+from mlrl.utils.render_utils import create_and_save_meta_policy_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
 from typing import Optional
@@ -117,7 +117,7 @@ class EvalRunner:
 
         video_file = f'{self.videos_dir}/{filename}.mp4'
 
-        create_and_save_policy_eval_video(
+        create_and_save_meta_policy_video(
             self.eval_policy, self.video_env,
             max_steps=steps,
             filename=video_file,

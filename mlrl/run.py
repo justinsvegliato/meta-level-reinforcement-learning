@@ -1,5 +1,5 @@
 from .config import RUNS_DIR
-from .utils.render_utils import create_policy_eval_video
+from .utils.render_utils import create_meta_policy_eval_video
 
 import json
 import time
@@ -339,7 +339,7 @@ class TrainingRun:
         """
         try:
             video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
-            create_policy_eval_video(
+            create_meta_policy_eval_video(
                 self.agent.policy, self.eval_env,
                 max_steps=self.video_steps, filename=video_file
             )

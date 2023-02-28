@@ -69,15 +69,15 @@ def svg_to_array(svg: str, shape=(128, 128)) -> np.ndarray:
     return np.array(img)
 
 
-def embed_mp4(filename: str, clear_before=True) -> HTML:
+def embed_mp4(filename: str, clear_before=True, width=640, height=480) -> HTML:
     """Embeds an mp4 file in the notebook."""
     video = open(filename, 'rb').read()
     b64 = base64.b64encode(video)
     tag = '''
-    <video width="640" height="480" controls>
-    <source src="data:video/mp4;base64,{0}" type="video/mp4">
+    <video width="{0}" height="{1}" controls>
+    <source src="data:video/mp4;base64,{2}" type="video/mp4">
     Your browser does not support the video tag.
-    </video>'''.format(b64.decode())
+    </video>'''.format(width, height, b64.decode())
 
     if clear_before:
         clear_output()
@@ -94,9 +94,52 @@ def stack_renders(frames) -> np.ndarray:
 
 def create_policy_eval_video(policy: TFPolicy,
                              env: TFEnvironment,
-                             max_envs_to_show: Optional[int] = None,
-                             rewrite_rewards: bool = False,
+                             render_fn: callable,
                              max_steps: int = 60) -> List[np.ndarray]:
+    env.reset()
+    time_step = env.current_time_step()
+    policy_state = policy.get_initial_state(env.batch_size)
+
+    frames = [render_fn(env, time_step, policy_state)]
+    for _ in range(max_steps):
+        action_step = policy.action(time_step, policy_state)
+        policy_state = action_step.state
+        time_step = env.step(action_step.action)
+        frames.append(render_fn(env, time_step, policy_state))
+
+    return frames
+
+
+def save_policy_eval_video(policy: TFPolicy,
+                           env: TFEnvironment,
+                           render_fn: callable,
+                           filename: str,
+                           fps: int = 15,
+                           max_steps: int = 60) -> str:
+    """
+    Saves a video of the policy acting in the given environment.
+
+    Args:
+        policy (TFPolicy): The policy to evaluate.
+        env (TFEnvironment): The environment to evaluate the policy in.
+        render_fn (callable): A function that takes the environment, time step and policy state
+            and returns a numpy array containing the rendered image.
+        filename (str): The filename to save the video to.
+        fps (int): The number of frames per second to save the video at.
+        max_steps (int): The maximum number of steps to run the policy for.
+
+    Returns:
+        str: The filename of the saved video.
+    """
+    frames = create_policy_eval_video(policy, env, render_fn, max_steps)
+    return save_video(frames, filename, fps=fps)
+
+
+def create_meta_policy_eval_video(policy: TFPolicy,
+                                  meta_env: TFEnvironment,
+                                  max_envs_to_show: Optional[int] = None,
+                                  rewrite_rewards: bool = False,
+                                  max_steps: int = 60) -> List[np.ndarray]:
     """
     Creates a video of the policy acting in the given environment.
     If the environment is a batched environment, then multiple episodes
@@ -107,7 +150,7 @@ def create_policy_eval_video(policy: TFPolicy,
 
     Args:
         policy (TFPolicy): The policy to evaluate.
-        env (TFEnvironment): The environment to evaluate the policy in.
+        meta_env (TFEnvironment): The environment to evaluate the policy in.
         max_envs_to_show (Optional[int]): The maximum number of environments to show.
         rewrite_rewards (bool): Whether to rewrite the rewards of the trajectories.
         max_steps (int): The maximum number of steps to run the policy for.
@@ -115,28 +158,28 @@ def create_policy_eval_video(policy: TFPolicy,
     Returns:
         List[np.ndarray]: A list of numpy arrays containing the frames of the video.
     """
-    max_envs_to_show = max_envs_to_show or env.batch_size or 1
+    max_envs_to_show = max_envs_to_show or meta_env.batch_size or 1
 
     if rewrite_rewards:
         from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 
         rewritten_trajs: List[Tuple[Optional[trajectory.Trajectory], dict]] = \
-            [(None, {'terminal': [False] * env.batch_size})]
+            [(None, {'terminal': [False] * meta_env.batch_size})]
         rewards_rewriter = RetroactiveRewardsRewriter(
-            env, rewritten_trajs.append, include_info=True, compute_metrics=False
+            meta_env, rewritten_trajs.append, include_info=True, compute_metrics=False
         )
 
-    if not isinstance(env, TFPyEnvironment):
-        env = TFPyEnvironment(env)
+    if not isinstance(meta_env, TFPyEnvironment):
+        meta_env = TFPyEnvironment(meta_env)
 
-    env.reset()
+    meta_env.reset()
 
-    policy_state = policy.get_initial_state(env.batch_size)
+    policy_state = policy.get_initial_state(meta_env.batch_size)
 
     def render_env(gym_env, i: int = 0):
 
         if not isinstance(policy, RandomTFPolicy) and hasattr(policy, 'distribution'):
-            policy_step = policy.distribution(env.current_time_step(), policy_state)
+            policy_step = policy.distribution(meta_env.current_time_step(), policy_state)
             if isinstance(policy_step.action, tfp.distributions.Categorical):
                 probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
                 return gym_env.render(meta_action_probs=probs)
@@ -144,20 +187,20 @@ def create_policy_eval_video(policy: TFPolicy,
         return gym_env.render()
 
     def get_frames():
-        if hasattr(env, 'envs'):
+        if hasattr(meta_env, 'envs'):
             return [
-                render_env(e.gym, i) for i, e in enumerate(env.envs)
+                render_env(e.gym, i) for i, e in enumerate(meta_env.envs)
                 if i < max_envs_to_show
             ]
         else:
-            return [render_env(env, 0)]
+            return [render_env(meta_env, 0)]
 
     frames = [get_frames()]
     for _ in range(max_steps):
-        time_step = env.current_time_step()
-        action_step = policy.action(env.current_time_step(), policy_state)
+        time_step = meta_env.current_time_step()
+        action_step = policy.action(meta_env.current_time_step(), policy_state)
         policy_state = action_step.state
-        next_time_step = env.step(action_step.action)
+        next_time_step = meta_env.step(action_step.action)
 
         if rewrite_rewards:
             action_step_with_previous_state = action_step._replace(state=policy_state)
@@ -247,8 +290,8 @@ def _create_rewritten_frames(
     return new_frames
 
 
-def create_and_save_policy_eval_video(policy: TFPolicy,
-                                      env: TFEnvironment,
+def create_and_save_meta_policy_video(policy: TFPolicy,
+                                      meta_env: TFEnvironment,
                                       filename: str = 'video',
                                       max_steps: int = 60,
                                       rewrite_rewards: bool = False,
@@ -258,7 +301,7 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
 
     Args:
         policy (TFPolicy): The policy to evaluate.
-        env (TFEnvironment): The environment to evaluate the policy in.
+        meta_env (TFEnvironment): The environment to evaluate the policy in.
         filename (str): The name of the file to save the video to.
         max_steps (int): The maximum number of steps to run the policy for.
         fps (int): The frames per second of the video.
@@ -266,28 +309,45 @@ def create_and_save_policy_eval_video(policy: TFPolicy,
     Returns:
         str: The path to the saved video.
     """
-    frames = create_policy_eval_video(
-        policy, env,
+    frames = create_meta_policy_eval_video(
+        policy, meta_env,
         rewrite_rewards=rewrite_rewards,
         max_steps=max_steps
     )
 
+    return save_video(frames, filename, fps)
+
+
+def save_video(frames: List[np.ndarray], filename: str = 'video', fps: int = 1) -> str:
+    """
+    Saves a video of the policy being evaluating in an environment.
+
+    Args:
+        frames (List[np.ndarray]): The frames of the video.
+        filename (str): The name of the file to save the video to.
+        fps (int): The frames per second of the video.
+
+    Returns:
+        str: The path to the saved video.
+    """
     if not filename.endswith('.mp4'):
         filename = filename + '.mp4'
 
-    with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
-        for frame in frames:
-            video.append_data(frame)
+    # with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
+    #     for frame in frames:
+    #         video.append_data(frame)
+
+    imageio.mimwrite(filename, frames, fps=fps)
 
     return filename
 
 
-def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
-                               filename: str = 'video',
-                               max_steps: int = 60,
-                               max_envs_to_show: int = 2,
-                               rewrite_rewards: bool = False,
-                               fps: int = 1) -> str:
+def create_random_meta_policy_video(env: Union[TFEnvironment, PyEnvironment],
+                                    filename: str = 'video',
+                                    max_steps: int = 60,
+                                    max_envs_to_show: int = 2,
+                                    rewrite_rewards: bool = False,
+                                    fps: int = 1) -> str:
     """
     Creates and saves a video of a random policy being evaluated in an environment.
     Assumes that environment observations are nested and contain search tokens
@@ -302,13 +362,15 @@ def create_random_policy_video(env: Union[TFEnvironment, PyEnvironment],
     Returns:
         str: The path to the saved video.
     """
-    from mlrl.meta.meta_env import mask_token_splitter
     if not isinstance(env, TFPyEnvironment):
         env = TFPyEnvironment(env)
+
+    from mlrl.meta.meta_env import mask_token_splitter
     policy = RandomTFPolicy(env.time_step_spec(),
                             env.action_spec(),
                             observation_and_action_constraint_splitter=mask_token_splitter)
-    return create_and_save_policy_eval_video(policy, env,
+    
+    return create_and_save_meta_policy_video(policy, env,
                                              filename=filename, max_steps=max_steps,
-                                             max_envs_to_show=max_envs_to_show, fps=fps,
+                                             fps=fps,
                                              rewrite_rewards=rewrite_rewards)
