@@ -12,8 +12,14 @@ RUN apt install vim -y
 RUN apt install screen -y
 
 RUN python -m pip install --upgrade pip
+
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install -r requirements.txt
+# WORKDIR /srv
+# ADD ./requirements.txt /srv/requirements.txt
+# RUN pip install -r requirements.txt
+# ADD . /srv
+
 CMD ["jupyter", "notebook", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]
 
 ENV LD_LIBRARY_PATH="/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH"

@@ -1,4 +1,4 @@
-from mlrl.run import TrainingRun
+from mlrl.runners.dqn_runner import DQNRun
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.networks.search_q_net import SearchQNetwork
 from mlrl.networks.search_actor_nets import SearchActorNetwork
@@ -138,9 +138,9 @@ def create_training_run(
     model: Union[tf.keras.Model, List[tf.keras.Model]],
     args: dict,
     name: str
-) -> TrainingRun:
+) -> DQNRun:
     print('Creating training run...')
-    return TrainingRun(
+    return DQNRun(
         agent, tf_env, model,
         num_epochs=args.get('num_epochs', 10),
         experience_batch_size=args.get('experience_batch_size', 64),

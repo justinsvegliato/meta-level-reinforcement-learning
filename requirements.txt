@@ -19,7 +19,9 @@ ipykernel==6.16.0
 plotly==5.5.0
 statsmodels
 # imageio-ffmpeg>=0.4.7
-gym-chess
+imageio==2.6.0
+imageio-ffmpeg==0.3.0
+gym-chess==0.1.1
 cairosvg==2.5.2
 procgen==0.10.7
 # git+https://github.com/dkappe/badgyal.git#egg=badgyal

@@ -1,5 +1,5 @@
-from .config import RUNS_DIR
-from .utils.render_utils import create_meta_policy_eval_video
+from ..config import RUNS_DIR
+from ..utils.render_utils import save_policy_eval_video
 
 import json
 import time
@@ -58,7 +58,7 @@ def time_id():
     return int(time.time() * 1e7)
 
 
-class TrainingRun:
+class DQNRun:
     """
     Class to handle training and an agent
     """
@@ -91,6 +91,8 @@ class TrainingRun:
                  initial_collect_steps=500,
                  video_steps=60,
                  video_freq=1,
+                 video_render_fn=None,
+                 video_fps=30,
                  metric_fns: Dict[str, Callable[[TFAgent, TFEnvironment], float]] = None,
                  callbacks: List[tf.keras.callbacks.Callback] = None,
                  run_dir=None,
@@ -149,6 +151,8 @@ class TrainingRun:
         # Video parameters
         self.video_steps = video_steps
         self.video_freq = video_freq
+        self.video_fps = video_fps
+        self.video_render_fn = video_render_fn or (lambda env: env.render())
 
         # Run parameters
         self.epoch = 0
@@ -339,9 +343,9 @@ class TrainingRun:
         """
         try:
             video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
-            create_meta_policy_eval_video(
-                self.agent.policy, self.eval_env,
-                max_steps=self.video_steps, filename=video_file
+            save_policy_eval_video(
+                self.agent.policy, self.eval_env, self.video_render_fn, video_file,
+                max_steps=self.video_steps, fps=self.video_fps
             )
             wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
 
@@ -380,17 +384,13 @@ class TrainingRun:
         print('Setting up run...')
         self._setup_callbacks()
 
-        if self.run_args['agent'] in ['dqn', 'ddqn']:
-            self.agent.train = common.function(self.agent.train)
+        self.agent.train = common.function(self.agent.train)
 
         # Reset the train step
         self.agent.train_step_counter.assign(0)
 
         print('Collecting initial experience...')
-        if self.run_args['agent'] == 'ppo_agent':
-            self.collect_data(self.agent.collect_policy, self.initial_collect_steps)
-        else:
-            self.collect_data(self.random_policy, self.initial_collect_steps)
+        self.collect_data(self.random_policy, self.initial_collect_steps)
 
         self.experience_dataset = self.replay_buffer.as_dataset(
             num_parallel_calls=3,
@@ -461,16 +461,16 @@ class TrainingRun:
             # assuming 1D tensor
             return float(item.numpy())
         elif isinstance(item, list):
-            return [TrainingRun._clean_for_json(x) for x in item]
+            return [DQNRun._clean_for_json(x) for x in item]
         elif type(item) in [np.float32, np.float32]:
             return float(item)
         elif type(item) in [np.int32, np.int64]:
             return int(item)
         elif isinstance(item, tuple):
-            return tuple([TrainingRun._clean_for_json(x) for x in item])
+            return tuple([DQNRun._clean_for_json(x) for x in item])
         elif type(item) in [dict, defaultdict]:
             return {
-                TrainingRun._clean_for_json(k): TrainingRun._clean_for_json(v)
+                DQNRun._clean_for_json(k): DQNRun._clean_for_json(v)
                 for k, v in item.items()
             }
 

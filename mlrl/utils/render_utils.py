@@ -115,6 +115,7 @@ def save_policy_eval_video(policy: TFPolicy,
                            render_fn: callable,
                            filename: str,
                            fps: int = 15,
+                           format: str = 'mp4',
                            max_steps: int = 60) -> str:
     """
     Saves a video of the policy acting in the given environment.
@@ -132,7 +133,7 @@ def save_policy_eval_video(policy: TFPolicy,
         str: The filename of the saved video.
     """
     frames = create_policy_eval_video(policy, env, render_fn, max_steps)
-    return save_video(frames, filename, fps=fps)
+    return save_video(frames, filename, fps=fps, format=format)
 
 
 def create_meta_policy_eval_video(policy: TFPolicy,
@@ -295,6 +296,7 @@ def create_and_save_meta_policy_video(policy: TFPolicy,
                                       filename: str = 'video',
                                       max_steps: int = 60,
                                       rewrite_rewards: bool = False,
+                                      format='mp4',
                                       fps: int = 1) -> str:
     """
     Creates and saves a video of the policy being evaluating in an environment.
@@ -315,10 +317,10 @@ def create_and_save_meta_policy_video(policy: TFPolicy,
         max_steps=max_steps
     )
 
-    return save_video(frames, filename, fps)
+    return save_video(frames, filename, fps, format=format)
 
 
-def save_video(frames: List[np.ndarray], filename: str = 'video', fps: int = 1) -> str:
+def save_video(frames: List[np.ndarray], filename: str = 'video', format='mp4', fps: int = 1) -> str:
     """
     Saves a video of the policy being evaluating in an environment.
 
@@ -330,8 +332,8 @@ def save_video(frames: List[np.ndarray], filename: str = 'video', fps: int = 1) 
     Returns:
         str: The path to the saved video.
     """
-    if not filename.endswith('.mp4'):
-        filename = filename + '.mp4'
+    if not filename.endswith(f'.{format}'):
+        filename = filename + f'.{format}'
 
     # with imageio.get_writer(filename, fps=fps, macro_block_size=1) as video:
     #     for frame in frames:

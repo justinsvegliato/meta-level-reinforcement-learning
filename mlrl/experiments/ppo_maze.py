@@ -1,5 +1,5 @@
 from mlrl.experiments.experiment_utils import parse_args, create_meta_env
-from mlrl.experiments.ppo_runner import PPORunner
+from mlrl.runners.ppo_runner import PPORunner
 from mlrl.meta.search_tree import ObjectState
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.maze.maze_state import MazeState, RestrictedActionsMazeState
