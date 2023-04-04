@@ -1,3 +1,4 @@
+from mlrl.runners.eval_runner import EvalRunner
 from ..config import RUNS_DIR
 from ..utils.render_utils import save_policy_eval_video
 
@@ -10,12 +11,13 @@ from collections import defaultdict
 import silence_tensorflow.auto  # noqa
 import tensorflow as tf
 from tf_agents.agents import TFAgent
-from tf_agents.policies import TFPolicy
+from tf_agents.policies import TFPolicy, py_tf_eager_policy
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 from tf_agents.environments.tf_environment import TFEnvironment
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
-from tf_agents.trajectories import trajectory
 from tf_agents.utils import common
+from tf_agents.metrics import py_metrics
+from tf_agents.drivers import py_driver
 
 import numpy as np
 import wandb
@@ -83,15 +85,14 @@ class DQNRun:
                  num_epochs=10,
                  collect_steps_per_iteration=1,
                  train_steps_per_epoch=1000,
-                 replay_buffer_max_length=100000,
+                 replay_buffer_max_length=16384,  # 100000,
                  experience_batch_size=64,
-                 eval_env: TFEnvironment = None,
-                 num_eval_episodes=1,
-                 eval_steps=250,
+                 eval_runner: EvalRunner = None,
                  initial_collect_steps=500,
                  video_steps=60,
                  video_freq=1,
                  video_render_fn=None,
+                 create_video_fn=None,
                  video_fps=30,
                  metric_fns: Dict[str, Callable[[TFAgent, TFEnvironment], float]] = None,
                  callbacks: List[tf.keras.callbacks.Callback] = None,
@@ -101,7 +102,7 @@ class DQNRun:
                  wandb_entity='drcope',
                  wandb_project='mlrl',
                  run_args=None,
-                 save_reward_distributions=True,
+                 save_reward_distributions=False,
                  reward_dist_thresh=0.5,
                  name='run'):
         """
@@ -139,16 +140,21 @@ class DQNRun:
         self.environment = environment
         self.model = model
 
+        self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
+            agent.policy, use_tf_function=True, batch_time_steps=False)
+
+        self.collect_policy = py_tf_eager_policy.PyTFEagerPolicy(
+            agent.collect_policy, use_tf_function=True, batch_time_steps=False)
+
         # Training parameters
         self.train_steps_per_epoch = train_steps_per_epoch
-        self.eval_steps = eval_steps
-        self.num_eval_episodes = num_eval_episodes
         self.initial_collect_steps = initial_collect_steps
         self.collect_steps_per_iteration = collect_steps_per_iteration
         self.experience_batch_size = experience_batch_size
         self.run_args = run_args or dict()
 
         # Video parameters
+        self.create_video_fn = create_video_fn
         self.video_steps = video_steps
         self.video_freq = video_freq
         self.video_fps = video_fps
@@ -156,7 +162,6 @@ class DQNRun:
 
         # Run parameters
         self.epoch = 0
-        self.eval_env = eval_env or environment
         self.num_epochs = num_epochs
         self.verbose = verbose
         self.user_given_callbacks = callbacks or []
@@ -166,6 +171,14 @@ class DQNRun:
         self.reward_dist_thresh = reward_dist_thresh
 
         # Data tracking
+        self.eval_runner = eval_runner
+        self.collect_metrics: List[py_metrics.py_metric.PyMetric] = [
+            py_metrics.NumberOfEpisodes(),
+            py_metrics.EnvironmentSteps(),
+            py_metrics.AverageReturnMetric(buffer_size=1024),
+            py_metrics.AverageEpisodeLengthMetric(buffer_size=1024)
+        ]
+
         self.metric_fns = metric_fns or dict()
         self.run_dir = run_dir or f'{RUNS_DIR}/{agent.name}/{self.name}-{self.run_id}'
         self.model_weights_dir = f'{self.run_dir}/model_weights'
@@ -190,14 +203,26 @@ class DQNRun:
             max_length=replay_buffer_max_length
         )
 
+        self.collect_driver = py_driver.PyDriver(
+            environment, self.collect_policy,
+            max_steps=collect_steps_per_iteration,
+            observers=[self.replay_buffer.add_batch] + self.collect_metrics
+        )
+
         self.experience_dataset = None  # setup in pre-execution
         self.experience_iterator = None  # setup in pre-execution
 
         splitter = agent.__dict__.get('_observation_and_action_constraint_splitter')
-        self.random_policy = RandomTFPolicy(
+        self.random_policy = py_tf_eager_policy.PyTFEagerPolicy(RandomTFPolicy(
             environment.time_step_spec(),
             environment.action_spec(),
             observation_and_action_constraint_splitter=splitter
+        ), use_tf_function=True, batch_time_steps=False)
+
+        self.initial_collect_driver = py_driver.PyDriver(
+            environment, self.random_policy,
+            max_steps=initial_collect_steps,
+            observers=[self.replay_buffer.add_batch]
         )
 
     def get_config(self):
@@ -232,45 +257,24 @@ class DQNRun:
         logs = dict()
 
         # Collect a few steps using collect_policy and save to the replay buffer.
-        self.collect_data(self.agent.collect_policy, self.collect_steps_per_iteration)
+        self.collect_driver.run(self.environment.current_time_step())
 
         # Sample a batch of data from the buffer and update the agent's network.
         experience, _ = next(self.experience_iterator)
-        logs['train_loss'] = self.agent.train(experience).loss
+        logs['TrainLoss'] = self.agent.train(experience).loss
+
+        for metric in self.collect_metrics:
+            logs[metric.name] = metric.result()
 
         return logs
 
     def get_evaluation_stats(self) -> Dict[str, float]:
-        logs = dict()
-        return_mean, return_std, rewards = compute_return_stats(
-            self.eval_env, self.agent.policy,
-            self.num_eval_episodes, self.eval_steps
-        )
-        if self.save_reward_distributions:
-            self.create_reward_distributions(rewards)
 
-        logs['eval_return_mean'] = return_mean
-        logs['eval_return_std'] = return_std
+        if self.eval_runner is not None:
+            print('Running evaluation...')
+            return self.eval_runner.run()
 
-        logs.update({
-            metric: fn(self.agent, self.eval_env)
-            for metric, fn in self.metric_fns.items()
-        })
-
-        return logs
-
-    def collect_step(self, policy: TFPolicy):
-        time_step = self.environment.current_time_step()
-        action_step = policy.action(time_step)
-        next_time_step = self.environment.step(action_step.action)
-        traj = trajectory.from_transition(time_step, action_step, next_time_step)
-
-        # Add trajectory to the replay buffer
-        self.replay_buffer.add_batch(traj)
-
-    def collect_data(self, policy: TFPolicy, steps: int):
-        for _ in range(steps):
-            self.collect_step(policy)
+        return dict()
 
     def train(self):
         """
@@ -287,28 +291,26 @@ class DQNRun:
         while self.epoch <= self.num_epochs:
             self.callbacks.on_epoch_begin(self.epoch)
 
-            self.environment.reset()
-            step_logs = []
+            for metric in self.collect_metrics:
+                metric.reset()
+
             for step in range(self.train_steps_per_epoch):
                 self.callbacks.on_train_batch_begin(step)
                 logs = self.training_step()
-                step_logs.append(logs)
                 self.callbacks.on_train_batch_end(step, logs)
 
             epoch_logs = self.get_evaluation_stats()
-            epoch_logs.update({
-                f'mean_{k}': np.mean([log[k] for log in step_logs])
-                for k in step_logs[0].keys()
-            })
+            for metric in self.collect_metrics:
+                epoch_logs[metric.name] = metric.result()
 
             video_epoch = self.video_freq and self.epoch % self.video_freq == 0
-            best_return = self.best_return < epoch_logs['eval_return_mean']
+            best_return = self.best_return < epoch_logs['EvalAverageReturn']
 
             if video_epoch or best_return:
-                self.create_evaluation_video()
+                self.create_evaluation_video(name='best_return')
 
             if best_return:
-                self.best_return = epoch_logs['eval_return_mean']
+                self.best_return = epoch_logs['EvalAverageReturn']
                 self.save_model_weights(f'best_{self.epoch}_{self.best_return:5f}')
 
             self.callbacks.on_epoch_end(self.epoch, epoch_logs)
@@ -336,18 +338,27 @@ class DQNRun:
         plt.tight_layout()
         plt.savefig(f'{self.figures_dir}/reward_{self.epoch}_distribution.png')
 
-    def create_evaluation_video(self):
+    def create_evaluation_video(self, name: str = None):
         """
         Creates a video of the agent's policy in action. Saves the video to the
         videos directory and uploads it to wandb if wandb is enabled.
         """
+        if name is None:
+            name = f'eval_video_{self.epoch}'
+        else:
+            name = f'eval_video_{name}_{self.epoch}'
+        video_file = f'{self.videos_dir}/{name}.mp4'
+
         try:
-            video_file = f'{self.videos_dir}/eval_video_{self.epoch}.mp4'
-            save_policy_eval_video(
-                self.agent.policy, self.eval_env, self.video_render_fn, video_file,
-                max_steps=self.video_steps, fps=self.video_fps
-            )
-            wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
+            if self.create_video_fn is not None:
+                self.create_video_fn(self.eval_policy, video_file)
+                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
+            elif self.eval_runner is not None:
+                save_policy_eval_video(
+                    self.agent.policy, self.eval_runner.eval_env, self.video_render_fn, video_file,
+                    max_steps=self.video_steps, fps=self.video_fps
+                )
+                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
 
         except Exception as e:
             print('Failed to create evaluation video:', e)
@@ -390,7 +401,8 @@ class DQNRun:
         self.agent.train_step_counter.assign(0)
 
         print('Collecting initial experience...')
-        self.collect_data(self.random_policy, self.initial_collect_steps)
+        self.environment.reset()
+        self.initial_collect_driver.run(self.environment.current_time_step())
 
         self.experience_dataset = self.replay_buffer.as_dataset(
             num_parallel_calls=3,
