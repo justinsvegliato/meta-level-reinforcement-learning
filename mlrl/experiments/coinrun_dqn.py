@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Callable
+from typing import List, Optional, Tuple, Callable
 import numpy as np
 import gym
 import procgen
@@ -19,6 +19,14 @@ from mlrl.runners.eval_runner import EvalRunner
 from mlrl.runners.dqn_runner import DQNRun
 
 
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
+
 class QNet(tf.keras.Model):
     
     def __init__(self, autoencoder: Autoencoder, n_actions: int):
@@ -32,9 +40,18 @@ class QNet(tf.keras.Model):
         return self.q(z, training=training)
 
 
-def make_q_net(n_actions: int) -> QNet:
+def make_q_net(tf_env) -> QNet:
+    ts = tf_env.current_time_step()
+    n_actions = 1 + int(tf_env.action_spec().maximum)
+
     autoencoder = Autoencoder()
-    return QNet(autoencoder, n_actions)
+    q_net = QNet(autoencoder, n_actions)
+
+    # build weights
+    autoencoder(ts.observation)
+    q_net(ts.observation)
+
+    return q_net
 
 
 def make_coinrun(n_envs: Optional[int] = None):
@@ -152,8 +169,7 @@ def main():
     train_step_counter = tf.Variable(0)
 
     tf_env = get_coinrun_tf_env()
-    n_actions = 1 + int(tf_env.action_spec().maximum)
-    q_net = make_q_net(n_actions)
+    q_net = make_q_net(tf_env)
 
     agent = DdqnAgent(
         tf_env.time_step_spec(),
