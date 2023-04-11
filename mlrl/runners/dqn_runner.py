@@ -304,12 +304,12 @@ class DQNRun:
                 epoch_logs[metric.name] = metric.result()
 
             video_epoch = self.video_freq and self.epoch % self.video_freq == 0
-            best_return = self.best_return < epoch_logs['EvalAverageReturn']
+            new_best_return = self.best_return < epoch_logs['EvalAverageReturn']
 
-            if video_epoch or best_return:
+            if video_epoch or new_best_return:
                 self.create_evaluation_video(name='best_return')
 
-            if best_return:
+            if new_best_return:
                 self.best_return = epoch_logs['EvalAverageReturn']
                 self.save_model_weights(f'best_{self.epoch}_{self.best_return:5f}')
 
@@ -350,6 +350,7 @@ class DQNRun:
         video_file = f'{self.videos_dir}/{name}.mp4'
 
         try:
+            print(f'Creating video: {video_file}')
             if self.create_video_fn is not None:
                 self.create_video_fn(self.eval_policy, video_file)
                 wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
