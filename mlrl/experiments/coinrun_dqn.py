@@ -12,52 +12,129 @@ from tf_agents.utils import common
 from tf_agents.drivers import py_driver
 from tf_agents.agents.dqn.dqn_agent import DdqnAgent
 from tf_agents.networks.sequential import Sequential
+from tf_agents.environments import ActionRepeat
 
 from mlrl.models.autoencoder import Autoencoder
 from mlrl.utils.render_utils import save_video
 from mlrl.runners.eval_runner import EvalRunner
 from mlrl.runners.dqn_runner import DQNRun
+from mlrl.utils.env_wrappers import ImagePreprocessWrapper, FrameStack
 
 
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
+# from tensorflow.compat.v1 import ConfigProto
+# from tensorflow.compat.v1 import InteractiveSession
 
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-session = InteractiveSession(config=config)
+# config = ConfigProto()
+# config.gpu_options.allow_growth = True
+# session = InteractiveSession(config=config)
 
 
 class QNet(tf.keras.Model):
     
-    def __init__(self, autoencoder: Autoencoder, n_actions: int):
+    def __init__(self, n_actions: int, enc_dim=64, n_channels=3):
         super(QNet, self).__init__()
-        self.ae = autoencoder
+
         self.n_actions = n_actions
-        self.q = tf.keras.layers.Dense(n_actions)
-    
+        self.enc_dim = enc_dim
+        self.n_channels = n_channels
+
+        self.encoder = tf.keras.Sequential([
+            tf.keras.layers.Conv2D(64, (8, 8), 
+                                   activation='relu', 
+                                   input_shape=(64, 64, n_channels), strides=4),
+            tf.keras.layers.Conv2D(64, (4, 4), activation='relu', strides=2),
+            tf.keras.layers.Conv2D(64, (3, 3), activation='relu', strides=2),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(enc_dim, activation='relu'),
+        ], name='encoder')
+
+        self.q = tf.keras.layers.Dense(n_actions, activation=None, name='q')
+
     def call(self, x, training=False):
-        z = self.ae.encode(x, training=training)
+        z = self.encoder(x, training=training)
         return self.q(z, training=training)
 
+    def get_config(self):
+        return {
+            'n_actions': self.n_actions,
+            'enc_dim': self.enc_dim,
+            'n_channels': self.n_channels
+        }
 
-def make_q_net(tf_env) -> QNet:
+
+def create_dqn_agent(tf_env, train_steps_per_epoch=10000) -> QNet:
     ts = tf_env.current_time_step()
     n_actions = 1 + int(tf_env.action_spec().maximum)
+    n_channels = tf_env.observation_spec().shape[-1]
 
     autoencoder = Autoencoder()
-    q_net = QNet(autoencoder, n_actions)
+    q_net = QNet(n_actions=n_actions,
+                 n_channels=n_channels,
+                 enc_dim=512)
+
+    target_q_net = QNet(n_actions=n_actions,
+                        n_channels=n_channels,
+                        enc_dim=512)
 
     # build weights
-    autoencoder(ts.observation)
     q_net(ts.observation)
 
-    return q_net
+    optimizer = tf.keras.optimizers.Adam(learning_rate=2.5e-4)
+    train_step_counter = tf.Variable(0)
 
+    agent = DdqnAgent(
+        tf_env.time_step_spec(),
+        tf_env.action_spec(),
+        q_network=Sequential([q_net]),
+        target_q_network=Sequential([target_q_net]),
+        optimizer=optimizer,
+        td_errors_loss_fn=common.element_wise_squared_loss,
+        target_update_period=10000,
+        train_step_counter=train_step_counter
+    )
+    agent.initialize()
+
+    return q_net, agent
+
+
+# def make_coinrun(n_envs: Optional[int] = None):
+#     if n_envs is not None:
+#         return BatchedPyEnvironment([make_coinrun() for _ in range(n_envs)])
+    
+#     env = gym.make('procgen-coinrun-v0',
+#                    use_backgrounds=False,
+#                    restrict_themes=True,
+#                    distribution_mode='easy')
+
+#     return GymWrapper(env)
 
 def make_coinrun(n_envs: Optional[int] = None):
     if n_envs is not None:
         return BatchedPyEnvironment([make_coinrun() for _ in range(n_envs)])
-    return GymWrapper(gym.make('procgen-coinrun-v0'))
+
+    base_env = gym.make('procgen-coinrun-v0',
+                        use_backgrounds=False,
+                        restrict_themes=True,
+                        distribution_mode='easy')
+    
+    gym_wrapped = GymWrapper(base_env)
+    # gym wrapper takes action from numpy array unless this is set
+    gym_wrapped._action_is_discrete = False
+    
+    def render(mode='rgb_array'):
+        img = gym_wrapped.current_time_step().observation
+        img = cv2.resize(img, (4*img.shape[0], 4*img.shape[1]),
+                         interpolation=cv2.INTER_NEAREST)
+        return img
+
+    gym_wrapped.render = render
+
+    env = ActionRepeat(gym_wrapped, 4)
+    env = FrameStack(ImagePreprocessWrapper(env), 4)
+
+    env.reset()
+
+    return env
 
 
 def create_policy_eval_video_frames(
@@ -100,22 +177,33 @@ def get_grid_dim(n: int) -> Tuple[int, int]:
     Generates the dimensions of a grid closest to
     square with the given number of cells.
     """
+    sqrt_n = int(np.ceil(np.sqrt(n)))
     p = 1
-    for i in range(1, int(np.ceil(np.sqrt(n)))):
+    for i in range(1, sqrt_n + 1):
         if n % i == 0:
             p = n / i
     q = n / p
     return int(p), int(q)
 
 
+# def render_env(env):
+#     """
+#     Renderers one of a batched env. Scales image for video quality.
+#     """
+#     cenv = env.env
+#     img = cenv.observe()[1][0]
+#     img = cv2.resize(img, (4*img.shape[0], 4*img.shape[1]),
+#                     interpolation=cv2.INTER_NEAREST)
+#     return img
+
+    
 def render_env(env):
     """
     Renderers one of a batched env. Scales image for video quality.
     """
-    cenv = env.env
-    img = cenv.observe()[1][0]
+    img = env.render()
     img = cv2.resize(img, (4*img.shape[0], 4*img.shape[1]),
-                    interpolation=cv2.INTER_NEAREST)
+                        interpolation=cv2.INTER_NEAREST)
     return img
 
 
@@ -128,7 +216,7 @@ def create_video_renderer() -> Callable:
 
     video_env = BatchedPyEnvironment([
         make_coinrun() for _ in range(n_video_envs)
-    ])
+    ], multithreading=True)
     video_env.reset()
 
 
@@ -156,42 +244,37 @@ def create_video_renderer() -> Callable:
 
 def get_coinrun_tf_env():
     gym_env = make_coinrun()
-    gym_env._action_is_discrete = False  # gym wrapper takes action from numpy array unless this is set
     tf_env = TFPyEnvironment(gym_env)
     tf_env.reset()
     return tf_env
 
 
 def main():
-    collect_env = make_coinrun(n_envs=16)
+    n_collect_envs = 64
+    collect_env = make_coinrun(n_envs=n_collect_envs)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
-    train_step_counter = tf.Variable(0)
+    print('Collect env ts spec: ', collect_env.time_step_spec())
+    
+    train_steps_per_epoch = 5000
 
     tf_env = get_coinrun_tf_env()
-    q_net = make_q_net(tf_env)
-
-    agent = DdqnAgent(
-        tf_env.time_step_spec(),
-        tf_env.action_spec(),
-        q_network=Sequential([q_net]),
-        optimizer=optimizer,
-        td_errors_loss_fn=common.element_wise_squared_loss,
-        target_update_period=20000,
-        train_step_counter=train_step_counter
+    q_net, agent = create_dqn_agent(
+        tf_env,
+        train_steps_per_epoch=train_steps_per_epoch
     )
-    agent.initialize()
 
+    n_eval_envs = 16
     eval_runner = EvalRunner(
-        16000, make_coinrun(n_envs=16), agent.policy)
+        n_eval_envs * 1000, make_coinrun(n_envs=n_eval_envs), agent.policy)
 
     dqn_run = DQNRun(
         agent, collect_env, q_net,
         eval_runner=eval_runner,
         create_video_fn=create_video_renderer(),
-        video_freq=5,
-        train_steps_per_epoch=10000,
-        num_epochs=500
+        video_freq=1,
+        train_steps_per_epoch=train_steps_per_epoch,
+        num_epochs=500,
+        experience_batch_size=64
     )
 
     dqn_run.execute()
