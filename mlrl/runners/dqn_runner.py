@@ -104,7 +104,8 @@ class DQNRun:
                  run_args=None,
                  save_reward_distributions=False,
                  reward_dist_thresh=0.5,
-                 name='run'):
+                 name='run',
+                 **additional_config):
         """
         Creates a new training run.
 
@@ -139,6 +140,7 @@ class DQNRun:
         self.agent = agent
         self.environment = environment
         self.model = model
+        self.additional_config = additional_config
 
         self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
             agent.policy, use_tf_function=True, batch_time_steps=False)
@@ -249,7 +251,7 @@ class DQNRun:
             'train_steps_per_epoch': self.train_steps_per_epoch,
             'initial_collect_steps': self.initial_collect_steps,
             'experience_batch_size': self.experience_batch_size,
-            **self.run_args
+            **self.run_args, **self.additional_config
         }
 
     def training_step(self) -> Dict[str, float]:
@@ -300,6 +302,11 @@ class DQNRun:
                 self.callbacks.on_train_batch_end(step, logs)
 
             epoch_logs = self.get_evaluation_stats()
+
+            epoch_logs['TrainingSteps'] = self.epoch * self.train_steps_per_epoch
+            epoch_logs['FramesCollected'] = self.epoch * self.train_steps_per_epoch * self.environment.batch_size
+            epoch_logs.update(logs)
+
             for metric in self.collect_metrics:
                 epoch_logs[metric.name] = metric.result()
 
@@ -307,7 +314,7 @@ class DQNRun:
             new_best_return = self.best_return < epoch_logs['EvalAverageReturn']
 
             if video_epoch or new_best_return:
-                self.create_evaluation_video(name='best_return')
+                self.create_evaluation_video(name='best_return' if new_best_return else None)
 
             if new_best_return:
                 self.best_return = epoch_logs['EvalAverageReturn']
@@ -351,15 +358,17 @@ class DQNRun:
 
         try:
             print(f'Creating video: {video_file}')
+
             if self.create_video_fn is not None:
                 self.create_video_fn(self.eval_policy, video_file)
-                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
+                wandb.log({name: wandb.Video(video_file, format='mp4')})
+
             elif self.eval_runner is not None:
                 save_policy_eval_video(
                     self.agent.policy, self.eval_runner.eval_env, self.video_render_fn, video_file,
                     max_steps=self.video_steps, fps=self.video_fps
                 )
-                wandb.log({f'eval_video_{self.epoch}': wandb.Video(video_file, format='mp4')})
+                wandb.log({name: wandb.Video(video_file, format='mp4')})
 
         except Exception as e:
             print('Failed to create evaluation video:', e)

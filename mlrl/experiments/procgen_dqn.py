@@ -8,13 +8,13 @@ import gym3
 from gym3 import ExtractDictObWrapper
 
 import tensorflow as tf
-from tf_agents.environments.tf_py_environment import TFPyEnvironment
-from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 from tf_agents.utils import common
 from tf_agents.drivers import py_driver
+from tf_agents.specs import tensor_spec
 from tf_agents.agents.dqn.dqn_agent import DdqnAgent
-from tf_agents.networks.sequential import Sequential
 from tf_agents.networks.q_network import QNetwork
+from tf_agents.networks.categorical_q_network import CategoricalQNetwork
+from tf_agents.agents import CategoricalDqnAgent
 
 from mlrl.utils.render_utils import save_video
 from mlrl.runners.eval_runner import EvalRunner
@@ -24,7 +24,6 @@ from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
 
 
 def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, DdqnAgent]:
-    ts = env.current_time_step()
 
     q_net = QNetwork(
         env.observation_spec(),
@@ -35,6 +34,7 @@ def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, 
 
     # build weights
     print('Building Q-Network weights...')
+    ts = env.current_time_step()
     q_net(ts.observation)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=2.5e-4)
@@ -57,7 +57,47 @@ def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, 
     return q_model, agent
 
 
+def create_categorical_dqn_agent(
+        env, train_steps_per_epoch=10000
+        ) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
+
+    categorical_q_net = CategoricalQNetwork(
+        tensor_spec.from_spec(env.observation_spec()),
+        tensor_spec.from_spec(env.action_spec()),
+        conv_layer_params=[(64, 8, 4), (64, 4, 2), (64, 3, 2)],
+        fc_layer_params=[512]
+    )
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=2.5e-4)
+    train_step_counter = tf.Variable(0)
+
+    # build weights
+    print('Building Categorical Q-Network weights...')
+    ts = env.current_time_step()
+    categorical_q_net(ts.observation)
+
+    agent = CategoricalDqnAgent(
+        tensor_spec.from_spec(env.time_step_spec()),
+        tensor_spec.from_spec(env.action_spec()),
+        categorical_q_network=categorical_q_net,
+        optimizer=optimizer,
+        td_errors_loss_fn=common.element_wise_squared_loss,
+        target_update_period=10000,
+        min_q_value=0, max_q_value=32,
+        gamma=0.999,
+        train_step_counter=train_step_counter
+    )
+
+    agent.initialize()
+
+    q_model = tf.keras.Sequential([categorical_q_net])
+    q_model(env.current_time_step().observation)
+
+    return q_model, agent
+
+
 def make_procgen(
+        procgen_env_name: str,
         n_envs: Optional[int] = 64,
         action_repeats = 4,
         frame_stack = 4):
@@ -65,7 +105,7 @@ def make_procgen(
     procgen_gym3 = ExtractDictObWrapper(ProcgenGym3Env(
                             num=n_envs,
                             num_threads=min(n_envs, 32),
-                            env_name='coinrun',
+                            env_name='bigfish',
                             use_backgrounds=False,
                             restrict_themes=True,
                             distribution_mode='easy'), key='rgb')
@@ -137,14 +177,14 @@ def render_env(env):
     return img
 
 
-def create_video_renderer() -> Callable:
+def create_video_renderer(procgen_env_name: str) -> Callable:
     """
     Returns a callable that produces a video of 12 games
     played simulataneously by a given policy, saved to a given file path
     """
     n_video_envs = 12
     frame_skip = 4
-    video_env = make_procgen(n_video_envs, action_repeats=frame_skip)
+    video_env = make_procgen(procgen_env_name, n_video_envs, action_repeats=frame_skip)
     p, q = get_grid_dim(n_video_envs)
 
     def render_fn(vectorised_env, *_):
@@ -176,11 +216,12 @@ def create_video_renderer() -> Callable:
 
 def main():
     n_collect_envs = 64
-    collect_env = make_procgen(n_envs=n_collect_envs)
+    procgen_env_name = 'bigfish'
+    collect_env = make_procgen(procgen_env_name, n_envs=n_collect_envs)
 
     print('Collect env time step spec: ', collect_env.time_step_spec())
     
-    train_steps_per_epoch = 5000
+    train_steps_per_epoch = 20000
 
     print('Creating agent...')
     q_net, agent = create_dqn_agent(
@@ -189,18 +230,19 @@ def main():
     )
 
     n_eval_envs = 64
-    eval_runner = EvalRunner(
-        n_eval_envs * 1000, make_procgen(n_envs=n_eval_envs), agent.policy)
+    eval_envs = make_procgen(procgen_env_name, n_envs=n_eval_envs)
+    eval_runner = EvalRunner(n_eval_envs * 1000, eval_envs, agent.policy)
 
-    print('Creating DQN run...')
+    print(f'Creating {procgen_env_name} DQN run...')
     dqn_run = DQNRun(
         agent, collect_env, q_net,
         eval_runner=eval_runner,
-        create_video_fn=create_video_renderer(),
+        create_video_fn=create_video_renderer(procgen_env_name),
         video_freq=1,
         train_steps_per_epoch=train_steps_per_epoch,
         num_epochs=500,
-        experience_batch_size=64
+        experience_batch_size=64,
+        procgen_env_name=procgen_env_name
     )
 
     dqn_run.execute()
