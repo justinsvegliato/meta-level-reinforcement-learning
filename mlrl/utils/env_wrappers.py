@@ -10,9 +10,12 @@ from tf_agents.trajectories.time_step import TimeStep
 class ImagePreprocessWrapper(wrappers.PyEnvironmentBaseWrapper):
     """normalise and grayscale observations of env."""
 
-    def __init__(self, env):
+    def __init__(self, env, grayscale=True, normalise=True):
         """Initializes a wrapper."""
         super(ImagePreprocessWrapper, self).__init__(env)
+
+        self.grayscale = grayscale
+        self.normalise = normalise
 
         # Update the observation spec in the environment.
         observation_spec = env.observation_spec()
@@ -22,8 +25,13 @@ class ImagePreprocessWrapper(wrappers.PyEnvironmentBaseWrapper):
 
         # Redefine pixels spec
         frame_shape = observation_spec.shape
+        if grayscale:
+            shape = frame_shape[:2] + (1,)
+        else:
+            shape = frame_shape
+
         self._new_observation_spec = array_spec.ArraySpec(
-            shape=frame_shape[:2] + (1,),
+            shape=shape,
             dtype=np.float64,
             name='grayscale_pixels')
 
@@ -32,8 +40,11 @@ class ImagePreprocessWrapper(wrappers.PyEnvironmentBaseWrapper):
             return self._env.current_time_step().observation
 
     def preprocess(self, img):
-        img = self._env.current_time_step().observation / 255.
-        img = np.mean(img, axis=-1)
+        """Preprocesses the image."""
+        if self.normalise:
+            img = self._env.current_time_step().observation / 255.
+        if self.grayscale:
+            img = np.mean(img, axis=-1)
         return img
 
     def _step(self, action):

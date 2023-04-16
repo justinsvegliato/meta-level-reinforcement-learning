@@ -1,3 +1,5 @@
+import argparse
+from pathlib import Path
 from typing import List, Optional, Tuple, Callable
 import numpy as np
 import cv2
@@ -15,15 +17,17 @@ from tf_agents.agents.dqn.dqn_agent import DdqnAgent
 from tf_agents.networks.q_network import QNetwork
 from tf_agents.networks.categorical_q_network import CategoricalQNetwork
 from tf_agents.agents import CategoricalDqnAgent
+from tf_agents.environments.py_environment import PyEnvironment
 
 from mlrl.utils.render_utils import save_video
 from mlrl.runners.eval_runner import EvalRunner
 from mlrl.runners.dqn_runner import DQNRun
 from mlrl.utils.env_wrappers import ImagePreprocessWrapper, FrameStack
 from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
+from mlrl.procgen import REWARD_BOUNDS as PROCGEN_REWARD_BOUNDS
 
 
-def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, DdqnAgent]:
+def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
 
     q_net = QNetwork(
         env.observation_spec(),
@@ -37,7 +41,8 @@ def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, 
     ts = env.current_time_step()
     q_net(ts.observation)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=2.5e-4)
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate=config.get('learning_rate', 2.5e-4))
     train_step_counter = tf.Variable(0)
 
     agent = DdqnAgent(
@@ -46,7 +51,7 @@ def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, 
         q_network=q_net,
         optimizer=optimizer,
         td_errors_loss_fn=common.element_wise_squared_loss,
-        target_update_period=10000,
+        target_update_period=config.get('target_update_period', 10000),
         train_step_counter=train_step_counter
     )
     agent.initialize()
@@ -57,8 +62,8 @@ def create_dqn_agent(env, train_steps_per_epoch=10000) -> Tuple[tf.keras.Model, 
     return q_model, agent
 
 
-def create_categorical_dqn_agent(
-        env, train_steps_per_epoch=10000
+def create_rainbow_agent(
+        env, config: dict
         ) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
 
     categorical_q_net = CategoricalQNetwork(
@@ -68,7 +73,8 @@ def create_categorical_dqn_agent(
         fc_layer_params=[512]
     )
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=2.5e-4)
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate=config.get('learning_rate', 2.5e-4))
     train_step_counter = tf.Variable(0)
 
     # build weights
@@ -76,15 +82,20 @@ def create_categorical_dqn_agent(
     ts = env.current_time_step()
     categorical_q_net(ts.observation)
 
+    env_name = config.get('env', 'bigfish')
+    if env_name not in PROCGEN_REWARD_BOUNDS:
+        raise ValueError(f'Unknown reward bounds for procgen env: {env_name}')
+    r_min, r_max = PROCGEN_REWARD_BOUNDS[env_name]
+
     agent = CategoricalDqnAgent(
         tensor_spec.from_spec(env.time_step_spec()),
         tensor_spec.from_spec(env.action_spec()),
         categorical_q_network=categorical_q_net,
         optimizer=optimizer,
         td_errors_loss_fn=common.element_wise_squared_loss,
-        target_update_period=10000,
-        min_q_value=0, max_q_value=32,
-        gamma=0.999,
+        target_update_period=config.get('target_update_period', 10000),
+        min_q_value=r_min, max_q_value=r_max,
+        gamma=config.get('discount', 0.999),
         train_step_counter=train_step_counter
     )
 
@@ -98,21 +109,25 @@ def create_categorical_dqn_agent(
 
 def make_procgen(
         procgen_env_name: str,
-        n_envs: Optional[int] = 64,
-        action_repeats = 4,
-        frame_stack = 4):
+        config: dict,
+        n_envs: Optional[int] = 64) -> PyEnvironment:
+    
+    action_repeats = config.get('action_repeats', 4)
+    frame_stack = config.get('frame_stack', 4)
+    grayscale = config.get('grayscale', True)
 
     procgen_gym3 = ExtractDictObWrapper(ProcgenGym3Env(
                             num=n_envs,
                             num_threads=min(n_envs, 32),
-                            env_name='bigfish',
+                            env_name=procgen_env_name,
                             use_backgrounds=False,
                             restrict_themes=True,
                             distribution_mode='easy'), key='rgb')
 
     wrapped_procgen_gym3 = ProcgenGym3Wrapper(procgen_gym3, action_repeats=action_repeats)
-    env = ImagePreprocessWrapper(wrapped_procgen_gym3)
-    env = FrameStack(env, frame_stack)    
+    env = ImagePreprocessWrapper(wrapped_procgen_gym3, grayscale=grayscale)
+    if frame_stack > 1:
+        env = FrameStack(env, frame_stack)    
     env.reset()
 
     return env
@@ -177,14 +192,17 @@ def render_env(env):
     return img
 
 
-def create_video_renderer(procgen_env_name: str) -> Callable:
+def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
     """
     Returns a callable that produces a video of 12 games
     played simulataneously by a given policy, saved to a given file path
     """
-    n_video_envs = 12
-    frame_skip = 4
-    video_env = make_procgen(procgen_env_name, n_video_envs, action_repeats=frame_skip)
+    n_video_envs = config.get('n_video_envs', 12)
+    frame_skip = config.get('action_repeating', 4)
+    if frame_skip < 2:
+        frame_skip = 1
+
+    video_env = make_procgen(procgen_env_name, config, n_envs=n_video_envs)
     p, q = get_grid_dim(n_video_envs)
 
     def render_fn(vectorised_env, *_):
@@ -203,47 +221,118 @@ def create_video_renderer(procgen_env_name: str) -> Callable:
         ], axis=1)
 
     fps = 16 // frame_skip
+    video_seconds = config.get('video_seconds', 60)
 
     def create_video(policy, video_file):
         frames = create_policy_eval_video_frames(
             policy, video_env, 
-            render_fn=render_fn, steps=fps*60*n_video_envs
+            render_fn=render_fn, steps=fps*video_seconds*n_video_envs
         )
         return save_video(frames, video_file, fps=fps)
 
     return create_video
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    # Run parameters
+    parser.add_argument('--env', type=str, default='bigfish',
+                        help='Procgen environment.')
+    parser.add_argument('--num_epochs', type=int, default=500,
+                        help='Number of epochs to train for.')
+    parser.add_argument('--learning_rate', type=float, default=2.5e-4,
+                        help='Learning rate for the optimiser.')
+    parser.add_argument('--experience_batch_size', type=int, default=64,
+                        help='Train minibatch batch size.')
+    parser.add_argument('--train_steps_per_epoch', type=int, default=20000,
+                        help='Number of training steps to perform each epoch.')
+    parser.add_argument('--n_collect_envs', type=int, default=64,
+                        help='Number of collect envs run in parallel.')
+    parser.add_argument('--eval_steps', type=int, default=1000,
+                        help='Number of steps to evaluate for.')
+    parser.add_argument('--n_eval_envs', type=int, default=64,
+                        help='Number evaluation environments to run in parallel.')
+    parser.add_argument('--video_seconds', type=int, default=60,
+                        help='Number of seconds of video to record.')
+    parser.add_argument('--n_video_envs', type=int, default=12,
+                        help='Number of video environments to record.')
+    parser.add_argument('--frame_stack', type=int, default=4,
+                        help='Number frames to stack in observation.')
+    parser.add_argument('--action_repeating', type=int, default=0,
+                        help='Number of times an action is repeated with each step.')
+    parser.add_argument('--grayscale', action='store_true', default=False,
+                        help='Whether or not to grayscale the observation image.')
+
+
+    # Object-level environment parameters
+    parser.add_argument('--discount', type=float, default=0.999,
+                        help='Discount factor.')
+
+    # Agent parameters
+    parser.add_argument('--agent', type=str, default='ddqn',
+                        help='Agent class to use.')
+
+    # DQN parameters
+    parser.add_argument('--target_network_update_period', type=int, default=10000,
+                        help='Maximum number of nodes in the search tree.')
+    parser.add_argument('--epsilon_greedy', type=float, default=0.1,
+                        help='Epsilon for epsilon-greedy exploration.')
+    parser.add_argument('--initial_collect_steps', type=int, default=500,
+                        help='Number of steps to collect before training.')
+
+    args = vars(parser.parse_args())
+    print('Arguments:')
+    for k, v in args.items():
+        print(f'\t{k}: {v}')
+    print()
+
+    return args
+
 
 def main():
-    n_collect_envs = 64
-    procgen_env_name = 'bigfish'
-    collect_env = make_procgen(procgen_env_name, n_envs=n_collect_envs)
+    config = parse_args()
+
+    n_collect_envs = config.get('n_collect_envs', 64)
+    procgen_env_name = config.get('env', 'bigfish')
+    print('Creating collect envs...')
+    collect_env = make_procgen(procgen_env_name, config, n_envs=n_collect_envs)
 
     print('Collect env time step spec: ', collect_env.time_step_spec())
-    
-    train_steps_per_epoch = 20000
 
-    print('Creating agent...')
-    q_net, agent = create_dqn_agent(
-        collect_env,
-        train_steps_per_epoch=train_steps_per_epoch
-    )
+    agent = config.pop('agent') if 'agent' in config else 'ddqn'
+    if agent == 'ddqn':
+        print('Creating DDQN agent...')
+        q_net, agent = create_dqn_agent(
+            collect_env, config
+        )
+    elif agent == 'rainbow':
+        print('Creating Rainbow agent...')
+        q_net, agent = create_rainbow_agent(
+            collect_env, config
+        )
+    else:
+        raise ValueError(f'Agent {agent} not supported. Must be one of [ddqn, rainbow]')
 
-    n_eval_envs = 64
-    eval_envs = make_procgen(procgen_env_name, n_envs=n_eval_envs)
-    eval_runner = EvalRunner(n_eval_envs * 1000, eval_envs, agent.policy)
+    n_eval_envs = config.get('n_eval_envs', 64)
+    eval_steps = config.get('eval_steps', 1000)
+    eval_envs = make_procgen(procgen_env_name, config, n_envs=n_eval_envs)
+    eval_runner = EvalRunner(n_eval_envs * eval_steps, eval_envs, agent.policy)
+
+    video_renderer = create_video_renderer(procgen_env_name, config)
 
     print(f'Creating {procgen_env_name} DQN run...')
     dqn_run = DQNRun(
         agent, collect_env, q_net,
         eval_runner=eval_runner,
-        create_video_fn=create_video_renderer(procgen_env_name),
+        create_video_fn=video_renderer,
         video_freq=1,
-        train_steps_per_epoch=train_steps_per_epoch,
-        num_epochs=500,
-        experience_batch_size=64,
-        procgen_env_name=procgen_env_name
+        procgen_env_name=procgen_env_name,
+        **config
     )
+
+    Path('./tmp').mkdir(parents=True, exist_ok=True)
+    print(f'Rendering {procgen_env_name} initial video of collect policy...')
+    dqn_run.create_video(dqn_run.collect_policy, 'debug_initial_video')
 
     dqn_run.execute()
 

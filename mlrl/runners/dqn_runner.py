@@ -314,7 +314,7 @@ class DQNRun:
             new_best_return = self.best_return < epoch_logs['EvalAverageReturn']
 
             if video_epoch or new_best_return:
-                self.create_evaluation_video(name='best_return' if new_best_return else None)
+                self.create_video(name='best_return' if new_best_return else None)
 
             if new_best_return:
                 self.best_return = epoch_logs['EvalAverageReturn']
@@ -345,11 +345,13 @@ class DQNRun:
         plt.tight_layout()
         plt.savefig(f'{self.figures_dir}/reward_{self.epoch}_distribution.png')
 
-    def create_evaluation_video(self, name: str = None):
+    def create_video(self, policy = None, name: str = None):
         """
         Creates a video of the agent's policy in action. Saves the video to the
         videos directory and uploads it to wandb if wandb is enabled.
         """
+        policy = policy or self.eval_policy
+
         if name is None:
             name = f'eval_video_{self.epoch}'
         else:
@@ -360,12 +362,12 @@ class DQNRun:
             print(f'Creating video: {video_file}')
 
             if self.create_video_fn is not None:
-                self.create_video_fn(self.eval_policy, video_file)
+                self.create_video_fn(policy, video_file)
                 wandb.log({name: wandb.Video(video_file, format='mp4')})
 
             elif self.eval_runner is not None:
                 save_policy_eval_video(
-                    self.agent.policy, self.eval_runner.eval_env, self.video_render_fn, video_file,
+                    policy, self.eval_runner.eval_env, self.video_render_fn, video_file,
                     max_steps=self.video_steps, fps=self.video_fps
                 )
                 wandb.log({name: wandb.Video(video_file, format='mp4')})
@@ -446,7 +448,7 @@ class DQNRun:
         return self.get_callback_model().history.history
 
     def save(self):
-        self.create_evaluation_video()
+        self.create_video()
 
         config = {
             'run_config': self.get_config(),

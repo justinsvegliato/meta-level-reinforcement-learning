@@ -28,7 +28,7 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
     def __init__(self,
         gym_env: procgen.ProcgenGym3Env,
         discount: types.Float = 1.0,
-        action_repeats: types.Int = 1,
+        action_repeats: types.Int = 0,
         match_obs_space_dtype: bool = True,
         simplify_box_bounds: bool = True,
         render_kwargs: Optional[Dict[str, Any]] = None,
@@ -40,7 +40,8 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
         Args:
             gym_env: The procgen gym3 environment to wrap. Assumed to contain multiple envs.
             discount: Discount to use for the environment.
-            action_repeats: Number of times to repeat the action with each step.
+            action_repeats: Number of times to repeat the action with each step. 
+                If less than 2, then the action is only applied once.
             spec_dtype_map: A dictionary mapping gym spaces to dtypes.
         """
         super(ProcgenGym3Wrapper, self).__init__(handle_auto_reset=False)
@@ -48,7 +49,7 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
         self._n_envs = gym_env.num
         self._gym_env = gym_env
         self._discount = np.array([discount] * self._n_envs)
-        self._action_repeats = action_repeats
+        self._action_repeats = action_repeats if action_repeats > 0 else 1
 
         self._gym_observation_space = _vt2space(gym_env.ob_space)
         self._gym_action_space = _vt2space(gym_env.ac_space)
@@ -100,7 +101,7 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
 
     @property
     def done(self) -> bool:
-        return self._done
+        return all(self._done)
 
     def _step(self, action):
 
@@ -110,13 +111,25 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
         elif isinstance(action, tf.Tensor):
             action = action.numpy()
 
-        self._gym_env.act(action)
+        if self._action_repeats > 1:
+            reward = 0
+            for _ in range(self._action_repeats):
+                self._gym_env.act(action)
+                r, *_ = self._gym_env.observe()
+                reward += r
 
-        self._current_time_step = self._create_time_step()
+            self._current_time_step = self._create_time_step(reward=reward)
+
+        else:
+            self._gym_env.act(action)
+            self._current_time_step = self._create_time_step()
+
         return self._current_time_step
 
-    def _create_time_step(self):
-        reward, observation, self._done = self._gym_env.observe()
+    def _create_time_step(self, reward=None):
+        r, observation, self._done = self._gym_env.observe()
+        if reward is None:
+            reward = r
 
         step_type = [ts.StepType.MID] * self._n_envs
 
