@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class Autoencoder(tf.keras.Model):
 
-    def __init__(self, enc_dim=64):
+    def __init__(self, enc_dim=64, n_channels=3):
         super(Autoencoder, self).__init__()
         
         self.encoding_dim = enc_dim
@@ -11,7 +11,7 @@ class Autoencoder(tf.keras.Model):
         self.encoder = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64, (3, 3), 
                                    activation='relu', 
-                                   input_shape=(64, 64, 3)),
+                                   input_shape=(64, 64, n_channels)),
             tf.keras.layers.Conv2D(64, (3, 3), activation='relu', strides=2),
             tf.keras.layers.Conv2D(64, (3, 3), activation='relu', strides=2),
             tf.keras.layers.Flatten(),
