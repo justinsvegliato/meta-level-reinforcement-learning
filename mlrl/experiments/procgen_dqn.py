@@ -198,7 +198,7 @@ def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
     played simulataneously by a given policy, saved to a given file path
     """
     n_video_envs = config.get('n_video_envs', 12)
-    frame_skip = config.get('action_repeating', 4)
+    frame_skip = config.get('action_repeats', 4)
     if frame_skip < 2:
         frame_skip = 1
 
@@ -258,7 +258,7 @@ def parse_args():
                         help='Number of video environments to record.')
     parser.add_argument('--frame_stack', type=int, default=4,
                         help='Number frames to stack in observation.')
-    parser.add_argument('--action_repeating', type=int, default=0,
+    parser.add_argument('--action_repeats', type=int, default=0,
                         help='Number of times an action is repeated with each step.')
     parser.add_argument('--grayscale', action='store_true', default=False,
                         help='Whether or not to grayscale the observation image.')
@@ -269,7 +269,7 @@ def parse_args():
                         help='Discount factor.')
 
     # Agent parameters
-    parser.add_argument('--agent', type=str, default='ddqn',
+    parser.add_argument('--agent', type=str, default='rainbow',
                         help='Agent class to use.')
 
     # DQN parameters

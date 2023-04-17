@@ -85,39 +85,45 @@ class FrameStack(wrappers.PyEnvironmentBaseWrapper):
 
         # Redefine pixels spec
         frame_shape = observation_spec.shape
-        # assumes that the images are grayscale
         stacked_frame_shape = frame_shape[:2] + (frame_shape[2] * stack_size,)
         self._new_observation_spec = array_spec.ArraySpec(
             shape=stacked_frame_shape,
             dtype=observation_spec.dtype,
             name='stacked_frames')
 
+        self._colour_frames = frame_shape[2] == 3
+
     def _step(self, action):
         """Steps the environment."""
         time_step = self._env.step(action)
-        observations = time_step.observation
+        frame = time_step.observation
 
         # frame stacking
-        self._frames.append(observations)
-        observations = np.stack(self._frames, axis=-1)
+        self._frames.append(frame)
 
         return TimeStep(
             time_step.step_type, time_step.reward, time_step.discount,
-            observations)
+            self.get_stacked_frames())
+
+    def get_stacked_frames(self) -> np.ndarray:
+        if self._colour_frames:
+            return np.concatenate(self._frames, axis=-1)
+        else:
+            return np.stack(self._frames, axis=-1)
+
 
     def _reset(self):
         """Starts a new sequence and returns the first `TimeStep`."""
         time_step = self._env.reset()
-        observations = time_step.observation
+        initial_frame = time_step.observation
 
         # initial frame stacking
         for _ in range(self.stack_size):
-            self._frames.append(observations)
-        observations = np.stack(self._frames, axis=-1)
+            self._frames.append(initial_frame)
 
         return TimeStep(
             time_step.step_type, time_step.reward, time_step.discount,
-            observations)
+            self.get_stacked_frames())
 
     def observation_spec(self):
         """Defines the observations provided by the environment."""

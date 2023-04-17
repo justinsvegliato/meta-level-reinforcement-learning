@@ -502,3 +502,14 @@ class DQNRun:
             return str(item)
         except Exception:
             raise ValueError(f'Unexpected item type in history: {item=}')
+    
+    @staticmethod
+    def load(self, path: str):
+        with open(f'{path}/config.json', mode='r') as f:
+            config = json.load(f)
+
+        # run = DQNRun(**config['run_config'])
+        # run.get_callback_model().history.history = config['history']
+        # run.load_model_weights(path)
+
+        # return run
