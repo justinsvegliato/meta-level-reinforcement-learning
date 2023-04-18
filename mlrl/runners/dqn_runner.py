@@ -406,6 +406,7 @@ class DQNRun:
     def _pre_execute_setup(self):
         print('Setting up run...')
         self._setup_callbacks()
+        self.save_config()
 
         self.agent.train = common.function(self.agent.train)
 
@@ -445,21 +446,21 @@ class DQNRun:
             The training history as a dictionary mapping metric
             names to lists of historical values.
         """
-        return self.get_callback_model().history.history
+        return self.get_callback_model().history.history or dict()
 
     def save(self):
         self.create_video()
+        self.save_config()
+        self.save_model_weights()
 
-        config = {
-            'run_config': self.get_config(),
-            'history': self._clean_for_json(self.get_history())
-        }
-
+    def save_config(self):
         with open(f'{self.run_dir}/config.json', mode='w') as f:
             print(f'Saving run config to {f}')
-            json.dump(config, f, indent=4, separators=(", ", ": "), sort_keys=True)
+            json.dump(self.get_config(), f, indent=4, separators=(", ", ": "), sort_keys=True)
 
-        self.save_model_weights()
+        with open(f'{self.run_dir}/history.json', mode='w') as f:
+            print(f'Saving run history to {f}')
+            json.dump(self._clean_for_json(self.get_history()), f, indent=4, separators=(", ", ": "), sort_keys=True)
 
     def save_model_weights(self, info: str = ''):
         if info:
