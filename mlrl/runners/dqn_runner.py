@@ -478,8 +478,8 @@ class DQNRun:
         if info:
             info = f'_{info}'
 
-        try:
-            self.model.save(f'{self.model_dir}/{self.model.name}{info}')
+        # try:
+        #     self.model.save(f'{self.model_dir}/{self.model.name}{info}')
 
         if isinstance(self.model, list):
             for m in enumerate(self.model):
