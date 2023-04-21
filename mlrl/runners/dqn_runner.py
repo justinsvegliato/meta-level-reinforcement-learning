@@ -104,6 +104,7 @@ class DQNRun:
                  run_args=None,
                  save_reward_distributions=False,
                  reward_dist_thresh=0.5,
+                 log_reporters: callable = None,
                  name='run',
                  **additional_config):
         """
@@ -171,6 +172,7 @@ class DQNRun:
         self.best_return = -np.inf
         self.save_reward_distributions = save_reward_distributions
         self.reward_dist_thresh = reward_dist_thresh
+        self.log_reporters = log_reporters or []
 
         # Data tracking
         self.eval_runner = eval_runner
@@ -251,6 +253,7 @@ class DQNRun:
             'train_steps_per_epoch': self.train_steps_per_epoch,
             'initial_collect_steps': self.initial_collect_steps,
             'experience_batch_size': self.experience_batch_size,
+            'collect_steps_per_iteration': self.collect_steps_per_iteration,
             **self.run_args, **self.additional_config
         }
 
@@ -296,16 +299,23 @@ class DQNRun:
             for metric in self.collect_metrics:
                 metric.reset()
 
+            epoch_logs = dict()
+
+            for reporter in self.log_reporters:
+                epoch_logs.update(reporter())
+
+            epoch_logs['Epoch'] = self.epoch
+            epoch_logs['TrainingSteps'] = self.epoch * self.train_steps_per_epoch
+            epoch_logs['FramesCollected'] = self.epoch * self.train_steps_per_epoch * self.environment.batch_size
+
+            logs = dict()
             for step in range(self.train_steps_per_epoch):
                 self.callbacks.on_train_batch_begin(step)
                 logs = self.training_step()
                 self.callbacks.on_train_batch_end(step, logs)
 
-            epoch_logs = self.get_evaluation_stats()
-
-            epoch_logs['TrainingSteps'] = self.epoch * self.train_steps_per_epoch
-            epoch_logs['FramesCollected'] = self.epoch * self.train_steps_per_epoch * self.environment.batch_size
             epoch_logs.update(logs)
+            epoch_logs.update(self.get_evaluation_stats())
 
             for metric in self.collect_metrics:
                 epoch_logs[metric.name] = metric.result()
@@ -345,7 +355,7 @@ class DQNRun:
         plt.tight_layout()
         plt.savefig(f'{self.figures_dir}/reward_{self.epoch}_distribution.png')
 
-    def create_video(self, policy = None, name: str = None):
+    def create_video(self, policy: py_tf_eager_policy.PyTFEagerPolicy = None, name: str = None) -> dict:
         """
         Creates a video of the agent's policy in action. Saves the video to the
         videos directory and uploads it to wandb if wandb is enabled.
@@ -363,17 +373,19 @@ class DQNRun:
 
             if self.create_video_fn is not None:
                 self.create_video_fn(policy, video_file)
-                wandb.log({name: wandb.Video(video_file, format='mp4')})
+                wandb.log({'Epoch': self.epoch, name: wandb.Video(video_file, format='mp4')})
 
             elif self.eval_runner is not None:
                 save_policy_eval_video(
                     policy, self.eval_runner.eval_env, self.video_render_fn, video_file,
                     max_steps=self.video_steps, fps=self.video_fps
                 )
-                wandb.log({name: wandb.Video(video_file, format='mp4')})
+                wandb.log({'Epoch': self.epoch, name: wandb.Video(video_file, format='mp4')})
 
         except Exception as e:
             print('Failed to create evaluation video:', e)
+
+        return dict()
 
     def _setup_callbacks(self):
         self.wandb_run = wandb.init(project=self.wandb_project,
@@ -466,6 +478,9 @@ class DQNRun:
         if info:
             info = f'_{info}'
 
+        try:
+            self.model.save(f'{self.model_dir}/{self.model.name}{info}')
+
         if isinstance(self.model, list):
             for m in enumerate(self.model):
                 path = f'{self.model_weights_dir}/{m.name}{info}'
@@ -503,11 +518,11 @@ class DQNRun:
             return str(item)
         except Exception:
             raise ValueError(f'Unexpected item type in history: {item=}')
-    
-    @staticmethod
-    def load(self, path: str):
-        with open(f'{path}/config.json', mode='r') as f:
-            config = json.load(f)
+
+    # @staticmethod
+    # def load(self, path: str):
+    #     with open(f'{path}/config.json', mode='r') as f:
+    #         config = json.load(f)
 
         # run = DQNRun(**config['run_config'])
         # run.get_callback_model().history.history = config['history']

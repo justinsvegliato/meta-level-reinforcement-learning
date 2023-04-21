@@ -4,15 +4,14 @@ from typing import List, Optional, Tuple, Callable
 import numpy as np
 import cv2
 
-import procgen
 from procgen import ProcgenGym3Env
-import gym3
 from gym3 import ExtractDictObWrapper
 
 import tensorflow as tf
 from tf_agents.utils import common
 from tf_agents.drivers import py_driver
 from tf_agents.specs import tensor_spec
+from tf_agents.typing.types import FloatOrReturningFloat
 from tf_agents.agents.dqn.dqn_agent import DdqnAgent
 from tf_agents.networks.q_network import QNetwork
 from tf_agents.networks.categorical_q_network import CategoricalQNetwork
@@ -25,6 +24,29 @@ from mlrl.runners.dqn_runner import DQNRun
 from mlrl.utils.env_wrappers import ImagePreprocessWrapper, FrameStack
 from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
 from mlrl.procgen import REWARD_BOUNDS as PROCGEN_REWARD_BOUNDS
+
+
+def create_epsilon_schedule(train_step_counter: tf.Variable, config: dict) -> FloatOrReturningFloat:
+    if config.get('epsilon_schedule', False):
+        start_eps = config.get('initial_epsilon', 1.0)
+        end_eps = config.get('final_epsilon', 0.1)
+        decay_steps = config.get('epsilon_decay_steps', 250000)
+        schedule = tf.keras.optimizers.schedules.PolynomialDecay(
+            start_eps, decay_steps, end_eps, power=1.0)
+
+        def get_epsilon() -> float:
+            return schedule(train_step_counter)
+
+        def report_epsilon() -> dict:
+            return {'Epsilon': get_epsilon()}
+
+        reporters = config.get('log_reporters', [])
+        reporters.append(report_epsilon)
+        config['log_reporters'] = reporters
+
+        return get_epsilon
+
+    return config.get('epsilon', 0.01)
 
 
 def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
@@ -52,7 +74,8 @@ def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
         optimizer=optimizer,
         td_errors_loss_fn=common.element_wise_squared_loss,
         target_update_period=config.get('target_update_period', 10000),
-        train_step_counter=train_step_counter
+        train_step_counter=train_step_counter,
+        epsilon_greedy=create_epsilon_schedule(train_step_counter, config)
     )
     agent.initialize()
 
@@ -62,9 +85,7 @@ def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
     return q_model, agent
 
 
-def create_rainbow_agent(
-        env, config: dict
-        ) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
+def create_rainbow_agent(env, config: dict) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
 
     categorical_q_net = CategoricalQNetwork(
         tensor_spec.from_spec(env.observation_spec()),
@@ -96,7 +117,8 @@ def create_rainbow_agent(
         target_update_period=config.get('target_update_period', 10000),
         min_q_value=r_min, max_q_value=r_max,
         gamma=config.get('discount', 0.999),
-        train_step_counter=train_step_counter
+        train_step_counter=train_step_counter,
+        epsilon_greedy=create_epsilon_schedule(train_step_counter, config)
     )
 
     agent.initialize()
@@ -111,23 +133,24 @@ def make_procgen(
         procgen_env_name: str,
         config: dict,
         n_envs: Optional[int] = 64) -> PyEnvironment:
-    
+
     action_repeats = config.get('action_repeats', 4)
     frame_stack = config.get('frame_stack', 4)
     grayscale = config.get('grayscale', True)
 
     procgen_gym3 = ExtractDictObWrapper(ProcgenGym3Env(
-                            num=n_envs,
-                            num_threads=min(n_envs, 32),
-                            env_name=procgen_env_name,
-                            use_backgrounds=False,
-                            restrict_themes=True,
-                            distribution_mode='easy'), key='rgb')
+        num=n_envs,
+        num_threads=min(n_envs, 32),
+        env_name=procgen_env_name,
+        use_backgrounds=False,
+        restrict_themes=True,
+        distribution_mode='easy'), key='rgb')
 
     wrapped_procgen_gym3 = ProcgenGym3Wrapper(procgen_gym3, action_repeats=action_repeats)
     env = ImagePreprocessWrapper(wrapped_procgen_gym3, grayscale=grayscale)
     if frame_stack > 1:
-        env = FrameStack(env, frame_stack)    
+        env = FrameStack(env, frame_stack)
+
     env.reset()
 
     return env
@@ -162,7 +185,7 @@ def create_policy_eval_video_frames(
         max_steps=steps,
         observers=[observe]
     )
-    
+
     driver.run(env.current_time_step())
 
     return frames
@@ -187,8 +210,8 @@ def render_env(env):
     Renderers one of a batched env. Scales image for video quality.
     """
     img = env.render()
-    img = cv2.resize(img, (4*img.shape[0], 4*img.shape[1]),
-                        interpolation=cv2.INTER_NEAREST)
+    img = cv2.resize(img, (4 * img.shape[0], 4 * img.shape[1]),
+                     interpolation=cv2.INTER_NEAREST)
     return img
 
 
@@ -210,14 +233,14 @@ def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
 
         def render_env(i):
             img = observation[i]
-            img = cv2.resize(img, (4*img.shape[0], 4*img.shape[1]),
-                            interpolation=cv2.INTER_NEAREST)
+            img = cv2.resize(img, (4 * img.shape[0], 4 * img.shape[1]),
+                             interpolation=cv2.INTER_NEAREST)
             return img
-        
+
         frames = [render_env(i) for i in range(n_video_envs)]
-        
+
         return np.concatenate([
-            np.concatenate(frames[i*p:(i+1)*p]) for i in range(q)
+            np.concatenate(frames[i * p : (i + 1) * p]) for i in range(q)
         ], axis=1)
 
     fps = 16 // frame_skip
@@ -225,12 +248,13 @@ def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
 
     def create_video(policy, video_file):
         frames = create_policy_eval_video_frames(
-            policy, video_env, 
-            render_fn=render_fn, steps=fps*video_seconds*n_video_envs
+            policy, video_env,
+            render_fn=render_fn, steps=fps * video_seconds * n_video_envs
         )
         return save_video(frames, video_file, fps=fps)
 
     return create_video
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -263,7 +287,6 @@ def parse_args():
     parser.add_argument('--grayscale', action='store_true', default=False,
                         help='Whether or not to grayscale the observation image.')
 
-
     # Object-level environment parameters
     parser.add_argument('--discount', type=float, default=0.999,
                         help='Discount factor.')
@@ -275,9 +298,19 @@ def parse_args():
     # DQN parameters
     parser.add_argument('--target_network_update_period', type=int, default=10000,
                         help='Maximum number of nodes in the search tree.')
-    parser.add_argument('--epsilon_greedy', type=float, default=0.1,
+    parser.add_argument('--epsilon', type=float, default=0.1,
                         help='Epsilon for epsilon-greedy exploration.')
+    parser.add_argument('--epsilon_schedule', action='store_true', default=False,
+                        help='Whether to use an epsilon-schedule for epsilon-greedy exploration.')
+    parser.add_argument('--epsilon_decay_steps', type=int, default=250000,
+                        help='Number of steps to decay epsilon over.')
+    parser.add_argument('--initial_epsilon', type=float, default=1.0,
+                        help='Initial epsilon value.')
+    parser.add_argument('--final_epsilon', type=float, default=0.1,
+                        help='Final epsilon value.')
     parser.add_argument('--initial_collect_steps', type=int, default=500,
+                        help='Number of steps to collect before training.')
+    parser.add_argument('--replay_buffer_capacity', type=int, default=16384 // 16,
                         help='Number of steps to collect before training.')
 
     args = vars(parser.parse_args())
@@ -327,6 +360,7 @@ def main():
         create_video_fn=video_renderer,
         video_freq=1,
         procgen_env_name=procgen_env_name,
+        replay_buffer_max_length=config.get('replay_buffer_capacity', 16384),
         **config
     )
 

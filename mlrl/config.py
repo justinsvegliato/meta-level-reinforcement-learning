@@ -1,1 +1,1 @@
-RUNS_DIR = './runs/'
+RUNS_DIR = './runs'
