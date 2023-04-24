@@ -85,7 +85,7 @@ class DQNRun:
                  num_epochs=10,
                  collect_steps_per_iteration=1,
                  train_steps_per_epoch=1000,
-                 replay_buffer_max_length=16384,  # 100000,
+                 replay_buffer_capacity=16384,  # 100000,
                  experience_batch_size=64,
                  eval_runner: EvalRunner = None,
                  initial_collect_steps=500,
@@ -119,7 +119,7 @@ class DQNRun:
             collect_steps_per_iteration: The number of steps to collect data for each
                 training step
             train_steps_per_epoch: The number of training steps per epoch
-            replay_buffer_max_length: The maximum length of the replay buffer
+            replay_buffer_capacity: The maximum length of the replay buffer
             experience_batch_size: The batch size for training with experience replay
             eval_env: The environment to evaluate the agent in. If None, the training
                 environment is used.
@@ -201,10 +201,11 @@ class DQNRun:
 
         # TF-agents variables
 
+        self.replay_buffer_capacity = replay_buffer_capacity
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=agent.collect_data_spec,
             batch_size=environment.batch_size,
-            max_length=replay_buffer_max_length
+            max_length=replay_buffer_capacity
         )
 
         self.collect_driver = py_driver.PyDriver(
@@ -254,6 +255,7 @@ class DQNRun:
             'initial_collect_steps': self.initial_collect_steps,
             'experience_batch_size': self.experience_batch_size,
             'collect_steps_per_iteration': self.collect_steps_per_iteration,
+            'replay_buffer_capacity': self.replay_buffer_capacity,
             **self.run_args, **self.additional_config
         }
 
