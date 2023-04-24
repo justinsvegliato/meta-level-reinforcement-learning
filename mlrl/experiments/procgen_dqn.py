@@ -46,7 +46,7 @@ def create_epsilon_schedule(train_step_counter: tf.Variable, config: dict) -> Fl
 
         return get_epsilon
 
-    return config.get('epsilon', 0.01)
+    return config.get('epsilon', 0.1)
 
 
 def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
