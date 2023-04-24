@@ -4,6 +4,7 @@ runs
 wandb_key
 temp
 tmp
+sync
 
 # TODO: add version control for these
 outputs/runs
