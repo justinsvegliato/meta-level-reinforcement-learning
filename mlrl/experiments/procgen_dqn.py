@@ -22,6 +22,19 @@ from mlrl.procgen import REWARD_BOUNDS as PROCGEN_REWARD_BOUNDS
 from mlrl.procgen.procgen_env import make_procgen
 
 
+print(f'Using TensorFlow {tf.__version__}')
+# gpus = tf.config.list_physical_devices('GPU')
+# if gpus:
+#   # Restrict TensorFlow to only use the first GPU
+#   try:
+#     tf.config.set_visible_devices(gpus[2:], 'GPU')
+#     logical_gpus = tf.config.list_logical_devices('GPU')
+#     print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
+#   except RuntimeError as e:
+#     # Visible devices must be set before GPUs have been initialized
+#     print(e)
+
+
 def create_epsilon_schedule(train_step_counter: tf.Variable, config: dict) -> FloatOrReturningFloat:
     if config.get('epsilon_schedule', False):
         start_eps = config.get('initial_epsilon', 1.0)
@@ -69,7 +82,7 @@ def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
         q_network=q_net,
         optimizer=optimizer,
         td_errors_loss_fn=common.element_wise_squared_loss,
-        target_update_period=config.get('target_update_period', 10000),
+        target_update_period=config.get('target_network_update_period', 10000),
         train_step_counter=train_step_counter,
         epsilon_greedy=create_epsilon_schedule(train_step_counter, config)
     )
@@ -266,7 +279,7 @@ def parse_args():
 
     # DQN parameters
     parser.add_argument('--target_network_update_period', type=int, default=10000,
-                        help='Maximum number of nodes in the search tree.')
+                        help='Number of training steps between target network updates.')
     parser.add_argument('--epsilon', type=float, default=0.1,
                         help='Epsilon for epsilon-greedy exploration.')
     parser.add_argument('--epsilon_schedule', action='store_true', default=False,
@@ -279,7 +292,7 @@ def parse_args():
                         help='Final epsilon value.')
     parser.add_argument('--initial_collect_steps', type=int, default=500,
                         help='Number of steps to collect before training.')
-    parser.add_argument('--replay_buffer_capacity', type=int, default=16384 // 16,
+    parser.add_argument('--replay_buffer_capacity', type=int, default=16384,
                         help='Number of steps to collect before training.')
 
     args = vars(parser.parse_args())
@@ -329,7 +342,6 @@ def main():
         create_video_fn=video_renderer,
         video_freq=1,
         procgen_env_name=procgen_env_name,
-        replay_buffer_max_length=config.get('replay_buffer_capacity', 16384),
         **config
     )
 
