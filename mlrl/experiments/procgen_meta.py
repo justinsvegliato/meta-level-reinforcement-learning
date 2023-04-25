@@ -1,4 +1,4 @@
-from mlrl.experiments.experiment_utils import parse_args, create_meta_env
+from mlrl.experiments.experiment_utils import create_parser, create_meta_env
 from mlrl.runners.ppo_runner import PPORunner
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.procgen import META_ALLOWED_COMBOS
@@ -16,6 +16,20 @@ import gym
 
 from tf_agents.environments.gym_wrapper import GymWrapper
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
+
+import tensorflow as tf
+
+print(f'Using TensorFlow {tf.__version__}')
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+  # Restrict TensorFlow to only use the first GPU
+  try:
+    tf.config.set_visible_devices(gpus[2:], 'GPU')
+    logical_gpus = tf.config.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
+  except RuntimeError as e:
+    # Visible devices must be set before GPUs have been initialized
+    print(e)
 
 
 def patch_action_repeats(gym_env, config: dict):
@@ -152,9 +166,8 @@ def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], pe
     return model_paths[index]
 
 
-def load_pretrained_q_network(run: str = None, percentile: float = 1.0):
-    run = run or 'run-16823527592836354'
-    folder = f'./sync/dqn/categorical_dqn_agent/{run}'
+def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
+    folder = f'{folder}/categorical_dqn_agent/{run}'
 
     with open(folder + '/config.json') as f:
         object_config = json.load(f)
@@ -191,9 +204,15 @@ def load_pretrained_q_network(run: str = None, percentile: float = 1.0):
     return object_config
 
 
-def main(args):
-    object_config = load_pretrained_q_network(run=args.get('pretraining_run', None))
-    args['object_config'] = object_config
+def create_runner(args):
+
+    object_config = load_pretrained_q_network(
+        folder=args['pretrained_runs_folder'],
+        run=args['pretrained_run'],
+        percentile=args.get('pretrained_percentile', 0.75)
+    )
+
+    args['object_level_config'] = object_config
     object_env_name = object_config.get('env', 'coinrun')
 
     env, eval_env, video_env = create_batched_procgen_meta_envs(object_config=object_config, **args)
@@ -201,7 +220,32 @@ def main(args):
         env, eval_env=eval_env, video_env=video_env,
         name=f'procgen-{object_env_name}', **args
     )
+
+    return ppo_runner
+
+
+def main(args):
+    ppo_runner = create_runner(args)
     ppo_runner.run()
+
+
+def parse_args():
+    parser = create_parser()
+    
+    parser.add_argument('--pretrained_percentile', type=float, default=0.75,
+                        help='Percentile in list of pretrained sorted by reward.')
+    parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354',
+                        help='Name of the DQN run to load the pretrained Q-network from.')
+    parser.add_argument('--pretrained_runs_folder', type=str, default='runs',
+                        help='Folder containing pretraining runs.')
+
+    args = vars(parser.parse_args())
+    print('Arguments:')
+    for k, v in args.items():
+        print(f'\t{k}: {v}')
+    print()
+
+    return args
 
 
 if __name__ == "__main__":
