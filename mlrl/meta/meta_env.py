@@ -31,7 +31,7 @@ def mask_token_splitter(tokens_and_mask):
 
 class MetaEnv(gym.Env):
     """
-    Class that wraps a gym_maze environment and allows for the meta-learning of the search problem
+    Class that wraps a gym environment and allows for the meta-learning of the search problem
     """
 
     SEARCH_TOKENS_KEY = 'search_tree_tokens'
@@ -498,14 +498,16 @@ class MetaEnv(gym.Env):
                 }
             }
         else:
-            return {
-                0: 'Terminate Search',
-                **{
-                    i: f'Expand Node {i} with Action {node.state.get_action_label(action)}'
-                    for i, node in enumerate(self.tree.get_nodes())
-                    for action in node.state.get_actions()
-                }
-            }
+            raise NotImplementedError('Not implemented for expand_all_actions=False')
+            # action_strings = dict()
+            # return {
+            #     0: 'Terminate Search',
+            #     **{
+            #         i: f'Expand Node {i} with Action {node.state.get_action_label(action)}'
+            #         for i, node in enumerate(self.tree.get_nodes())
+            #         for action in node.state.get_actions()
+            #     }
+            # }
 
     def get_render_title(self) -> str:
 

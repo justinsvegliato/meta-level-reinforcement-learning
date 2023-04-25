@@ -19,7 +19,7 @@ from mlrl.utils.render_utils import save_video
 from mlrl.runners.eval_runner import EvalRunner
 from mlrl.runners.dqn_runner import DQNRun
 from mlrl.procgen import REWARD_BOUNDS as PROCGEN_REWARD_BOUNDS
-from mlrl.procgen.procgen_env import make_procgen
+from mlrl.procgen.procgen_env import make_vectorised_procgen
 
 
 print(f'Using TensorFlow {tf.__version__}')
@@ -207,7 +207,7 @@ def create_video_renderer(config: dict) -> Callable:
     if frame_skip < 2:
         frame_skip = 1
 
-    video_env = make_procgen(config, n_envs=n_video_envs)
+    video_env = make_vectorised_procgen(config, n_envs=n_video_envs)
     p, q = get_grid_dim(n_video_envs)
 
     def render_fn(vectorised_env, *_):
@@ -310,7 +310,7 @@ def main():
     n_collect_envs = config.get('n_collect_envs', 64)
     procgen_env_name = config.get('env', 'bigfish')
     print('Creating collect envs...')
-    collect_env = make_procgen(config, n_envs=n_collect_envs)
+    collect_env = make_vectorised_procgen(config, n_envs=n_collect_envs)
 
     print('Collect env time step spec: ', collect_env.time_step_spec())
 
@@ -330,7 +330,7 @@ def main():
 
     n_eval_envs = config.get('n_eval_envs', 64)
     eval_steps = config.get('eval_steps', 1000)
-    eval_envs = make_procgen(config, n_envs=n_eval_envs)
+    eval_envs = make_vectorised_procgen(config, n_envs=n_eval_envs)
     eval_runner = EvalRunner(n_eval_envs * eval_steps, eval_envs, agent.policy)
 
     video_renderer = create_video_renderer(config)

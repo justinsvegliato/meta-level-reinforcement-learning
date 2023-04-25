@@ -85,7 +85,8 @@ class ObjectState(ABC):
         return str(self.get_state_vector())
 
     def __eq__(self, other: 'ObjectState') -> bool:
-        return np.array_equal(self.get_state_vector(), other.get_state_vector())
+        # return np.array_equal(self.get_state_vector(), other.get_state_vector())
+        return hash(self) == hash(other)
 
     def __hash__(self) -> int:
         return hash(self.get_state_string())

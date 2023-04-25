@@ -8,3 +8,15 @@ REWARD_BOUNDS = {
     'jumper': (0., 8.),
     'fruitbot': (-5., 25.),
 }
+
+
+META_ALLOWED_COMBOS = {
+    'bigfish': ['LEFT+DOWN',
+                'LEFT',
+                'LEFT+UP',
+                'DOWN',
+                'UP',
+                'RIGHT+DOWN',
+                'RIGHT',
+                'RIGHT+UP'],
+}

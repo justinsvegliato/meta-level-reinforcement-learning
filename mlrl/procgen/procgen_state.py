@@ -7,6 +7,7 @@ import tensorflow as tf
 import numpy as np
 
 from gym3.env import Env
+from gym3.interop import ToGymEnv
 from procgen.env import ProcgenGym3Env
 
 
@@ -62,12 +63,32 @@ class ProcgenState(ObjectState):
         """
         return ProcgenState(env)
 
+    @staticmethod
+    def set_actions(actions: List[str]):
+        action_idxs = [ProcgenState.COMBO_STRINGS.index(action) for action in actions]
+        ProcgenState.COMBO_STRINGS = actions
+        ProcgenState.ACTIONS = action_idxs
+
     def __init__(self, env: Env):
+        if isinstance(env, ToGymEnv):
+            env = env.env
+            _, self.observation, *_ = env.observe()
+            self.observation = self.observation / 255.  # need to later handle frame stack and grayscale options
+        else:
+            self.observation = env.current_time_step().observation
+
         self.state = env.callmethod('get_state')
-        self.observation = env.current_time_step().observation
         self.state_vec, self.q_values = ProcgenProcessing.call(self.observation)
 
+    def get_observation(self):
+        return self.observation
+
+    def get_q_values(self):
+        return self.q_values
+
     def set_environment_to_state(self, env: Env):
+        if isinstance(env, ToGymEnv):
+            env = env.env
         env.callmethod('set_state', self.state)
 
     def get_state_vector(self) -> np.array:
@@ -84,10 +105,10 @@ class ProcgenState(ObjectState):
 
     def get_action_vector(self, action: int) -> np.array:
         n = self.get_maximum_number_of_actions()
-        return one_hot(action, n)
+        return one_hot(ProcgenState.ACTIONS.index(action), n)
 
     def get_state_string(self) -> str:
-        return ''
+        return str(self.state)
 
     def __repr__(self) -> str:
-        return f'{type(self).__name__}({self.get_state_string()})'
+        return f'{type(self).__name__}({hash(self)})'

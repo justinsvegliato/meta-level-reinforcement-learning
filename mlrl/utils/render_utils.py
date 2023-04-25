@@ -317,7 +317,7 @@ def create_and_save_meta_policy_video(policy: TFPolicy,
         max_steps=max_steps
     )
 
-    return save_video(frames, filename, fps, format=format)
+    return save_video(frames, filename, fps=fps, format=format)
 
 
 def save_video(frames: List[np.ndarray], filename: str = 'video', format='mp4', fps: int = 1) -> str:

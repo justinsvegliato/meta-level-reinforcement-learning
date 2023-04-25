@@ -7,7 +7,7 @@ from mlrl.utils.env_wrappers import ImagePreprocessWrapper, FrameStack
 from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
 
 
-def make_procgen(
+def make_vectorised_procgen(
         config: dict,
         procgen_env_name: str = None,
         n_envs: Optional[int] = 64) -> PyEnvironment:
