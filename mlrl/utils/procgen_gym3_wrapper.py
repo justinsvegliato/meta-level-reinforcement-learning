@@ -26,14 +26,13 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
     """
 
     def __init__(self,
-        gym_env: procgen.ProcgenGym3Env,
-        discount: types.Float = 1.0,
-        action_repeats: types.Int = 0,
-        match_obs_space_dtype: bool = True,
-        simplify_box_bounds: bool = True,
-        render_kwargs: Optional[Dict[str, Any]] = None,
-        spec_dtype_map: Optional[Dict[gym.Space, np.dtype]] = None,
-    ):
+                 gym_env: procgen.ProcgenGym3Env,
+                 discount: types.Float = 1.0,
+                 action_repeats: types.Int = 0,
+                 match_obs_space_dtype: bool = True,
+                 simplify_box_bounds: bool = True,
+                 render_kwargs: Optional[Dict[str, Any]] = None,
+                 spec_dtype_map: Optional[Dict[gym.Space, np.dtype]] = None):
         """
         Initializes the wrapper.
 
@@ -166,7 +165,7 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
         for spec, obs in zip(self._flat_obs_spec, flat_obs):
             matched_observations.append(np.asarray(obs, dtype=spec.dtype))
         return tf.nest.pack_sequence_as(self._observation_spec,
-                            matched_observations)
+                                        matched_observations)
 
     def observation_spec(self) -> types.NestedArraySpec:
         return self._observation_spec
@@ -184,7 +183,7 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
         return seed_value
 
     def render(self, mode: Text = 'rgb_array') -> Any:
-        return self._gym_env.render(mode, **self._render_kwargs)
+        return self._gym_env.render(mode, **self._render_kwargs).squeeze()
 
     def set_state(self, state: Any) -> None:
         return self._gym_env.set_state(state)

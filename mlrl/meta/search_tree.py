@@ -274,6 +274,13 @@ class SearchTreeNode(Generic[StateType]):
         self.state.set_environment_to_state(env)
         object_action = self.state.get_actions()[action_idx]
         _, reward, done, *_ = env.step(object_action)
+        if isinstance(reward, np.ndarray):
+            reward = reward[0]
+        if isinstance(done, np.ndarray):
+            done = done[0]
+        if isinstance(object_action, np.ndarray):
+            object_action = object_action[0]
+
         next_state: StateType = self.state.extract_state(env)
 
         child_node = SearchTreeNode(

@@ -1,11 +1,9 @@
 import argparse
 from pathlib import Path
-from typing import List, Optional, Tuple, Callable
+from typing import List, Tuple, Callable
 import numpy as np
 import cv2
 
-from procgen import ProcgenGym3Env
-from gym3 import ExtractDictObWrapper
 
 import tensorflow as tf
 from tf_agents.utils import common
@@ -16,14 +14,12 @@ from tf_agents.agents.dqn.dqn_agent import DdqnAgent
 from tf_agents.networks.q_network import QNetwork
 from tf_agents.networks.categorical_q_network import CategoricalQNetwork
 from tf_agents.agents import CategoricalDqnAgent
-from tf_agents.environments.py_environment import PyEnvironment
 
 from mlrl.utils.render_utils import save_video
 from mlrl.runners.eval_runner import EvalRunner
 from mlrl.runners.dqn_runner import DQNRun
-from mlrl.utils.env_wrappers import ImagePreprocessWrapper, FrameStack
-from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
 from mlrl.procgen import REWARD_BOUNDS as PROCGEN_REWARD_BOUNDS
+from mlrl.procgen.procgen_env import make_procgen
 
 
 def create_epsilon_schedule(train_step_counter: tf.Variable, config: dict) -> FloatOrReturningFloat:
@@ -129,33 +125,6 @@ def create_rainbow_agent(env, config: dict) -> Tuple[tf.keras.Model, Categorical
     return q_model, agent
 
 
-def make_procgen(
-        procgen_env_name: str,
-        config: dict,
-        n_envs: Optional[int] = 64) -> PyEnvironment:
-
-    action_repeats = config.get('action_repeats', 4)
-    frame_stack = config.get('frame_stack', 4)
-    grayscale = config.get('grayscale', True)
-
-    procgen_gym3 = ExtractDictObWrapper(ProcgenGym3Env(
-        num=n_envs,
-        num_threads=min(n_envs, 32),
-        env_name=procgen_env_name,
-        use_backgrounds=False,
-        restrict_themes=True,
-        distribution_mode='easy'), key='rgb')
-
-    wrapped_procgen_gym3 = ProcgenGym3Wrapper(procgen_gym3, action_repeats=action_repeats)
-    env = ImagePreprocessWrapper(wrapped_procgen_gym3, grayscale=grayscale)
-    if frame_stack > 1:
-        env = FrameStack(env, frame_stack)
-
-    env.reset()
-
-    return env
-
-
 def create_policy_eval_video_frames(
         policy, env,
         render_fn=None,
@@ -215,7 +184,7 @@ def render_env(env):
     return img
 
 
-def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
+def create_video_renderer(config: dict) -> Callable:
     """
     Returns a callable that produces a video of 12 games
     played simulataneously by a given policy, saved to a given file path
@@ -225,7 +194,7 @@ def create_video_renderer(procgen_env_name: str, config: dict) -> Callable:
     if frame_skip < 2:
         frame_skip = 1
 
-    video_env = make_procgen(procgen_env_name, config, n_envs=n_video_envs)
+    video_env = make_procgen(config, n_envs=n_video_envs)
     p, q = get_grid_dim(n_video_envs)
 
     def render_fn(vectorised_env, *_):
@@ -328,7 +297,7 @@ def main():
     n_collect_envs = config.get('n_collect_envs', 64)
     procgen_env_name = config.get('env', 'bigfish')
     print('Creating collect envs...')
-    collect_env = make_procgen(procgen_env_name, config, n_envs=n_collect_envs)
+    collect_env = make_procgen(config, n_envs=n_collect_envs)
 
     print('Collect env time step spec: ', collect_env.time_step_spec())
 
@@ -348,10 +317,10 @@ def main():
 
     n_eval_envs = config.get('n_eval_envs', 64)
     eval_steps = config.get('eval_steps', 1000)
-    eval_envs = make_procgen(procgen_env_name, config, n_envs=n_eval_envs)
+    eval_envs = make_procgen(config, n_envs=n_eval_envs)
     eval_runner = EvalRunner(n_eval_envs * eval_steps, eval_envs, agent.policy)
 
-    video_renderer = create_video_renderer(procgen_env_name, config)
+    video_renderer = create_video_renderer(config)
 
     print(f'Creating {procgen_env_name} DQN run...')
     dqn_run = DQNRun(

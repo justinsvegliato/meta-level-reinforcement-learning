@@ -33,11 +33,11 @@ class ImagePreprocessWrapper(wrappers.PyEnvironmentBaseWrapper):
         self._new_observation_spec = array_spec.ArraySpec(
             shape=shape,
             dtype=np.float64,
-            name='grayscale_pixels')
+            name='observation')
 
     def render(self, mode='rgb_array'):
         if mode == 'rgb_array':
-            return self._env.current_time_step().observation
+            return self._env.current_time_step().observation.squeeze()
 
     def preprocess(self, img):
         """Preprocesses the image."""
@@ -110,7 +110,6 @@ class FrameStack(wrappers.PyEnvironmentBaseWrapper):
             return np.concatenate(self._frames, axis=-1)
         else:
             return np.stack(self._frames, axis=-1)
-
 
     def _reset(self):
         """Starts a new sequence and returns the first `TimeStep`."""

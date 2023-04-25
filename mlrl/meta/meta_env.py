@@ -453,6 +453,9 @@ class MetaEnv(gym.Env):
 
             self.render(save_fig_to=f'{debug_dir}/crash_render.png')
 
+        except Exception as debug_e:
+            print(f'Failed to dump debug information: {debug_e}')
+
         finally:
             if open_debug_server:
                 import debugpy
@@ -466,9 +469,10 @@ class MetaEnv(gym.Env):
                 print('Breakpoint reached')
 
     def get_object_level_seed(self) -> Optional[int]:
+        if not hasattr(self.object_env, 'get_seed'):
+            return None
         get_seed = getattr(self.object_env, 'get_seed')
-        seed = get_seed() if get_seed else None
-        return seed
+        return get_seed()
 
     def get_info(self) -> dict:
         return {
@@ -641,7 +645,13 @@ class MetaEnv(gym.Env):
             q_dist = np.array(list(q_dist.values()))
 
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
-            ax.set_xticklabels(action_labels)
+
+            if any([len(label) > 3 for label in action_labels]):
+                rotation = 90
+            else:
+                rotation = 0
+
+            ax.set_xticklabels(action_labels, rotation=rotation)
 
             min_val = min(self.object_reward_min, min(q_dist))
             max_val = max(self.object_reward_max, max(q_dist))

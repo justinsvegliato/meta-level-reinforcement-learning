@@ -32,6 +32,7 @@ class EvalRunner:
                  videos_dir: str = None,
                  use_tf_function: bool = True,
                  convert_to_eager: bool = True,
+                 metrics: Optional[list] = None,
                  step_counter=None):
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
@@ -43,7 +44,7 @@ class EvalRunner:
         else:
             self.eval_policy = policy
 
-        self.metrics = []
+        self.metrics = metrics or []
 
         eval_observers = []
         self.rewrite_rewards = rewrite_rewards
@@ -200,7 +201,7 @@ if __name__ == '__main__':
     n_eval_envs = config.get('n_eval_envs', 64)
     env_multithreading = config.get('env_multithreading', True)
 
-    from mlrl.experiments.ppo_maze import create_batched_maze_envs
+    from mlrl.experiments.maze_meta import create_batched_maze_envs
     eval_env = create_batched_maze_envs(
         n_eval_envs,
         enable_render=False,
