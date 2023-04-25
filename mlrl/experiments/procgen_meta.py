@@ -17,19 +17,19 @@ import gym
 from tf_agents.environments.gym_wrapper import GymWrapper
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
-import tensorflow as tf
+# import tensorflow as tf
 
-print(f'Using TensorFlow {tf.__version__}')
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-  # Restrict TensorFlow to only use the first GPU
-  try:
-    tf.config.set_visible_devices(gpus[2:], 'GPU')
-    logical_gpus = tf.config.list_logical_devices('GPU')
-    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
-  except RuntimeError as e:
-    # Visible devices must be set before GPUs have been initialized
-    print(e)
+# print(f'Using TensorFlow {tf.__version__}')
+# gpus = tf.config.list_physical_devices('GPU')
+# if gpus:
+#     # Restrict TensorFlow to only use the first GPU
+#     try:
+#         tf.config.set_visible_devices(gpus[2:], 'GPU')
+#         logical_gpus = tf.config.list_logical_devices('GPU')
+#         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
+#     except RuntimeError as e:
+#         # Visible devices must be set before GPUs have been initialized
+#         print(e)
 
 
 def patch_action_repeats(gym_env, config: dict):
@@ -163,7 +163,7 @@ def parse_model_weights_string(path: str) -> Tuple[int, float]:
 def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], percentile: float) -> Tuple[str, int, float]:
     sorted_paths = sorted(model_paths, key=lambda x: x[2])
     index = round(len(sorted_paths) * percentile)
-    return model_paths[index]
+    return sorted_paths[index]
 
 
 def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
@@ -181,6 +181,9 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
         if path.is_file() and str(path).endswith('.index')
         and (values := parse_model_weights_string(str(path.name))) is not None
     ]
+
+    print('\n'.join(map(str, model_paths)))
+
     path, epoch, ret_val = get_model_at_return_percentile(model_paths, percentile)
     object_config['pretrained_epoch'] = epoch
     object_config['pretrained_return'] = ret_val
@@ -231,7 +234,7 @@ def main(args):
 
 def parse_args():
     parser = create_parser()
-    
+
     parser.add_argument('--pretrained_percentile', type=float, default=0.75,
                         help='Percentile in list of pretrained sorted by reward.')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354',
