@@ -1,4 +1,4 @@
-from mlrl.experiments.experiment_utils import parse_args, create_meta_env
+from mlrl.experiments.experiment_utils import create_parser, create_meta_env
 from mlrl.runners.ppo_runner import PPORunner
 from mlrl.meta.search_tree import ObjectState
 from mlrl.meta.meta_env import MetaEnv
@@ -92,12 +92,12 @@ def create_batched_maze_envs(
 
 
 def create_batched_maze_meta_envs(
-        env_batch_size,
-        n_video_envs=0, n_eval_envs=0, min_train_computation_steps=0,
+        n_collect_envs=16, n_video_envs=2, n_eval_envs=8,
+        min_train_computation_steps=0,
         env_multithreading=True, **config):
 
     env = create_batched_maze_envs(
-        env_batch_size,
+        n_collect_envs,
         enable_render=False,
         min_computation_steps=min_train_computation_steps,
         env_multithreading=env_multithreading,
@@ -118,13 +118,41 @@ def create_batched_maze_meta_envs(
     return env, eval_env, video_env
 
 
-def main(args):
+def create_runner(args):
     env, eval_env, video_env = create_batched_maze_meta_envs(**args)
-    ppo_runner = PPORunner(
+    return PPORunner(
         env, eval_env=eval_env, video_env=video_env,
         name=get_maze_name(args), **args
     )
+
+
+def main(args):
+    ppo_runner = create_runner(args)
     ppo_runner.run()
+
+
+def parse_args():
+    parser = create_parser()
+
+    parser.add_argument('--maze_size', type=int, default=10,
+                        help='Size of the maze.')
+    parser.add_argument('--procgen_maze', type=bool, default=True,
+                        help='Whether to use a procgen maze.')
+    parser.add_argument('--restricted_maze_states', type=bool, default=True,
+                        help='Whether to restrict movements and node expansions to only free spaces.')
+    parser.add_argument('--q_hat_inadmissable_action', type=str, default=None,
+                        help='Action to estimate inadmissably.')
+    parser.add_argument('--q_hat_inadmissable_overestimation', type=float, default=2.0,
+                        help='Distance overestimation to use for inadmissable action.')
+
+    args = vars(parser.parse_args())
+
+    print('Arguments:')
+    for k, v in args.items():
+        print(f'\t{k}: {v}')
+    print()
+
+    return args
 
 
 if __name__ == "__main__":

@@ -98,12 +98,14 @@ class EvalRunner:
         logs = {
             f'Eval{metric.name}': metric.result()
             for metric in self.metrics
+            if metric.result() is not None
         }
         logs['EvalTime'] = end_time - start_time
 
         print('Evaluation stats:')
         print(', '.join([
             f'{name}: {value:.3f}' for name, value in logs.items()
+            if isinstance(value, float)
         ]))
 
         if self.eval_reward_rewriter is not None:

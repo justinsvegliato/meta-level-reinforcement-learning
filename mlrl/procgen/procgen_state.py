@@ -15,6 +15,7 @@ class ProcgenProcessing:
     __instance = None
 
     def __init__(self, agent):
+        self.agent = agent
         self.categorical_q_net = agent._q_network
         self.support = agent._support
 

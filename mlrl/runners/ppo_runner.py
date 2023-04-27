@@ -86,7 +86,8 @@ class PPORunner:
             p = self.train_step_counter / self.num_iterations
             return start_lr * (1 - p)
 
-        config['learning_rate'] = learning_rate_fn
+        self.learning_rate = learning_rate_fn
+        config['learning_rate'] = self.learning_rate
 
         self.agent = create_search_ppo_agent(self.collect_env, config, self.train_step_counter)
 
@@ -244,6 +245,11 @@ class PPORunner:
 
     def train(self):
         logs = {}
+
+        logs['TrainingSteps'] = self.train_step_counter.numpy()
+        if isinstance(self.learning_rate, callable):
+            logs['LearningRate'] = self.learning_rate
+
         start_time = time.time()
         loss_info = self.ppo_learner.run()
         end_time = time.time()

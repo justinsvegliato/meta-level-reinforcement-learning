@@ -56,6 +56,7 @@ def create_meta_env(object_env: gym.Env,
                        random_cost_of_computation=config.get('random_cost_of_computation', True),
                        cost_of_computation_interval=cost_of_computation_interval,
                        cost_of_computation=config.get('cost_of_computation', 0.001),
+                       object_level_transition_observers=config.get('object_level_transition_observers'),
                        tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):
@@ -167,7 +168,7 @@ def create_parser():
                         help='Train batch size to use in PPO')
     parser.add_argument('--train_num_steps', type=int, default=64,
                         help='Number of steps in each training batch')
-    parser.add_argument('--env_batch_size', type=int, default=64,
+    parser.add_argument('--n_collect_envs', type=int, default=64,
                         help='Batch size for the environment.')
     parser.add_argument('--num_iterations', type=int, default=2000,
                         help='Number of times to run the training loop.')
@@ -214,18 +215,6 @@ def create_parser():
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,
                         help='Discount factor in object-level environment.')
-
-    # Maze parameters
-    parser.add_argument('--maze_size', type=int, default=10,
-                        help='Size of the maze.')
-    parser.add_argument('--procgen_maze', type=bool, default=True,
-                        help='Whether to use a procgen maze.')
-    parser.add_argument('--restricted_maze_states', type=bool, default=True,
-                        help='Whether to restrict movements and node expansions to only free spaces.')
-    parser.add_argument('--q_hat_inadmissable_action', type=str, default=None,
-                        help='Action to estimate inadmissably.')
-    parser.add_argument('--q_hat_inadmissable_overestimation', type=float, default=2.0,
-                        help='Distance overestimation to use for inadmissable action.')
 
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',

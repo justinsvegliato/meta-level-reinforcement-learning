@@ -6,7 +6,7 @@ from mlrl.utils import time_id
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
-from typing import Callable, List, Optional, Tuple, Dict, Union
+from typing import Callable, List, Optional, Tuple, Dict, Union, NoReturn
 
 import numpy as np
 import gym
@@ -15,6 +15,11 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns
 sns.set()
+
+
+TransitionObserver = Callable[[np.ndarray, float, bool, dict], NoReturn]
+TreePolicyProducer = Callable[[SearchTree], SearchTreePolicy]
+TreePolicyRenderer = Callable[[gym.Env, SearchTreePolicy], np.ndarray]
 
 
 gym.envs.register(
@@ -48,8 +53,8 @@ class MetaEnv(gym.Env):
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
                  search_optimal_q_estimator: Optional[SearchOptimalQEstimator] = None,
-                 make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
-                 tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.ndarray]] = None,
+                 make_tree_policy: Optional[TreePolicyProducer] = None,
+                 tree_policy_renderer: Optional[TreePolicyRenderer] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99,
@@ -59,6 +64,7 @@ class MetaEnv(gym.Env):
                  cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
+                 object_level_transition_observers: Optional[List[TransitionObserver]] = None,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -84,6 +90,7 @@ class MetaEnv(gym.Env):
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
         self.min_computation_steps = min_computation_steps
+        self.object_level_transition_observers = object_level_transition_observers or []
 
         self.random_cost_of_computation = random_cost_of_computation
         self.cost_of_computation_interval = cost_of_computation_interval
@@ -305,14 +312,21 @@ class MetaEnv(gym.Env):
         return self.last_computational_reward
 
     def terminate_step(self):
-        if self.finish_on_terminate:
-            return self.get_observation(), 0., True, {}
 
         # Perform a step in the underlying environment
         action = self.get_best_object_action()
 
         self.set_environment_to_root_state()
-        _, self.last_meta_reward, done, info = self.object_env.step(action)
+        object_obs, object_r, done, info = self.object_env.step(action)
+
+        if self.object_level_transition_observers is not None:
+            for observer in self.object_level_transition_observers:
+                observer(object_obs, object_r, done, info)
+
+        if self.finish_on_terminate:
+            return self.get_observation(), 0., True, {}
+
+        self.last_meta_reward = object_r
 
         if self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
