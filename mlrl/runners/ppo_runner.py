@@ -323,13 +323,9 @@ class PPORunner:
             iteration_logs.update(self.collect())
             iteration_logs.update(self.train())
 
-            print(f'{self.model_save_metric = }', iteration_logs)
             if self.model_save_metric in iteration_logs:
                 val = iteration_logs[self.model_save_metric]
                 new_val = self.model_save_comparator(val, self.model_save_metric_best)
-                print(f'{val=}, {self.model_save_metric_best=}, {new_val=}')
-                print(self.model_save_comparator)
-                print(f'{new_val != self.model_save_metric_best = }')
                 if new_val != self.model_save_metric_best:
                     self.model_save_metric_best = new_val
                     self.save_best()
