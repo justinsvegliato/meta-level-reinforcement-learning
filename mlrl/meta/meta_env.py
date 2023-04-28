@@ -32,12 +32,12 @@ class ObjectLevelMetrics:
 
     def __init__(self):
         self.reward_sum = 0
-        self.n_episodes = 0
         self.n_steps = 0
+        self.n_episodes = 1
 
     def reset(self):
         self.reward_sum = 0
-        self.n_episodes = 0
+        self.n_episodes = 1
         self.n_steps = 0
 
     def __call__(self, obs, reward, done, info):

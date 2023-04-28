@@ -203,7 +203,7 @@ def create_parser():
                         help='Random seed.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
-    parser.add_argument('--max_cost_of_computation', type=float, default=0.01,
+    parser.add_argument('--max_cost_of_computation', type=float, default=0.005,
                         help='Max computational cost.')
     parser.add_argument('--rewrite_rewards', type=bool, default=True,
                         help='Whether to rewrite computational rewards.')

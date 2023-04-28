@@ -10,6 +10,7 @@ from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
 from mlrl.utils.render_utils import create_and_save_meta_policy_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
+from pathlib import Path
 from typing import Optional
 import time
 
@@ -37,6 +38,7 @@ class EvalRunner:
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
         self.videos_dir = videos_dir or '.'
+        Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
         if convert_to_eager:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(

@@ -19,18 +19,6 @@ from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
 import tensorflow as tf
 
-print(f'Using TensorFlow {tf.__version__}')
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    # Restrict TensorFlow to only use the first GPU
-    try:
-        tf.config.set_visible_devices(gpus[2:], 'GPU')
-        logical_gpus = tf.config.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
-    except RuntimeError as e:
-        # Visible devices must be set before GPUs have been initialized
-        print(e)
-
 
 def patch_action_repeats(gym_env, config: dict):
 
@@ -175,7 +163,15 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, ve
     with open(folder + '/config.json') as f:
         object_config = json.load(f)
 
+    if verbose:
+        print('Object-level config:')
+        for k, v in object_config.items():
+            print(f'\t - {k}: {v}')
+
     env = make_vectorised_procgen(object_config, n_envs=1)
+    if verbose:
+        print(f'Created environment {env}')
+
     q_net, agent = create_rainbow_agent(env, object_config, verbose=verbose)
 
     model_paths = [
@@ -197,9 +193,6 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, ve
 
     if verbose:
         print(f'Loading model from {run} that scored return value {ret_val} at epoch {epoch}')
-        print('Object-level config:')
-        for k, v in object_config.items():
-            print(f'\t - {k}: {v}')
 
     q_net.load_weights(path)
 
@@ -286,5 +279,17 @@ def parse_args():
 
 
 if __name__ == "__main__":
+
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        # Restrict TensorFlow to only use the first GPU
+        try:
+            tf.config.set_visible_devices(gpus[2:], 'GPU')
+            logical_gpus = tf.config.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
+        except RuntimeError as e:
+            # Visible devices must be set before GPUs have been initialized
+            print(e)
+
     args = parse_args()
     main(args)
