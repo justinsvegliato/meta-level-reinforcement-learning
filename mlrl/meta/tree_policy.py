@@ -21,9 +21,18 @@ class SearchTreePolicy(ABC):
         from mlrl.meta.q_estimation import SearchOptimalQEstimator
         self.estimator: SearchOptimalQEstimator = optimal_q_estimator
 
-    def get_action(self, state: ObjectState) -> int:
+    def get_action_index(self, state: ObjectState) -> int:
         """
         Get the action to take in the given state.
+        
+        The action is returned as an integer indicating the index of
+        the gym action in the ObjectState.get_actions representation.
+
+        For example, an environment may have an action space of unhashable
+        objects, e.g. uci move objects in gymchess, q-distributions are maintained
+        as dictionaries of integers to floats, and the action space is a list of
+        uci move objects. In this case, the action returned by this function
+        would be the index of the uci move object in the action space.
         """
         action_probs = self.get_action_probabilities(state)
         return np.random.choice(list(action_probs.keys()),
@@ -123,24 +132,24 @@ class GreedySearchTreePolicy(SearchTreePolicy):
         state_nodes = self.tree.get_state_nodes(state)
         if not state_nodes:
             q_values = {
-                action: self.tree.q_function(state, action)
-                for action in state.get_actions()
+                a_idx: self.tree.q_function(state, action)
+                for a_idx, action in enumerate(state.get_actions())
             }
         else:
             node, *_ = state_nodes  # all nodes should have the same q-values
             q_values = {
-                action: node.get_q_value(action)
-                for action in node.state.get_actions()
+                a_idx: node.get_q_value(action)
+                for a_idx, action in enumerate(node.state.get_actions())
             }
 
         max_q = max(q_values.values())
         max_actions = [a for a, q in q_values.items() if q == max_q]
-        probs = {a: 0. for a in range(len(state.get_actions()))}
+        probs = {a: 0. for a in q_values}
 
         if self.break_ties_randomly:
             for a in max_actions:
                 probs[a] = 1 / len(max_actions)
-        else:
+        else:  # choose the first action in the list of max actions
             probs[max_actions[0]] = 1.
 
         return probs
@@ -148,7 +157,7 @@ class GreedySearchTreePolicy(SearchTreePolicy):
     def __repr__(self) -> str:
 
         def build_trajectory(node: SearchTreeNode) -> List[str]:
-            action = self.get_action(node.state)
+            action = self.get_action_index(node.state)
             if node.has_action_children(action):
                 child = node.children[action][0]
                 return [node.state.get_action_label(action)] + build_trajectory(child)

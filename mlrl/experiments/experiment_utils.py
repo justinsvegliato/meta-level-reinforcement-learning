@@ -1,4 +1,4 @@
-from mlrl.run import TrainingRun
+from mlrl.runners.dqn_runner import DQNRun
 from mlrl.meta.meta_env import mask_token_splitter
 from mlrl.networks.search_q_net import SearchQNetwork
 from mlrl.networks.search_actor_nets import SearchActorNetwork
@@ -41,6 +41,10 @@ def create_meta_env(object_env: gym.Env,
     """
     initial_tree = SearchTree(object_env, init_state, q_hat,
                               discount=config.get('object_discount', .99))
+
+    cost_of_computation_interval = (
+        config.get('min_cost_of_computation', 0), config.get('max_cost_of_computation', 0.05)
+    )
     meta_env = MetaEnv(object_env,
                        initial_tree,
                        max_tree_size=config.get('max_tree_size', 10),
@@ -49,6 +53,10 @@ def create_meta_env(object_env: gym.Env,
                        computational_rewards=config.get('computational_rewards', True),
                        finish_on_terminate=config.get('finish_on_terminate', False),
                        min_computation_steps=config.get('min_computation_steps', min_computation_steps),
+                       random_cost_of_computation=config.get('random_cost_of_computation', True),
+                       cost_of_computation_interval=cost_of_computation_interval,
+                       cost_of_computation=config.get('cost_of_computation', 0.001),
+                       object_level_transition_observers=config.get('object_level_transition_observers'),
                        tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):
@@ -131,9 +139,9 @@ def create_training_run(
     model: Union[tf.keras.Model, List[tf.keras.Model]],
     args: dict,
     name: str
-) -> TrainingRun:
+) -> DQNRun:
     print('Creating training run...')
-    return TrainingRun(
+    return DQNRun(
         agent, tf_env, model,
         num_epochs=args.get('num_epochs', 10),
         experience_batch_size=args.get('experience_batch_size', 64),
@@ -160,7 +168,7 @@ def create_parser():
                         help='Train batch size to use in PPO')
     parser.add_argument('--train_num_steps', type=int, default=64,
                         help='Number of steps in each training batch')
-    parser.add_argument('--env_batch_size', type=int, default=64,
+    parser.add_argument('--n_collect_envs', type=int, default=64,
                         help='Batch size for the environment.')
     parser.add_argument('--num_iterations', type=int, default=2000,
                         help='Number of times to run the training loop.')
@@ -170,11 +178,11 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=25,
+    parser.add_argument('--eval_interval', type=int, default=2,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')
-    parser.add_argument('--n_video_steps', type=int, default=32,
+    parser.add_argument('--video_steps', type=int, default=100,
                         help='Number of steps to record a video for.')
     parser.add_argument('--n_video_envs', type=int, default=2,
                         help='Number of video environments to record.')
@@ -195,6 +203,8 @@ def create_parser():
                         help='Random seed.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
+    parser.add_argument('--max_cost_of_computation', type=float, default=0.005,
+                        help='Max computational cost.')
     parser.add_argument('--rewrite_rewards', type=bool, default=True,
                         help='Whether to rewrite computational rewards.')
     parser.add_argument('--finish_on_terminate', type=bool, default=True,
@@ -205,14 +215,6 @@ def create_parser():
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,
                         help='Discount factor in object-level environment.')
-
-    # Maze parameters
-    parser.add_argument('--maze_size', type=int, default=5,
-                        help='Size of the maze.')
-    parser.add_argument('--procgen_maze', type=bool, default=True,
-                        help='Whether to use a procgen maze.')
-    parser.add_argument('--restricted_maze_states', type=bool, default=True,
-                        help='Whether to restrict movements and node expansions to only free spaces.')
 
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',

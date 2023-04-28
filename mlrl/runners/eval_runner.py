@@ -7,9 +7,10 @@ from mlrl.meta.meta_policies.random_policy import (
 )
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
-from mlrl.utils.render_utils import create_and_save_policy_eval_video
+from mlrl.utils.render_utils import create_and_save_meta_policy_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
+from pathlib import Path
 from typing import Optional
 import time
 
@@ -31,15 +32,21 @@ class EvalRunner:
                  video_env: Optional[BatchedPyEnvironment] = None,
                  videos_dir: str = None,
                  use_tf_function: bool = True,
+                 convert_to_eager: bool = True,
+                 metrics: Optional[list] = None,
                  step_counter=None):
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
         self.videos_dir = videos_dir or '.'
+        Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
-        self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
-            policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        if convert_to_eager:
+            self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
+                policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        else:
+            self.eval_policy = policy
 
-        self.metrics = []
+        self.metrics = metrics or []
 
         eval_observers = []
         self.rewrite_rewards = rewrite_rewards
@@ -69,6 +76,8 @@ class EvalRunner:
             reference_metrics=[py_metrics.EnvironmentSteps()],
             steps_per_run=eval_steps)
 
+        py_metrics.AverageEpisodeLengthMetric()
+
         self.metrics.extend(self.eval_actor.metrics)
 
     def get_metrics(self):
@@ -81,18 +90,24 @@ class EvalRunner:
         self.progbar.reset()
 
         start_time = time.time()
-        self.eval_actor.run()
+        try:
+            self.eval_actor.run()
+        except KeyboardInterrupt:
+            print('\nEvaluation interrupted.')
+
         end_time = time.time()
 
         logs = {
             f'Eval{metric.name}': metric.result()
             for metric in self.metrics
+            if metric.result() is not None
         }
         logs['EvalTime'] = end_time - start_time
 
         print('Evaluation stats:')
         print(', '.join([
             f'{name}: {value:.3f}' for name, value in logs.items()
+            if isinstance(value, float)
         ]))
 
         if self.eval_reward_rewriter is not None:
@@ -101,17 +116,18 @@ class EvalRunner:
         return logs
 
     def create_policy_eval_video(
-            self, steps: int, filename: str = 'video') -> str:
+            self, steps: int, filename: str = 'video', **video_kwargs) -> str:
         if self.video_env is None:
             return None
 
         video_file = f'{self.videos_dir}/{filename}.mp4'
 
-        create_and_save_policy_eval_video(
+        create_and_save_meta_policy_video(
             self.eval_policy, self.video_env,
             max_steps=steps,
             filename=video_file,
-            rewrite_rewards=self.rewrite_rewards)
+            rewrite_rewards=self.rewrite_rewards,
+            **video_kwargs)
 
         return video_file
 
@@ -190,7 +206,7 @@ if __name__ == '__main__':
     n_eval_envs = config.get('n_eval_envs', 64)
     env_multithreading = config.get('env_multithreading', True)
 
-    from mlrl.experiments.ppo_maze import create_batched_maze_envs
+    from mlrl.experiments.maze_meta import create_batched_maze_envs
     eval_env = create_batched_maze_envs(
         n_eval_envs,
         enable_render=False,

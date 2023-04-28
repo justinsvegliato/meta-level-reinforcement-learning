@@ -85,7 +85,8 @@ class ObjectState(ABC):
         return str(self.get_state_vector())
 
     def __eq__(self, other: 'ObjectState') -> bool:
-        return np.array_equal(self.get_state_vector(), other.get_state_vector())
+        # return np.array_equal(self.get_state_vector(), other.get_state_vector())
+        return hash(self) == hash(other)
 
     def __hash__(self) -> int:
         return hash(self.get_state_string())
@@ -213,6 +214,12 @@ class SearchTreeNode(Generic[StateType]):
     def duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
         return self.find_duplicate_state_ancestor()
 
+    def is_unexpandable_leaf(self) -> bool:
+        """
+        Returns True if the node is a leaf and cannot be expanded.
+        """
+        return self.duplicate_state_ancestor is not None
+
     def find_duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
         """
         Returns the first ancestor of the given child node that has the same state as the given parent node.
@@ -268,6 +275,13 @@ class SearchTreeNode(Generic[StateType]):
         self.state.set_environment_to_state(env)
         object_action = self.state.get_actions()[action_idx]
         _, reward, done, *_ = env.step(object_action)
+        if isinstance(reward, np.ndarray):
+            reward = reward[0]
+        if isinstance(done, np.ndarray):
+            done = done[0]
+        if isinstance(object_action, np.ndarray):
+            object_action = object_action[0]
+
         next_state: StateType = self.state.extract_state(env)
 
         child_node = SearchTreeNode(
@@ -392,13 +406,11 @@ class SearchTree(Generic[StateType]):
                  env: gym.Env,
                  root: Union[StateType, SearchTreeNode],
                  q_function: QFunction,
-                 max_size: int = 10,
                  discount: float = 0.99,
                  deterministic: bool = True):
         self.env = env
         self.deterministic = deterministic
         self.q_function = q_function
-        self.max_size = max_size
         self.discount = discount
         self.root_node: SearchTreeNode[StateType] = root if isinstance(root, SearchTreeNode) else SearchTreeNode(
             0, None, root, None, 0, False, self.discount, q_function
@@ -429,7 +441,7 @@ class SearchTree(Generic[StateType]):
 
         new_root = recursive_copy(root, None)
         new_tree = SearchTree(
-            self.env, new_root, self.q_function, self.max_size,
+            self.env, new_root, self.q_function,
             self.discount, self.deterministic)
 
         def recursive_update_node_list(node):
@@ -454,7 +466,6 @@ class SearchTree(Generic[StateType]):
         sub_tree = SearchTree(self.env,
                               root_node,
                               self.q_function,
-                              self.max_size,
                               self.discount,
                               self.deterministic)
 
@@ -509,8 +520,6 @@ class SearchTree(Generic[StateType]):
 
         node = self.node_list[node_idx]
         for action_idx in range(len(node.state.get_actions())):
-            if len(self.node_list) >= self.max_size:
-                break
             if self.is_action_valid(node, action_idx):
                 self.expand_action(node_idx, action_idx)
 
@@ -546,9 +555,6 @@ class SearchTree(Generic[StateType]):
                 self.state_nodes[node.state] = [node]
             else:
                 self.state_nodes[node.state].append(node)
-
-    def set_max_size(self, max_size: int):
-        self.max_size = max_size
 
     def get_nodes(self) -> List[SearchTreeNode]:
         return self.node_list

@@ -6,7 +6,7 @@ from mlrl.utils import time_id
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
-from typing import Callable, List, Optional, Tuple, Dict, Union
+from typing import Callable, List, Optional, Tuple, Dict, Union, NoReturn
 
 import numpy as np
 import gym
@@ -17,10 +17,58 @@ import seaborn as sns
 sns.set()
 
 
+TransitionObserver = Callable[[np.ndarray, float, bool, dict], NoReturn]
+TreePolicyProducer = Callable[[SearchTree], SearchTreePolicy]
+TreePolicyRenderer = Callable[[gym.Env, SearchTreePolicy], np.ndarray]
+
+
 gym.envs.register(
     id='MetaEnv-v0',
     entry_point='mlrl.meta.meta_env:MetaEnv',
 )
+
+
+class ObjectLevelMetrics:
+
+    def __init__(self):
+        self.reward_sum = 0
+        self.n_steps = 0
+        self.n_episodes = 1
+
+    def reset(self):
+        self.reward_sum = 0
+        self.n_episodes = 1
+        self.n_steps = 0
+
+    def __call__(self, obs, reward, done, info):
+        self.n_steps += np.size(reward)
+        self.reward_sum += np.sum(reward)
+        self.n_episodes += np.sum(done)
+
+    def get_results(self):
+        return {
+            'ObjectLevelMeanReward': self.reward_sum / max(1, self.n_episodes),
+            'ObjectLevelMeanStepsPerEpisode': self.n_steps / max(1, self.n_episodes),
+            'ObjectLevelEpisodes': self.n_episodes
+        }
+
+
+def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str, float]:
+    sum_reward = 0
+    n_steps = 0
+    total_episodes = 0
+
+    for metric in metrics:
+        n_episodes = metric['ObjectLevelEpisodes']
+        sum_reward += metric['ObjectLevelMeanReward'] * n_episodes
+        n_steps += metric['ObjectLevelMeanStepsPerEpisode'] * n_episodes
+        total_episodes += n_episodes
+
+    return {
+        'ObjectLevelMeanReward': sum_reward / max(1, total_episodes),
+        'ObjectLevelMeanStepsPerEpisode': n_steps / max(1, total_episodes),
+        'ObjectLevelEpisodes': total_episodes
+    }
 
 
 def mask_token_splitter(tokens_and_mask):
@@ -31,7 +79,7 @@ def mask_token_splitter(tokens_and_mask):
 
 class MetaEnv(gym.Env):
     """
-    Class that wraps a gym_maze environment and allows for the meta-learning of the search problem
+    Class that wraps a gym environment and allows for the meta-learning of the search problem
     """
 
     SEARCH_TOKENS_KEY = 'search_tree_tokens'
@@ -48,15 +96,18 @@ class MetaEnv(gym.Env):
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
                  search_optimal_q_estimator: Optional[SearchOptimalQEstimator] = None,
-                 make_tree_policy: Optional[Callable[[SearchTree], SearchTreePolicy]] = None,
-                 tree_policy_renderer: Optional[Callable[[gym.Env, SearchTreePolicy], np.ndarray]] = None,
+                 make_tree_policy: Optional[TreePolicyProducer] = None,
+                 tree_policy_renderer: Optional[TreePolicyRenderer] = None,
                  object_reward_min: float = 0.0,
                  object_reward_max: float = 1.0,
                  object_env_discount: float = 0.99,
                  one_hot_action_space: bool = False,
                  split_mask_and_tokens: bool = True,
+                 random_cost_of_computation: bool = True,
+                 cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
+                 object_level_transition_observers: Optional[List[TransitionObserver]] = None,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -77,11 +128,18 @@ class MetaEnv(gym.Env):
         self.expand_all_actions = expand_all_actions
         self.keep_subtree_on_terminate = keep_subtree_on_terminate
         self.object_env_discount = object_env_discount
-        self.cost_of_computation = cost_of_computation
+
         self.computational_rewards = computational_rewards
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
         self.min_computation_steps = min_computation_steps
+        self.object_level_transition_observers = object_level_transition_observers or []
+        self.object_level_metrics = ObjectLevelMetrics()
+
+        self.random_cost_of_computation = random_cost_of_computation
+        self.cost_of_computation_interval = cost_of_computation_interval
+        self.cost_of_computation = cost_of_computation
+        self.cost_of_computation = self.get_next_computation_cost()
 
         # Functions
         self.tree_policy_renderer = tree_policy_renderer
@@ -101,7 +159,6 @@ class MetaEnv(gym.Env):
 
         # Meta env state
         self.tree = initial_tree
-        self.tree.set_max_size(max_tree_size)
         self.n_computations = 0
 
         # Setup gym spaces
@@ -129,24 +186,27 @@ class MetaEnv(gym.Env):
 
         if self.expand_all_actions:
             # If we are expanding all actions, then the token does not include a
-            # representation of the action to be expanded
-            self.tree_token_dim = self.n_meta_feats + \
-                2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
+            # representation of the  to be expanded
+            # self.tree_token_dim = self.n_meta_feats + \
+            #     2 * self.max_tree_size + self.state_vec_dim + self.action_vec_dim
 
-            self.tree_tokeniser = NodeTokeniser(self.action_vec_dim,
-                                                self.state_vec_dim,
-                                                max_tree_size)
+            self.tree_tokeniser = NodeTokeniser(self.max_tree_size,
+                                                self.action_vec_dim,
+                                                self.state_vec_dim)
         else:
             # 2 * max_tree_size because we include the id of the corresponding node
             # and the id of the parent node
             # 2 * self.action_vec_dim because we include the vector for the action
             # taken to reach the node and the vector for the action to be expanded
-            self.tree_token_dim = self.n_meta_feats + \
-                2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
+            # self.tree_token_dim = self.n_meta_feats + \
+            #     2 * self.max_tree_size + self.state_vec_dim + 2 * self.action_vec_dim
 
-            self.tree_tokeniser = NodeActionTokeniser(self.action_vec_dim,
-                                                      self.state_vec_dim,
-                                                      max_tree_size)
+            self.tree_tokeniser = NodeActionTokeniser(self.max_tree_size,
+                                                      self.action_vec_dim,
+                                                      self.state_vec_dim)
+
+        self.update_tree_meta_vars()
+        self.tree_token_dim = self.tree_tokeniser.tree_token_dim
 
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
@@ -173,6 +233,17 @@ class MetaEnv(gym.Env):
         self.meta_action_strings = self.get_action_strings()
         self.steps = 0
 
+    def get_next_computation_cost(self):
+        if self.random_cost_of_computation:
+            return np.random.uniform(*self.cost_of_computation_interval)
+        else:
+            return self.cost_of_computation
+
+    def update_tree_meta_vars(self):
+        min_cost, max_cost = self.cost_of_computation_interval
+        normed_cost = (self.cost_of_computation - min_cost) / (max_cost - min_cost)
+        self.tree_tokeniser.set_meta_vars(cost_of_computation=normed_cost)
+
     def reset(self):
         self.object_env.reset()
         self.tree = self.get_root_tree()
@@ -183,7 +254,15 @@ class MetaEnv(gym.Env):
         self.last_meta_reward = 0
         self.last_computational_reward = 0
         self.steps = 0
+        self.cost_of_computation = self.get_next_computation_cost()
+        self.update_tree_meta_vars()
         return self.get_observation()
+
+    def reset_metrics(self):
+        self.object_level_metrics.reset()
+
+    def get_object_level_metrics(self) -> dict:
+        return self.object_level_metrics.get_results()
 
     def get_root_tree(self) -> SearchTree:
         """
@@ -196,8 +275,7 @@ class MetaEnv(gym.Env):
         return SearchTree(
             self.object_env, new_root_state, self.tree.q_function,
             deterministic=self.tree.deterministic,
-            discount=self.tree.discount,
-            max_size=self.max_tree_size
+            discount=self.tree.discount
         )
 
     def get_token_labels(self) -> List[str]:
@@ -225,11 +303,6 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-        if len(self.tree.node_list) > self.max_tree_size:
-            raise RuntimeError(
-                f'Tree has {len(self.tree.node_list)} nodes, '
-                f'but max_tree_size is {self.max_tree_size}'
-            )
 
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
 
@@ -245,9 +318,20 @@ class MetaEnv(gym.Env):
         else:
             return search_tokens
 
-    def get_best_object_action(self) -> int:
+    def get_best_object_action_index(self) -> int:
+        """
+        Returns the best action in the object-level environment.
+        The action is returned as an integer indicating the index of
+        the gym action in the ObjectState.get_actions representation.
+
+        For example, an environment may have an action space of unhashable
+        objects, e.g. uci move objects in gymchess, q-distributions are maintained
+        as dictionaries of integers to floats, and the action space is a list of
+        uci move objects. In this case, the action returned by this function
+        would be the index of the uci move object in the action space.
+        """
         root_state = self.tree.get_root().get_state()
-        return int(self.search_tree_policy.get_action(root_state))
+        return self.search_tree_policy.get_action_index(root_state)
 
     def root_q_distribution(self) -> Dict[int, float]:
         self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
@@ -264,7 +348,7 @@ class MetaEnv(gym.Env):
             # q-distribution under the current tree
             q_dist = self.root_q_distribution()
             # best action under the current policy (assumed to be created with the previous tree)
-            prior_action = self.get_best_object_action()
+            prior_action = self.get_best_object_action_index()
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
@@ -288,21 +372,31 @@ class MetaEnv(gym.Env):
         return self.last_computational_reward
 
     def terminate_step(self):
-        if self.finish_on_terminate:
-            return self.get_observation(), 0., True, {}
 
         # Perform a step in the underlying environment
-        action = self.get_best_object_action()
+        action_idx = self.get_best_object_action_index()
+        action = self.tree.get_root().get_state().get_actions()[action_idx]
 
         self.set_environment_to_root_state()
-        _, self.last_meta_reward, done, info = self.object_env.step(action)
+        object_obs, object_r, done, info = self.object_env.step(action)
 
-        if self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+        self.object_level_metrics(object_obs, object_r, done, info)
+        if self.object_level_transition_observers is not None:
+            for observer in self.object_level_transition_observers:
+                observer(object_obs, object_r, done, info)
+
+        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
+
+        if self.finish_on_terminate:
+            return self.get_observation(), 0., True, {}
+
+        self.last_meta_reward = object_r
+
         self.prev_search_policy = None
         self.n_computations = 0
 
@@ -320,7 +414,7 @@ class MetaEnv(gym.Env):
         self.n_computations += 1
         if self.expand_all_actions:
             # Expand all actions from the given node
-            node_idx = (computational_action - 1)
+            node_idx = self.tree_tokeniser.get_node_idx(self.tree, computational_action)
             self.tree.expand_all(node_idx)
         else:
             # perform a computational action on the search tree
@@ -369,26 +463,26 @@ class MetaEnv(gym.Env):
             self.last_meta_action = computational_action
             self.steps += 1
 
-            if computational_action == 0 or self.tree.get_num_nodes() >= self.max_tree_size:
+            if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
             self.search_tree_policy = self.make_tree_policy(self.tree)
 
-            # Compute reward (named "last_meta_reward" for readability in later access)
-            self.last_meta_reward = -self.cost_of_computation
+            meta_reward = -self.cost_of_computation
             if self.computational_rewards:
-                self.last_meta_reward += self.get_computational_reward(verbose=verbose)
+                meta_reward += self.get_computational_reward(verbose=verbose)
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
+            self.last_meta_reward = meta_reward
 
             info = {
                 'computational_reward': self.last_computational_reward,
                 'object_level_reward': 0
             }
 
-            return self.get_observation(), self.last_meta_reward, False, info
+            return self.get_observation(), meta_reward, False, info
 
         except Exception as e:
             self._dump_debug_info(e, computational_action,
@@ -436,6 +530,9 @@ class MetaEnv(gym.Env):
 
             self.render(save_fig_to=f'{debug_dir}/crash_render.png')
 
+        except Exception as debug_e:
+            print(f'Failed to dump debug information: {debug_e}')
+
         finally:
             if open_debug_server:
                 import debugpy
@@ -449,9 +546,10 @@ class MetaEnv(gym.Env):
                 print('Breakpoint reached')
 
     def get_object_level_seed(self) -> Optional[int]:
+        if not hasattr(self.object_env, 'get_seed'):
+            return None
         get_seed = getattr(self.object_env, 'get_seed')
-        seed = get_seed() if get_seed else None
-        return seed
+        return get_seed()
 
     def get_info(self) -> dict:
         return {
@@ -460,7 +558,7 @@ class MetaEnv(gym.Env):
             'last_computation_reward': float(self.last_computational_reward),
             'last_meta_action': int(self.last_meta_action),
             'tree': str(self.tree),
-            'object_level_seed': self.get_object_level_seed()
+            'object_level_seed': self.get_object_level_seed(),
         }
 
     def set_environment_to_root_state(self):
@@ -477,41 +575,49 @@ class MetaEnv(gym.Env):
                 }
             }
         else:
-            return {
-                0: 'Terminate Search',
-                **{
-                    i: f'Expand Node {i} with Action {node.state.get_action_label(action)}'
-                    for i, node in enumerate(self.tree.get_nodes())
-                    for action in node.state.get_actions()
-                }
-            }
+            raise NotImplementedError('Not implemented for expand_all_actions=False')
+            # action_strings = dict()
+            # return {
+            #     0: 'Terminate Search',
+            #     **{
+            #         i: f'Expand Node {i} with Action {node.state.get_action_label(action)}'
+            #         for i, node in enumerate(self.tree.get_nodes())
+            #         for action in node.state.get_actions()
+            #     }
+            # }
 
     def get_render_title(self) -> str:
 
         if self.last_meta_action is None:
             return 'Initial State'
 
-        action_string = self.meta_action_strings[int(self.last_meta_action)]
+        i = int(self.last_meta_action)
+        if i in self.meta_action_strings:
+            action_string = self.meta_action_strings[i]
+        else:
+            action_string = f'Invalid'
 
         if self.tree.get_num_nodes() != 1:
             computational_reward = self.last_computational_reward
         else:
             computational_reward = 0
 
-        action = self.get_best_object_action()
+        action = self.get_best_object_action_index()
         root_node = self.tree.get_root()
         action_label = root_node.state.get_action_label(action)
 
         return f'Meta-action: [{action_string}] | '\
                f'Meta-Reward: {self.last_meta_reward:.3f} | '\
                f'Best Object-action: {action_label} | '\
-               f'Computational-Reward: {computational_reward:.3f} | '\
+               f'Comp-Reward: {computational_reward:.3f} | '\
+               f'Comp-Cost: {self.cost_of_computation:.3f} | '\
                f't = {self.steps}'
 
     def render(self,
                mode: str = 'rgb_array',
                save_fig_to: Optional[str] = None,
                meta_action_probs: Optional[np.ndarray] = None,
+               remove_duplicate_tree_states: bool = True,
                plt_show: bool = False) -> np.ndarray:
         """
         Renders the meta environment as three plots showing the state of the
@@ -561,7 +667,8 @@ class MetaEnv(gym.Env):
             object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=tree_ax, show=False)
+        plot_tree(self.tree, ax=tree_ax, show=False,
+                  remove_duplicate_states=remove_duplicate_tree_states)
 
         # Render the Q-distribution in the right subplot
         self.plot_root_q_distribution(root_dist_ax)
@@ -621,7 +728,13 @@ class MetaEnv(gym.Env):
             q_dist = np.array(list(q_dist.values()))
 
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
-            ax.set_xticklabels(action_labels)
+
+            if any([len(label) > 3 for label in action_labels]):
+                rotation = 90
+            else:
+                rotation = 0
+
+            ax.set_xticklabels(action_labels, rotation=rotation)
 
             min_val = min(self.object_reward_min, min(q_dist))
             max_val = max(self.object_reward_max, max(q_dist))
@@ -648,7 +761,7 @@ class MetaEnv(gym.Env):
             if t.get_text() and float(t.get_text()) == 0:
                 t.set_text('')
 
-        ax.set_xticklabels(self.get_token_labels(), rotation=45)
+        ax.set_xticklabels(self.get_token_labels(), rotation=65)
         ax.set_title(
             'Search Tree Tokens: Each token represents a node and '
             'object-level action, i.e. a potential expansion of the search tree.'

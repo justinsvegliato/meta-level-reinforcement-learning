@@ -1,12 +1,12 @@
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 from mlrl.utils.progbar_observer import ProgressBarObserver
 from mlrl.utils import time_id
-from mlrl.experiments.eval_runner import EvalRunner
+from mlrl.runners.eval_runner import EvalRunner
 from mlrl.meta.meta_policies.search_ppo_agent import create_search_ppo_agent
 
 import cProfile
 import gc
-from typing import Optional
+from typing import Optional, Callable
 import math
 import os
 from pathlib import Path
@@ -41,15 +41,18 @@ class PPORunner:
                  train_batch_size: int = 4,
                  summary_interval: int = 1000,
                  collect_steps: int = 4096,
-                 policy_save_interval: int = 10000,
+                 policy_save_interval: int = 1,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
-                 n_video_steps: int = 60,
+                 video_steps: int = 60,
                  num_iterations: int = 1000,
                  run_name: str = None,
                  rewrite_rewards: bool = False,
                  profile_run: bool = False,
                  gc_interval: int = 5,
+                 model_save_metric: str = 'AverageReturn',
+                 model_save_metric_comparator: str = 'max',
+                 end_of_epoch_callback:Callable[[dict, 'PPORunner'], None] = None,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -64,18 +67,23 @@ class PPORunner:
         self.profile_run = profile_run
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
-        self.root_dir = f'outputs/runs/{self.name}/{time_id()}'
+        self.root_dir = f'outputs/runs/{self.name}/'
         self.gc_interval = gc_interval
 
         self.collect_env = collect_env
         self.eval_env = eval_env
 
         self.collect_metrics = []
+        self.end_of_epoch_callback = end_of_epoch_callback
 
         self.video_env = video_env
         self.videos_dir = self.root_dir + '/videos'
-        self.n_video_steps = n_video_steps
+        self.video_steps = video_steps
         Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
+
+        self.model_save_metric = model_save_metric
+        self.model_save_comparator = max if model_save_metric_comparator.lower() in ['max', 'greater', '>'] else min
+        self.model_save_metric_best = float('-inf') if self.model_save_comparator is max else float('inf')
 
         self.train_step_counter = train_utils.create_train_step()
 
@@ -86,7 +94,8 @@ class PPORunner:
             p = self.train_step_counter / self.num_iterations
             return start_lr * (1 - p)
 
-        config['learning_rate'] = learning_rate_fn
+        self.learning_rate = learning_rate_fn
+        config['learning_rate'] = self.learning_rate
 
         self.agent = create_search_ppo_agent(self.collect_env, config, self.train_step_counter)
 
@@ -104,17 +113,36 @@ class PPORunner:
                                                num_steps=self.train_num_steps)
             return ds.map(preprocess_seq).prefetch(5)
 
-        self.saved_model_dir = os.path.join(self.root_dir, learner.POLICY_SAVED_MODEL_DIR)
+        self.saved_model_dir = os.path.join(self.root_dir, learner.POLICY_SAVED_MODEL_DIR, 'ckpt')
+        self.best_model_dir = os.path.join(self.root_dir, learner.POLICY_SAVED_MODEL_DIR, 'best')
         collect_env_step_metric = py_metrics.EnvironmentSteps()
+
+        best_model_trigger = triggers.PolicySavedModelTrigger(
+            self.best_model_dir,
+            self.agent,
+            self.train_step_counter,
+            interval=1,
+            metadata_metrics={
+                triggers.ENV_STEP_METADATA_KEY: collect_env_step_metric
+            }
+        )
+
+        self.save_best_model = best_model_trigger._save_fn
+
+        ckpt_trigger = triggers.PolicySavedModelTrigger(
+            self.saved_model_dir,
+            self.agent,
+            self.train_step_counter,
+            interval=policy_save_interval,
+            metadata_metrics={
+                triggers.ENV_STEP_METADATA_KEY: collect_env_step_metric
+            }
+        )
+
+        self.save_checkpoint = ckpt_trigger._save_fn
+
         learning_triggers = [
-            triggers.PolicySavedModelTrigger(
-                self.saved_model_dir,
-                self.agent,
-                self.train_step_counter,
-                interval=policy_save_interval,
-                metadata_metrics={
-                    triggers.ENV_STEP_METADATA_KEY: collect_env_step_metric
-                }),
+            ckpt_trigger,
             triggers.StepPerSecondLogTrigger(self.train_step_counter,
                                              interval=summary_interval),
         ]
@@ -190,6 +218,7 @@ class PPORunner:
             'train_batch_size': self.train_batch_size,
             'env_batch_size': self.n_collect_envs,
             'num_learn_samples': self.ppo_learner._num_samples,
+            'root_dir': self.root_dir,
             **self.config
         }
 
@@ -202,7 +231,7 @@ class PPORunner:
 
         try:
             if self.video_env is not None:
-                video_file = self.evaluator.create_policy_eval_video(self.n_video_steps,
+                video_file = self.evaluator.create_policy_eval_video(self.video_steps,
                                                                      f'video_{i}')
                 logs['video'] = wandb.Video(video_file, fps=30, format="mp4")
 
@@ -231,9 +260,11 @@ class PPORunner:
         }
         collect_metrics['CollectTime'] = end_time - start_time
         logs.update(collect_metrics)
+
         print('Collect stats:')
         print(', '.join([
             f'{name}: {value:.3f}' for name, value in collect_metrics.items()
+            if isinstance(value, float)
         ]))
 
         if self.rewrite_rewards:
@@ -243,15 +274,22 @@ class PPORunner:
 
     def train(self):
         logs = {}
+
+        logs['TrainingSteps'] = self.train_step_counter.numpy()
+        self.train_step_counter.assign_add(1)
+
+        if isinstance(self.learning_rate, type(callable)):
+            logs['LearningRate'] = self.learning_rate
+
         start_time = time.time()
         loss_info = self.ppo_learner.run()
         end_time = time.time()
         print('Training info:')
-        print(f'Loss: {loss_info.loss:.5f}, '
-              f'KL Penalty Loss: {loss_info.extra.kl_penalty_loss:.5f}, '
-              f'Entropy: {loss_info.extra.entropy_regularization_loss:.5f}, '
-              f'Value Estimation Loss: {loss_info.extra.value_estimation_loss:.5f}, '
-              f'PG Loss {loss_info.extra.policy_gradient_loss:.5f}, '
+        print(f'Loss: {loss_info.loss or 0:.5f}, '
+              f'KL Penalty Loss: {loss_info.extra.kl_penalty_loss or 0:.5f}, '
+              f'Entropy: {loss_info.extra.entropy_regularization_loss or 0:.5f}, '
+              f'Value Estimation Loss: {loss_info.extra.value_estimation_loss or 0:.5f}, '
+              f'PG Loss {loss_info.extra.policy_gradient_loss or 0:.5f}, '
               f'Train Time: {end_time - start_time:.1f} (s)')
         print()
 
@@ -263,6 +301,11 @@ class PPORunner:
 
         return logs
 
+    def save_best(self):
+        print(f'Saving new best model with '
+              f'{self.model_save_metric} = {self.model_save_metric_best or 0:.3f}')
+        self.save_best_model()
+
     def _run(self):
         wandb.init(project='mlrl', entity='drcope',
                    reinit=True, config=self.get_config())
@@ -271,12 +314,24 @@ class PPORunner:
             iteration_logs = {'iteration': i}
             print(f'Iteration: {i}')
 
+            iteration_logs['TrainStep'] = self.train_step_counter.numpy()
+
             if self.eval_interval > 0 and i % self.eval_interval == 0:
                 eval_logs = self.run_evaluation(i)
                 iteration_logs.update(eval_logs)
 
             iteration_logs.update(self.collect())
             iteration_logs.update(self.train())
+
+            if self.model_save_metric in iteration_logs:
+                val = iteration_logs[self.model_save_metric]
+                new_val = self.model_save_comparator(val, self.model_save_metric_best)
+                if new_val != self.model_save_metric_best:
+                    self.model_save_metric_best = new_val
+                    self.save_best()
+
+            if self.end_of_epoch_callback is not None:
+                self.end_of_epoch_callback(iteration_logs, self)
 
             wandb.log(iteration_logs)
 
@@ -312,6 +367,7 @@ class PPORunner:
             raise e
 
         finally:
+            self.save_checkpoint()
             wandb.finish()
             if self.profile_run:
                 pr.disable()

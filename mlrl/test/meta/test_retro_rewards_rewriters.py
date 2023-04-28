@@ -1,4 +1,4 @@
-from mlrl.experiments.ppo_maze import create_batched_maze_meta_envs
+from mlrl.experiments.maze_meta import create_batched_maze_meta_envs
 from mlrl.meta.retro_rewards_rewriter import RetroactiveRewardsRewriter
 
 from unittest.mock import patch
