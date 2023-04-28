@@ -28,6 +28,49 @@ gym.envs.register(
 )
 
 
+class ObjectLevelMetrics:
+
+    def __init__(self):
+        self.reward_sum = 0
+        self.n_episodes = 0
+        self.n_steps = 0
+
+    def reset(self):
+        self.reward_sum = 0
+        self.n_episodes = 0
+        self.n_steps = 0
+
+    def __call__(self, obs, reward, done, info):
+        self.n_steps += np.size(reward)
+        self.reward_sum += np.sum(reward)
+        self.n_episodes += np.sum(done)
+
+    def get_results(self):
+        return {
+            'ObjectLevelMeanReward': self.reward_sum / max(1, self.n_episodes),
+            'ObjectLevelMeanStepsPerEpisode': self.n_steps / max(1, self.n_episodes),
+            'ObjectLevelEpisodes': self.n_episodes
+        }
+
+
+def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str, float]:
+    sum_reward = 0
+    n_steps = 0
+    total_episodes = 0
+
+    for metric in metrics:
+        n_episodes = metric['ObjectLevelEpisodes']
+        sum_reward += metric['ObjectLevelMeanReward'] * n_episodes
+        n_steps += metric['ObjectLevelMeanStepsPerEpisode'] * n_episodes
+        total_episodes += n_episodes
+
+    return {
+        'ObjectLevelMeanReward': sum_reward / max(1, total_episodes),
+        'ObjectLevelMeanStepsPerEpisode': n_steps / max(1, total_episodes),
+        'ObjectLevelEpisodes': total_episodes
+    }
+
+
 def mask_token_splitter(tokens_and_mask):
     tokens = tokens_and_mask[MetaEnv.SEARCH_TOKENS_KEY]
     mask = tokens_and_mask[MetaEnv.ACTION_MASK_KEY]
@@ -91,6 +134,7 @@ class MetaEnv(gym.Env):
         self.finish_on_terminate = finish_on_terminate
         self.min_computation_steps = min_computation_steps
         self.object_level_transition_observers = object_level_transition_observers or []
+        self.object_level_metrics = ObjectLevelMetrics()
 
         self.random_cost_of_computation = random_cost_of_computation
         self.cost_of_computation_interval = cost_of_computation_interval
@@ -196,8 +240,7 @@ class MetaEnv(gym.Env):
             return self.cost_of_computation
 
     def update_tree_meta_vars(self):
-        min_cost = self.cost_of_computation_interval[0]
-        max_cost = self.cost_of_computation_interval[1]
+        min_cost, max_cost = self.cost_of_computation_interval
         normed_cost = (self.cost_of_computation - min_cost) / (max_cost - min_cost)
         self.tree_tokeniser.set_meta_vars(cost_of_computation=normed_cost)
 
@@ -214,6 +257,12 @@ class MetaEnv(gym.Env):
         self.cost_of_computation = self.get_next_computation_cost()
         self.update_tree_meta_vars()
         return self.get_observation()
+
+    def reset_metrics(self):
+        self.object_level_metrics.reset()
+
+    def get_object_level_metrics(self) -> dict:
+        return self.object_level_metrics.get_results()
 
     def get_root_tree(self) -> SearchTree:
         """
@@ -269,9 +318,20 @@ class MetaEnv(gym.Env):
         else:
             return search_tokens
 
-    def get_best_object_action(self) -> int:
+    def get_best_object_action_index(self) -> int:
+        """
+        Returns the best action in the object-level environment.
+        The action is returned as an integer indicating the index of
+        the gym action in the ObjectState.get_actions representation.
+
+        For example, an environment may have an action space of unhashable
+        objects, e.g. uci move objects in gymchess, q-distributions are maintained
+        as dictionaries of integers to floats, and the action space is a list of
+        uci move objects. In this case, the action returned by this function
+        would be the index of the uci move object in the action space.
+        """
         root_state = self.tree.get_root().get_state()
-        return int(self.search_tree_policy.get_action(root_state))
+        return self.search_tree_policy.get_action_index(root_state)
 
     def root_q_distribution(self) -> Dict[int, float]:
         self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
@@ -288,7 +348,7 @@ class MetaEnv(gym.Env):
             # q-distribution under the current tree
             q_dist = self.root_q_distribution()
             # best action under the current policy (assumed to be created with the previous tree)
-            prior_action = self.get_best_object_action()
+            prior_action = self.get_best_object_action_index()
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
@@ -314,26 +374,29 @@ class MetaEnv(gym.Env):
     def terminate_step(self):
 
         # Perform a step in the underlying environment
-        action = self.get_best_object_action()
+        action_idx = self.get_best_object_action_index()
+        action = self.tree.get_root().get_state().get_actions()[action_idx]
 
         self.set_environment_to_root_state()
         object_obs, object_r, done, info = self.object_env.step(action)
 
+        self.object_level_metrics(object_obs, object_r, done, info)
         if self.object_level_transition_observers is not None:
             for observer in self.object_level_transition_observers:
                 observer(object_obs, object_r, done, info)
+
+        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+            self.tree = self.tree.get_root_subtree(action)
+        else:
+            self.tree = self.get_root_tree()
+
+        self.search_tree_policy = self.make_tree_policy(self.tree)
 
         if self.finish_on_terminate:
             return self.get_observation(), 0., True, {}
 
         self.last_meta_reward = object_r
 
-        if self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
-            self.tree = self.tree.get_root_subtree(action)
-        else:
-            self.tree = self.get_root_tree()
-
-        self.search_tree_policy = self.make_tree_policy(self.tree)
         self.prev_search_policy = None
         self.n_computations = 0
 
@@ -400,26 +463,26 @@ class MetaEnv(gym.Env):
             self.last_meta_action = computational_action
             self.steps += 1
 
-            if computational_action == 0 or (not self.tree_tokeniser.can_tokenise(self.tree)):
+            if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
             self.search_tree_policy = self.make_tree_policy(self.tree)
 
-            # Compute reward (named "last_meta_reward" for readability in later access)
-            self.last_meta_reward = -self.cost_of_computation
+            meta_reward = -self.cost_of_computation
             if self.computational_rewards:
-                self.last_meta_reward += self.get_computational_reward(verbose=verbose)
+                meta_reward += self.get_computational_reward(verbose=verbose)
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
+            self.last_meta_reward = meta_reward
 
             info = {
                 'computational_reward': self.last_computational_reward,
                 'object_level_reward': 0
             }
 
-            return self.get_observation(), self.last_meta_reward, False, info
+            return self.get_observation(), meta_reward, False, info
 
         except Exception as e:
             self._dump_debug_info(e, computational_action,
@@ -528,14 +591,18 @@ class MetaEnv(gym.Env):
         if self.last_meta_action is None:
             return 'Initial State'
 
-        action_string = self.meta_action_strings[int(self.last_meta_action)]
+        i = int(self.last_meta_action)
+        if i in self.meta_action_strings:
+            action_string = self.meta_action_strings[i]
+        else:
+            action_string = f'Invalid'
 
         if self.tree.get_num_nodes() != 1:
             computational_reward = self.last_computational_reward
         else:
             computational_reward = 0
 
-        action = self.get_best_object_action()
+        action = self.get_best_object_action_index()
         root_node = self.tree.get_root()
         action_label = root_node.state.get_action_label(action)
 

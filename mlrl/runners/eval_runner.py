@@ -114,7 +114,7 @@ class EvalRunner:
         return logs
 
     def create_policy_eval_video(
-            self, steps: int, filename: str = 'video') -> str:
+            self, steps: int, filename: str = 'video', **video_kwargs) -> str:
         if self.video_env is None:
             return None
 
@@ -124,7 +124,8 @@ class EvalRunner:
             self.eval_policy, self.video_env,
             max_steps=steps,
             filename=video_file,
-            rewrite_rewards=self.rewrite_rewards)
+            rewrite_rewards=self.rewrite_rewards,
+            **video_kwargs)
 
         return video_file
 

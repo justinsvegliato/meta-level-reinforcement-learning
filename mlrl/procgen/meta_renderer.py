@@ -9,7 +9,7 @@ from mlrl.procgen.procgen_state import ProcgenState
 
 
 def render_tree_policy(env: ToGymEnv, tree_policy: SearchTreePolicy,
-                       include_leaf_actions=False,
+                    #    include_leaf_actions=False,
                        blend_mode: str = 'screen') -> np.array:
     """
     Renders the sequence of actions of a tree policy on the procegen environment.
@@ -18,6 +18,7 @@ def render_tree_policy(env: ToGymEnv, tree_policy: SearchTreePolicy,
     Args:
         - env: The procgen environment to render on
         - tree_policy: The tree policy to render
+        - blend_mode: The blending mode to use for overlaying the future states on the current state.
 
     Returns:
         - A numpy array of the rendered image
@@ -39,17 +40,16 @@ def render_tree_policy(env: ToGymEnv, tree_policy: SearchTreePolicy,
                 end_obs = child.state.observation
                 transitions.extend([(start_obs, end_obs, prob)] + recursive_get_transitions(child))
 
-            elif include_leaf_actions:
-                node.state.set_environment_to_state(env)
-                next_obs, *_ = env.step(action)
-                transitions.append((start_obs, next_obs, prob))
+            # elif include_leaf_actions:
+                # node.state.set_environment_to_state(env)
+                # next_obs, *_ = env.step(action)
+                # transitions.append((start_obs, next_obs, prob))
 
         return transitions
 
     root = tree_policy.tree.get_root()
     transitions = recursive_get_transitions(root)
 
-    root.state.set_environment_to_state(env)
     img = root.state.observation
 
     for _, end_obs, prob in transitions:

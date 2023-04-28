@@ -1,6 +1,6 @@
 from mlrl.experiments.experiment_utils import create_parser, create_meta_env
 from mlrl.runners.ppo_runner import PPORunner
-from mlrl.meta.meta_env import MetaEnv
+from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.procgen import META_ALLOWED_COMBOS
 from mlrl.procgen.procgen_state import ProcgenState, ProcgenProcessing
 from mlrl.procgen.procgen_env import make_vectorised_procgen
@@ -212,6 +212,29 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, ve
     return object_config
 
 
+def get_object_level_metrics(batched_env: BatchedPyEnvironment):
+    return aggregate_object_level_metrics([
+        tf_py_env._gym_env.get_object_level_metrics()
+        for tf_py_env in batched_env.envs
+    ])
+
+
+def reset_object_level_metrics(batched_env: BatchedPyEnvironment):
+    for tf_py_env in batched_env.envs:
+        tf_py_env._gym_env.reset_metrics()
+
+
+def end_of_epoch_callback(logs: dict, runner: PPORunner):
+    collect_object_level_metrics = get_object_level_metrics(runner.collect_env)
+    for metric, value in collect_object_level_metrics.items():
+        logs[f'Collect{metric}'] = value
+
+    if any('Eval' in k for k in logs): 
+        eval_object_level_metrics = get_object_level_metrics(runner.eval_env)
+        for metric, value in eval_object_level_metrics.items():
+            logs[f'Eval{metric}'] = value
+
+
 def create_runner(args):
 
     object_config = load_pretrained_q_network(
@@ -229,7 +252,9 @@ def create_runner(args):
 
     ppo_runner = PPORunner(
         env, eval_env=eval_env, video_env=video_env,
-        name=f'procgen-{object_env_name}', **args
+        name=f'procgen-{object_env_name}',
+        end_of_epoch_callback=end_of_epoch_callback,
+        **args
     )
 
     return ppo_runner

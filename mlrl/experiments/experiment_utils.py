@@ -178,11 +178,11 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=25,
+    parser.add_argument('--eval_interval', type=int, default=2,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')
-    parser.add_argument('--n_video_steps', type=int, default=32,
+    parser.add_argument('--video_steps', type=int, default=100,
                         help='Number of steps to record a video for.')
     parser.add_argument('--n_video_envs', type=int, default=2,
                         help='Number of video environments to record.')

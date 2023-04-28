@@ -65,7 +65,16 @@ class ProcgenState(ObjectState):
         return ProcgenState(env)
 
     @staticmethod
+    def reset_actions():
+        ProcgenState.COMBO_STRINGS = [
+            '+'.join(combo)
+            for combo in ProcgenGym3Env.get_combos(None)
+        ]
+        ProcgenState.ACTIONS = list(range(len(ProcgenState.COMBO_STRINGS)))
+
+    @staticmethod
     def set_actions(actions: List[str]):
+        ProcgenState.reset_actions()
         action_idxs = [ProcgenState.COMBO_STRINGS.index(action) for action in actions]
         ProcgenState.COMBO_STRINGS = actions
         ProcgenState.ACTIONS = action_idxs
