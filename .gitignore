@@ -1,6 +1,7 @@
 data
 debug
 wandb_key
+runs
 
 # TODO: add version control for these
 outputs/runs
