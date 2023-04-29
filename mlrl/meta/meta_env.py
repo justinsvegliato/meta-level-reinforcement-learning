@@ -546,6 +546,7 @@ class MetaEnv(gym.Env):
 
         self.set_environment_to_root_state()
         object_obs, object_r, done, info = self.object_env.step(action)
+        self.last_object_level_reward = object_r
 
         self.object_level_metrics(object_obs, object_r, done, info)
         if self.object_level_transition_observers is not None:

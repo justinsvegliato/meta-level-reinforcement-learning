@@ -10,8 +10,7 @@ from mlrl.utils.system import restrict_gpus
 import argparse
 from typing import Dict, Callable
 from pathlib import Path
-
-import numpy as np
+import json
 import pandas as pd
 
 import matplotlib.pyplot as plt
@@ -124,7 +123,20 @@ class ResultsAccumulator:
         plt.ylabel(plot_name)
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
-        plt.savefig(self.output_dir / 'results.png')
+        plt.savefig(self.output_dir / 'object-return-with-pretrained-return.png')
+
+        plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
+
+        plt.figure(figsize=(15, 10))
+
+        sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
+        sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
+
+        plt.xlabel('Pretrained Percentile')
+        plt.ylabel(plot_name)
+        plt.title(f'{plot_name} vs Pretrained Percentile')
+
+        plt.savefig(self.output_dir / 'object-return-vs-percentile.png')
 
 
 def parse_args():
@@ -138,8 +150,8 @@ def parse_args():
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=64)
-    parser.add_argument('--n_envs', type=int, default=16)
-    parser.add_argument('--eval_steps_per_env', type=int, default=1000)
+    parser.add_argument('--n_envs', type=int, default=32)
+    parser.add_argument('--eval_steps_per_env', type=int, default=3000)
 
     # Video parameters
     parser.add_argument('--no_video', action='store_true', default=False)
@@ -175,13 +187,17 @@ def main():
         'Random': create_random_search_policy,
         'RandomNoTerminate': create_random_search_policy_no_terminate
     }
+    output_dir = Path('outputs/baseline/procgen')
 
-    results_accumulator = ResultsAccumulator(output_dir=Path('outputs/baseline/procgen') / time_id())
+    results_accumulator = ResultsAccumulator(output_dir=output_dir / time_id())
+
+    with open(output_dir / 'config.json', 'w') as f:
+        json.dump(args, f)
 
     for percentile in [0.25, 0.5, 0.75, 0.9]:
         print(f'Evaluating with pretrained model at return {percentile = }')
         test_policies_with_pretrained_model(
-            policy_creators, args, results_accumulator.output_dir,
+            policy_creators, args, output_dir,
             percentile=percentile,
             eval_steps_per_env=eval_steps_per_env,
             video_args=video_args,
