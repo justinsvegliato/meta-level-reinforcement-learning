@@ -121,6 +121,11 @@ class NodeTokeniser(TreeTokeniser):
         Returns:
             A 1-dimensional numpy array of length token_dim.
         """
+        if node.token is not None:
+            # only value that can have changed
+            node.token[1] = tree.has_valid_expansions(node)
+            return node.token
+
         state = node.get_state()
 
         id_vec = self.encode_node_id(node.get_id())
@@ -139,11 +144,13 @@ class NodeTokeniser(TreeTokeniser):
 
         state_vec = state.get_state_vector()
 
-        return np.concatenate([
+        node.token = np.concatenate([
             node_features, id_vec, parent_id_vec,
             action_taken_vec, state_vec, self.meta_vec,
             np.array([0.])  # not a terminate token
         ])
+
+        return node.token
 
     def tokenise(self, tree: SearchTree) -> np.ndarray:
         terminate_token = self.get_terminate_token()

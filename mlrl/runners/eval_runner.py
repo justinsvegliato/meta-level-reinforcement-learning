@@ -10,6 +10,7 @@ from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
 from mlrl.utils.render_utils import create_and_save_meta_policy_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
+from pathlib import Path
 from typing import Optional
 import time
 
@@ -28,6 +29,7 @@ class EvalRunner:
                  eval_env: BatchedPyEnvironment,
                  policy,
                  rewrite_rewards: bool = False,
+                 video_policy=None,
                  video_env: Optional[BatchedPyEnvironment] = None,
                  videos_dir: str = None,
                  use_tf_function: bool = True,
@@ -37,12 +39,21 @@ class EvalRunner:
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
         self.videos_dir = videos_dir or '.'
+        Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
 
         if convert_to_eager:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
                 policy, use_tf_function=use_tf_function, batch_time_steps=False)
         else:
             self.eval_policy = policy
+
+        if video_policy is None:
+            self.video_policy = policy
+        elif convert_to_eager:
+            self.video_policy = py_tf_eager_policy.PyTFEagerPolicy(
+                video_policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        else:
+            self.video_policy = video_policy
 
         self.metrics = metrics or []
 
@@ -98,12 +109,14 @@ class EvalRunner:
         logs = {
             f'Eval{metric.name}': metric.result()
             for metric in self.metrics
+            if metric.result() is not None
         }
         logs['EvalTime'] = end_time - start_time
 
         print('Evaluation stats:')
         print(', '.join([
             f'{name}: {value:.3f}' for name, value in logs.items()
+            if isinstance(value, float)
         ]))
 
         if self.eval_reward_rewriter is not None:
@@ -112,17 +125,18 @@ class EvalRunner:
         return logs
 
     def create_policy_eval_video(
-            self, steps: int, filename: str = 'video') -> str:
+            self, steps: int, filename: str = 'video', **video_kwargs) -> str:
         if self.video_env is None:
             return None
 
         video_file = f'{self.videos_dir}/{filename}.mp4'
 
         create_and_save_meta_policy_video(
-            self.eval_policy, self.video_env,
+            self.video_policy, self.video_env,
             max_steps=steps,
             filename=video_file,
-            rewrite_rewards=self.rewrite_rewards)
+            rewrite_rewards=self.rewrite_rewards,
+            **video_kwargs)
 
         return video_file
 

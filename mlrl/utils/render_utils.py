@@ -177,20 +177,21 @@ def create_meta_policy_eval_video(policy: TFPolicy,
 
     policy_state = policy.get_initial_state(meta_env.batch_size)
 
-    def render_env(gym_env, i: int = 0):
-
+    def render_env(env, i: int = 0):
+        if hasattr(env, 'gym'):
+            env = env.gym
         if not isinstance(policy, RandomTFPolicy) and hasattr(policy, 'distribution'):
             policy_step = policy.distribution(meta_env.current_time_step(), policy_state)
             if isinstance(policy_step.action, tfp.distributions.Categorical):
                 probs = tf.nn.softmax(policy_step.action.logits[i]).numpy()
-                return gym_env.render(meta_action_probs=probs)
+                return env.render(meta_action_probs=probs)
 
-        return gym_env.render()
+        return env.render()
 
     def get_frames():
         if hasattr(meta_env, 'envs'):
             return [
-                render_env(e.gym, i) for i, e in enumerate(meta_env.envs)
+                render_env(e, i) for i, e in enumerate(meta_env.envs)
                 if i < max_envs_to_show
             ]
         else:
@@ -249,6 +250,8 @@ def _create_rewritten_frames(
         for i, frame in enumerate(renders):
             if traj is not None:
                 reward = traj.reward[i]
+                if isinstance(reward, tf.Tensor):
+                    reward = reward.numpy()
 
                 if traj.is_first()[i]:
                     new_return[i] = 0

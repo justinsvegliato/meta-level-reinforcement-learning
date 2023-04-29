@@ -56,6 +56,7 @@ def create_meta_env(object_env: gym.Env,
                        random_cost_of_computation=config.get('random_cost_of_computation', True),
                        cost_of_computation_interval=cost_of_computation_interval,
                        cost_of_computation=config.get('cost_of_computation', 0.001),
+                       object_level_transition_observers=config.get('object_level_transition_observers'),
                        tree_policy_renderer=tree_policy_renderer)
 
     if config.get('meta_time_limit', None):
@@ -158,6 +159,10 @@ def create_training_run(
 def create_parser():
     parser = argparse.ArgumentParser()
 
+    # System parameters
+    parser.add_argument('-gpus', '--gpus', nargs='+', type=int, default=None,
+                        help='GPU ids to use. If not specified, all GPUs will be used.')
+
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
@@ -167,7 +172,7 @@ def create_parser():
                         help='Train batch size to use in PPO')
     parser.add_argument('--train_num_steps', type=int, default=64,
                         help='Number of steps in each training batch')
-    parser.add_argument('--env_batch_size', type=int, default=64,
+    parser.add_argument('--n_collect_envs', type=int, default=64,
                         help='Batch size for the environment.')
     parser.add_argument('--num_iterations', type=int, default=2000,
                         help='Number of times to run the training loop.')
@@ -177,11 +182,11 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=25,
+    parser.add_argument('--eval_interval', type=int, default=5,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')
-    parser.add_argument('--n_video_steps', type=int, default=32,
+    parser.add_argument('--video_steps', type=int, default=100,
                         help='Number of steps to record a video for.')
     parser.add_argument('--n_video_envs', type=int, default=2,
                         help='Number of video environments to record.')
@@ -202,7 +207,7 @@ def create_parser():
                         help='Random seed.')
     parser.add_argument('--computational_rewards', type=bool, default=True,
                         help='Whether to use computational rewards.')
-    parser.add_argument('--max_cost_of_computation', type=float, default=0.01,
+    parser.add_argument('--max_cost_of_computation', type=float, default=0.005,
                         help='Max computational cost.')
     parser.add_argument('--rewrite_rewards', type=bool, default=True,
                         help='Whether to rewrite computational rewards.')
@@ -215,18 +220,6 @@ def create_parser():
     parser.add_argument('--object_discount', type=float, default=0.99,
                         help='Discount factor in object-level environment.')
 
-    # Maze parameters
-    parser.add_argument('--maze_size', type=int, default=10,
-                        help='Size of the maze.')
-    parser.add_argument('--procgen_maze', type=bool, default=True,
-                        help='Whether to use a procgen maze.')
-    parser.add_argument('--restricted_maze_states', type=bool, default=True,
-                        help='Whether to restrict movements and node expansions to only free spaces.')
-    parser.add_argument('--q_hat_inadmissable_action', type=str, default=None,
-                        help='Action to estimate inadmissably.')
-    parser.add_argument('--q_hat_inadmissable_overestimation', type=float, default=2.0,
-                        help='Distance overestimation to use for inadmissable action.')
-
     # Agent parameters
     parser.add_argument('--agent', type=str, default='ppo',
                         help='Agent class to use.')
@@ -238,14 +231,6 @@ def create_parser():
                         help='Number of agent transformer heads.')
     parser.add_argument('--n_lstm_layers', type=int, default=0,
                         help='Number of lstm layers.')
-
-    # DQN parameters
-    # parser.add_argument('--target_network_update_period', type=int, default=500,
-    #                     help='Maximum number of nodes in the search tree.')
-    # parser.add_argument('--epsilon_greedy', type=float, default=0.1,
-    #                     help='Epsilon for epsilon-greedy exploration.')
-    # parser.add_argument('--initial_collect_steps', type=int, default=500,
-    #                     help='Number of steps to collect before training.')
 
     return parser
 

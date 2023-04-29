@@ -168,6 +168,7 @@ class SearchTreeNode(Generic[StateType]):
         self.q_values: Dict[int, float] = dict()
         self.tried_actions = []
         self._duplicate_state_ancestor = None
+        self.token = None
 
     @cached_property
     def depth(self) -> int:
@@ -210,7 +211,7 @@ class SearchTreeNode(Generic[StateType]):
             return 0
         return self.parent.path_return + self.reward * self.discount ** (self.depth - 1)
 
-    @property
+    @cached_property
     def duplicate_state_ancestor(self) -> Optional['SearchTreeNode[StateType]']:
         return self.find_duplicate_state_ancestor()
 
@@ -261,6 +262,24 @@ class SearchTreeNode(Generic[StateType]):
         """
         self.q_values[action] = q_value
 
+    def create_child(self, env: gym.Env, object_action: int, new_node_id: int):
+        
+        self.state.set_environment_to_state(env)
+        _, reward, done, *_ = env.step(object_action)
+        if isinstance(reward, np.ndarray):
+            reward = reward[0]
+        if isinstance(done, np.ndarray):
+            done = done[0]
+        if isinstance(object_action, np.ndarray):
+            object_action = object_action[0]
+
+        next_state: StateType = self.state.extract_state(env)
+
+        return SearchTreeNode(
+            new_node_id, self, next_state, object_action,
+            reward, done, self.discount, self.q_function
+        )
+
     def expand_node(self,
                     env: gym.Env,
                     action_idx: int,
@@ -272,24 +291,9 @@ class SearchTreeNode(Generic[StateType]):
         if self.is_terminal_state:
             raise Exception('Cannot expand a terminal node')
 
-        self.state.set_environment_to_state(env)
         object_action = self.state.get_actions()[action_idx]
-        _, reward, done, *_ = env.step(object_action)
-        if isinstance(reward, np.ndarray):
-            reward = reward[0]
-        if isinstance(done, np.ndarray):
-            done = done[0]
-        if isinstance(object_action, np.ndarray):
-            object_action = object_action[0]
-
-        next_state: StateType = self.state.extract_state(env)
-
-        child_node = SearchTreeNode(
-            new_node_id, self, next_state, object_action,
-            reward, done, self.discount, self.q_function
-        )
         self.tried_actions.append(action_idx)
-        return child_node
+        return self.create_child(env, object_action, new_node_id)
 
     def get_path_to_root(self) -> List['SearchTreeNode[StateType]']:
         """

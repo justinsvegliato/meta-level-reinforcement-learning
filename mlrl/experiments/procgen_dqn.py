@@ -94,7 +94,7 @@ def create_dqn_agent(env, config: dict) -> Tuple[tf.keras.Model, DdqnAgent]:
     return q_model, agent
 
 
-def create_rainbow_agent(env, config: dict) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
+def create_rainbow_agent(env, config: dict, verbose: bool = True) -> Tuple[tf.keras.Model, CategoricalDqnAgent]:
 
     categorical_q_net = CategoricalQNetwork(
         tensor_spec.from_spec(env.observation_spec()),
@@ -108,7 +108,8 @@ def create_rainbow_agent(env, config: dict) -> Tuple[tf.keras.Model, Categorical
     train_step_counter = tf.Variable(0)
 
     # build weights
-    print('Building Categorical Q-Network weights...')
+    if verbose:
+        print('Building Categorical Q-Network weights...')
     ts = env.current_time_step()
     categorical_q_net(ts.observation)
 
@@ -130,6 +131,8 @@ def create_rainbow_agent(env, config: dict) -> Tuple[tf.keras.Model, Categorical
         epsilon_greedy=create_epsilon_schedule(train_step_counter, config)
     )
 
+    if verbose:
+        print('Initializing Rainbow agent...')
     agent.initialize()
 
     q_model = tf.keras.Sequential([categorical_q_net])

@@ -1,11 +1,13 @@
 from mlrl.experiments.experiment_utils import create_parser, create_meta_env
 from mlrl.runners.ppo_runner import PPORunner
-from mlrl.meta.meta_env import MetaEnv
+from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.procgen import META_ALLOWED_COMBOS
 from mlrl.procgen.procgen_state import ProcgenState, ProcgenProcessing
 from mlrl.procgen.procgen_env import make_vectorised_procgen
+from mlrl.procgen.batched_procgen_meta_env import BatchedProcgenMetaEnv
 from mlrl.procgen.meta_renderer import render_tree_policy
 from mlrl.experiments.procgen_dqn import create_rainbow_agent
+from mlrl.utils.system import restrict_gpus
 
 import json
 from pathlib import Path
@@ -13,23 +15,7 @@ from typing import Tuple, List
 import re
 
 import gym
-
-from tf_agents.environments.gym_wrapper import GymWrapper
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
-
-# import tensorflow as tf
-
-# print(f'Using TensorFlow {tf.__version__}')
-# gpus = tf.config.list_physical_devices('GPU')
-# if gpus:
-#     # Restrict TensorFlow to only use the first GPU
-#     try:
-#         tf.config.set_visible_devices(gpus[2:], 'GPU')
-#         logical_gpus = tf.config.list_logical_devices('GPU')
-#         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
-#     except RuntimeError as e:
-#         # Visible devices must be set before GPUs have been initialized
-#         print(e)
 
 
 def patch_action_repeats(gym_env, config: dict):
@@ -74,6 +60,9 @@ def make_gym_procgen(config: dict):
     patch_render(gym_env)
     patch_normalise(gym_env)
 
+    # procgen envs cannot be reset and print an annoying warning if you try to do so
+    gym_env.reset = lambda *_: None
+
     if config.get('action_repeats', 0) > 1:
         patch_action_repeats(gym_env, config)
 
@@ -103,7 +92,7 @@ def create_procgen_meta_env(object_config: dict,
     )
 
 
-def create_batched_procgen_envs(
+def create_batched_procgen_meta_envs(
         n_envs: int,
         object_config: dict,
         min_computation_steps: int = 0,
@@ -112,34 +101,47 @@ def create_batched_procgen_envs(
     if n_envs == 0:
         raise ValueError('n_envs must be > 0')
 
-    return BatchedPyEnvironment([
-        GymWrapper(create_procgen_meta_env(
+    # return BatchedPyEnvironment([
+    #     GymWrapper(create_procgen_meta_env(
+    #         object_config,
+    #         min_computation_steps=min_computation_steps,
+    #         **config
+    #     ))
+    #     for _ in range(n_envs)
+    # ], multithreading=env_multithreading)
+
+    meta_envs = [
+        create_procgen_meta_env(
             object_config,
             min_computation_steps=min_computation_steps,
             **config
-        ))
+        )
         for _ in range(n_envs)
-    ], multithreading=env_multithreading)
+    ]
+    max_expands_per_env = len(ProcgenState.ACTIONS)
+
+    return BatchedProcgenMetaEnv(meta_envs, max_expands_per_env, object_config,
+                                 multithreading=env_multithreading)
 
 
-def create_batched_procgen_meta_envs(
-        env_batch_size: int,
+def create_runner_envs(
         object_config: dict,
-        n_video_envs=0, n_eval_envs=0, min_train_computation_steps=0,
+        n_collect_envs=16, n_video_envs=2, n_eval_envs=8,
+        min_train_computation_steps=0,
         env_multithreading=True, **config):
 
-    env = create_batched_procgen_envs(
-        env_batch_size, object_config,
+    env = create_batched_procgen_meta_envs(
+        n_collect_envs, object_config,
         min_computation_steps=min_train_computation_steps,
         env_multithreading=env_multithreading,
         **config)
 
-    eval_env = create_batched_procgen_envs(
+    eval_env = create_batched_procgen_meta_envs(
         n_eval_envs, object_config,
         env_multithreading=env_multithreading,
         **config)
 
-    video_env = create_batched_procgen_envs(
+    video_env = create_batched_procgen_meta_envs(
         n_video_envs, object_config,
         env_multithreading=env_multithreading,
         **config)
@@ -166,14 +168,22 @@ def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], pe
     return sorted_paths[index]
 
 
-def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
+def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, verbose: bool = True):
     folder = f'{folder}/categorical_dqn_agent/{run}'
 
     with open(folder + '/config.json') as f:
         object_config = json.load(f)
 
+    if verbose:
+        print('Object-level config:')
+        for k, v in object_config.items():
+            print(f'\t - {k}: {v}')
+
     env = make_vectorised_procgen(object_config, n_envs=1)
-    q_net, agent = create_rainbow_agent(env, object_config)
+    if verbose:
+        print(f'Created environment {env}')
+
+    q_net, agent = create_rainbow_agent(env, object_config, verbose=verbose)
 
     model_paths = [
         (str(path).replace('.index', ''), *values)
@@ -182,7 +192,8 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
         and (values := parse_model_weights_string(str(path.name))) is not None
     ]
 
-    print('\n'.join(map(str, model_paths)))
+    if verbose:
+        print('\n'.join(map(str, model_paths)))
 
     path, epoch, ret_val = get_model_at_return_percentile(model_paths, percentile)
     object_config['pretrained_epoch'] = epoch
@@ -191,10 +202,8 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
     object_config['pretrained_path'] = path
     object_config['pretrained_percentile'] = percentile
 
-    print(f'Loading model from {run} that scored return value {ret_val} at epoch {epoch}')
-    print('Object-level config:')
-    for k, v in object_config.items():
-        print(f'\t - {k}: {v}')
+    if verbose:
+        print(f'Loading model from {run} that scored return value {ret_val} at epoch {epoch}')
 
     q_net.load_weights(path)
 
@@ -205,6 +214,31 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0):
     ProcgenProcessing.set_pretrained_agent(agent)
 
     return object_config
+
+
+def get_object_level_metrics(batched_env: BatchedPyEnvironment):
+    return aggregate_object_level_metrics([
+        meta_env.get_object_level_metrics()
+        for meta_env in batched_env.meta_envs
+    ])
+
+
+def reset_object_level_metrics(batched_env: BatchedPyEnvironment):
+    for meta_env in batched_env.meta_envs:
+        meta_env.reset_metrics()
+
+
+def end_of_epoch_callback(logs: dict, runner: PPORunner):
+    collect_object_level_metrics = get_object_level_metrics(runner.collect_env)
+    for metric, value in collect_object_level_metrics.items():
+        logs[f'Collect{metric}'] = value
+    reset_object_level_metrics(runner.collect_env)
+
+    if any('Eval' in k for k in logs):
+        eval_object_level_metrics = get_object_level_metrics(runner.eval_env)
+        for metric, value in eval_object_level_metrics.items():
+            logs[f'Eval{metric}'] = value
+    reset_object_level_metrics(runner.eval_env)
 
 
 def create_runner(args):
@@ -218,10 +252,15 @@ def create_runner(args):
     args['object_level_config'] = object_config
     object_env_name = object_config.get('env', 'coinrun')
 
-    env, eval_env, video_env = create_batched_procgen_meta_envs(object_config=object_config, **args)
+    env, eval_env, video_env = create_runner_envs(
+        object_config=object_config, **args
+    )
+
     ppo_runner = PPORunner(
         env, eval_env=eval_env, video_env=video_env,
-        name=f'procgen-{object_env_name}', **args
+        name=f'procgen-{object_env_name}',
+        end_of_epoch_callback=end_of_epoch_callback,
+        **args
     )
 
     return ppo_runner
@@ -243,6 +282,7 @@ def parse_args():
                         help='Folder containing pretraining runs.')
 
     args = vars(parser.parse_args())
+
     print('Arguments:')
     for k, v in args.items():
         print(f'\t{k}: {v}')
@@ -253,4 +293,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+
+    if args.get('gpus'):
+        restrict_gpus(args['gpus'])
+
     main(args)

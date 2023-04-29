@@ -5,11 +5,13 @@ numpy==1.22.3
 scikit-learn==1.0.2
 scikit-image==0.19.3
 seaborn==0.11.2
-tensorflow==2.12.0
-tf-models-official==2.12.0
-tf-agents==0.16.0
+tensorflow==2.9.0
+tensorflow-probability==0.16.0
+tensorflow-datasets==4.5.0
+tensorboard-plugin-profile==2.5.0
+tf-models-official==2.6.1
+tf-agents==0.13.0
 silence_tensorflow==1.2.1
-dm-reverb==0.11.0
 networkx==2.5.1
 pydot==1.4.2
 wandb==0.12.10
@@ -22,5 +24,4 @@ imageio-ffmpeg==0.3.0
 gym-chess==0.1.1
 cairosvg==2.5.2
 procgen==0.10.7
-# protobuf==3.20.0
 # git+https://github.com/dkappe/badgyal.git#egg=badgyal

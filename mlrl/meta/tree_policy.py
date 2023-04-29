@@ -24,6 +24,15 @@ class SearchTreePolicy(ABC):
     def get_action(self, state: ObjectState) -> int:
         """
         Get the action to take in the given state.
+
+        The action is returned as an integer indicating the index of
+        the gym action in the ObjectState.get_actions representation.
+
+        For example, an environment may have an action space of unhashable
+        objects, e.g. uci move objects in gymchess, q-distributions are maintained
+        as dictionaries of integers to floats, and the action space is a list of
+        uci move objects. In this case, the action returned by this function
+        would be the index of the uci move object in the action space.
         """
         action_probs = self.get_action_probabilities(state)
         return np.random.choice(list(action_probs.keys()),
@@ -135,12 +144,12 @@ class GreedySearchTreePolicy(SearchTreePolicy):
 
         max_q = max(q_values.values())
         max_actions = [a for a, q in q_values.items() if q == max_q]
-        probs = {a: 0. for a in range(len(state.get_actions()))}
+        probs = {a: 0. for a in q_values}
 
         if self.break_ties_randomly:
             for a in max_actions:
                 probs[a] = 1 / len(max_actions)
-        else:
+        else:  # choose the first action in the list of max actions
             probs[max_actions[0]] = 1.
 
         return probs
