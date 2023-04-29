@@ -5,12 +5,13 @@ from mlrl.procgen.procgen_env import make_vectorised_procgen
 
 from typing import List, Tuple, Optional, Dict
 
-from multiprocessing import pool
+from multiprocessing import pool 
 from multiprocessing import dummy as mp_threads
 import numpy as np
 import gym
 
 import tensorflow as tf
+from tensorflow.python.util import nest
 from tf_agents.environments.gym_wrapper import spec_from_gym_space
 from tf_agents.environments.py_environment import PyEnvironment
 from tf_agents.trajectories import time_step as ts
@@ -40,6 +41,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
                  object_config: dict,
                  spec_dtype_map: Optional[Dict[gym.Space, np.dtype]] = None,
                  simplify_box_bounds: bool = True,
+                 match_obs_space_dtype: bool = True,
                  discount: types.Float = 0.99,
                  multithreading: bool = True,
                  auto_reset: bool = True):
@@ -52,12 +54,13 @@ class BatchedProcgenMetaEnv(PyEnvironment):
         self.object_envs = make_vectorised_procgen(object_config,
                                                    n_envs=self.n_object_envs)
 
-        env = meta_envs[0]    
-        
+        env = meta_envs[0]
+
         self._observation_spec = spec_from_gym_space(env.observation_space,
                                                      spec_dtype_map,
                                                      simplify_box_bounds,
                                                      'observation')
+        self._flat_obs_spec = tf.nest.flatten(self._observation_spec)
 
         self._action_spec = spec_from_gym_space(env.action_space,
                                                 spec_dtype_map,
@@ -66,9 +69,15 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
         self.expansion_requests: List[NodeExpansionRequest] = []
         self.discount = discount
+        self.match_obs_space_dtype = match_obs_space_dtype
         self.multithreading = multithreading
+
         if multithreading:
             self._pool = mp_threads.Pool(self.n_meta_envs)
+
+    @property
+    def envs(self):
+        return self.meta_envs
 
     @property
     def batched(self) -> bool:
@@ -170,16 +179,43 @@ class BatchedProcgenMetaEnv(PyEnvironment):
             time_steps = [
                 self._create_time_step(env) for env in self.meta_envs
             ]
+
         return nest_utils.stack_nested_arrays(time_steps)
 
     def _create_time_step(self, env: MetaEnv):
         observation, reward, done, _ = env.observe()
         step_type = ts.StepType.LAST if done else ts.StepType.MID
 
+        if self.match_obs_space_dtype:
+            observation = self._to_obs_space_dtype(observation)
+
         return ts.TimeStep(step_type=step_type,
                            reward=reward,
                            discount=self.discount,
                            observation=observation)
+
+    def _to_obs_space_dtype(self, observation):
+        """
+        Make sure observation matches the specified space.
+        Observation spaces in gym didn't have a dtype for a long time. Now that they
+        do there is a large number of environments that do not follow the dtype in
+        the space definition. Since we use the space definition to create the
+        tensorflow graph we need to make sure observations match the expected
+        dtypes.
+        Args:
+            observation: Observation to match the dtype on.
+        Returns:
+            The observation with a dtype matching the observation spec.
+        """
+        # Make sure we handle cases where observations are provided as a list.
+        flat_obs = nest.flatten_up_to(self._observation_spec, observation)
+
+        matched_observations = []
+        for spec, obs in zip(self._flat_obs_spec, flat_obs):
+            matched_observations.append(np.asarray(obs, dtype=spec.dtype))
+
+        return tf.nest.pack_sequence_as(self._observation_spec,
+                                        matched_observations)
 
     def render(self, mode='rgb_array'):
         return np.vstack([env.render(mode=mode) for env in self.meta_envs])

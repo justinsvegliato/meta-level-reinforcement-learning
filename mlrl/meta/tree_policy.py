@@ -21,10 +21,10 @@ class SearchTreePolicy(ABC):
         from mlrl.meta.q_estimation import SearchOptimalQEstimator
         self.estimator: SearchOptimalQEstimator = optimal_q_estimator
 
-    def get_action_index(self, state: ObjectState) -> int:
+    def get_action(self, state: ObjectState) -> int:
         """
         Get the action to take in the given state.
-        
+
         The action is returned as an integer indicating the index of
         the gym action in the ObjectState.get_actions representation.
 
@@ -132,14 +132,14 @@ class GreedySearchTreePolicy(SearchTreePolicy):
         state_nodes = self.tree.get_state_nodes(state)
         if not state_nodes:
             q_values = {
-                a_idx: self.tree.q_function(state, action)
-                for a_idx, action in enumerate(state.get_actions())
+                action: self.tree.q_function(state, action)
+                for action in state.get_actions()
             }
         else:
             node, *_ = state_nodes  # all nodes should have the same q-values
             q_values = {
-                a_idx: node.get_q_value(action)
-                for a_idx, action in enumerate(node.state.get_actions())
+                action: node.get_q_value(action)
+                for action in node.state.get_actions()
             }
 
         max_q = max(q_values.values())
@@ -157,7 +157,7 @@ class GreedySearchTreePolicy(SearchTreePolicy):
     def __repr__(self) -> str:
 
         def build_trajectory(node: SearchTreeNode) -> List[str]:
-            action = self.get_action_index(node.state)
+            action = self.get_action(node.state)
             if node.has_action_children(action):
                 child = node.children[action][0]
                 return [node.state.get_action_label(action)] + build_trajectory(child)

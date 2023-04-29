@@ -36,10 +36,16 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
     construct_tree(nx_tree, search_tree.get_root(), remove_duplicate_states=remove_duplicate_states)
 
     pos = hierarchy_pos_large_tree(nx_tree, search_tree.get_root().node_id, width=250, height=250)
-    edge_labels = {
-        (n1, n2): '{}{}'.format(data['action'], '-' + data['reward'] if show_reward else '')
-        for n1, n2, data in nx_tree.edges(data=True)
-    }
+
+    if len(search_tree.node_list) < 20:
+        edge_labels = {
+            (n1, n2): '{}{}'.format(data['action'], '-' + data['reward'] if show_reward else '')
+            for n1, n2, data in nx_tree.edges(data=True)
+        }
+    else:
+        edge_labels = {
+            (n1, n2): '' for n1, n2, data in nx_tree.edges(data=True)
+        }
 
     node_labels = {
         node: data['state'] if len(data['state']) < 10 else ''

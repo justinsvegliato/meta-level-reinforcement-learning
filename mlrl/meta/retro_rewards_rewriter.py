@@ -46,8 +46,10 @@ class TrajectoryRewriterWrapper:
         return self.traj.is_last()[i] or self.traj.action[i] == 0
 
     def get_env(self, i: int = 0) -> MetaEnv:
-        gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
-        return gym_wrapper_env.gym
+        env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
+        if hasattr(env, 'gym'):
+            return env.gym
+        return env
 
     def get_policy(self, i: int = 0) -> Optional[SearchTreePolicy]:
         return self.policies[i]
@@ -171,8 +173,10 @@ class RetroactiveRewardsRewriter:
         self.mean_policy_value_metric = MeanFinalPolicyValueMetric()
 
     def get_env(self, i: int = 0) -> MetaEnv:
-        gym_wrapper_env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
-        return gym_wrapper_env.gym
+        env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
+        if hasattr(env, 'gym'):
+            return env.gym
+        return env
 
     def reset(self):
         self.trajectories = []

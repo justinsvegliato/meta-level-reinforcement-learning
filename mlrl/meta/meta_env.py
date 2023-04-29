@@ -14,6 +14,9 @@ import gym
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns
+import warnings
+
+warnings.filterwarnings("ignore")
 sns.set()
 
 
@@ -108,6 +111,7 @@ class MetaEnv(gym.Env):
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  object_level_transition_observers: Optional[List[TransitionObserver]] = None,
+                 verbose: bool = False,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -156,10 +160,12 @@ class MetaEnv(gym.Env):
         self.split_mask_and_tokens = split_mask_and_tokens
         self.dump_debug_images = dump_debug_images
         self.open_debug_server_on_fail = open_debug_server_on_fail
+        self.verbose = verbose
 
         # Meta env state
         self.tree = initial_tree
         self.n_computations = 0
+        self.done = False
 
         # Setup gym spaces
         object_state = initial_tree.get_root().get_state()
@@ -211,7 +217,7 @@ class MetaEnv(gym.Env):
         tree_token_space = gym.spaces.Box(
             low=object_reward_min, high=object_reward_max,
             shape=(self.action_space_size, self.tree_token_dim),
-            dtype=np.float32
+            dtype=np.float64
         )
 
         self.object_reward_min = object_reward_min
@@ -241,7 +247,15 @@ class MetaEnv(gym.Env):
 
     def update_tree_meta_vars(self):
         min_cost, max_cost = self.cost_of_computation_interval
-        normed_cost = (self.cost_of_computation - min_cost) / (max_cost - min_cost)
+
+        if max_cost < min_cost:
+            raise ValueError(f'{max_cost = } is less than {min_cost = }')
+
+        if np.abs(max_cost - min_cost) > 1e-9:
+            normed_cost = (self.cost_of_computation - min_cost) / (max_cost - min_cost)
+        else:
+            normed_cost = min_cost
+
         self.tree_tokeniser.set_meta_vars(cost_of_computation=normed_cost)
 
     def reset(self):
@@ -318,32 +332,32 @@ class MetaEnv(gym.Env):
         else:
             return search_tokens
 
-    def get_best_object_action_index(self) -> int:
-        """
-        Returns the best action in the object-level environment.
-        The action is returned as an integer indicating the index of
-        the gym action in the ObjectState.get_actions representation.
+    def get_best_object_action(self) -> int:
+        # """
+        # Returns the best action in the object-level environment.
+        # The action is returned as an integer indicating the index of
+        # the gym action in the ObjectState.get_actions representation.
 
-        For example, an environment may have an action space of unhashable
-        objects, e.g. uci move objects in gymchess, q-distributions are maintained
-        as dictionaries of integers to floats, and the action space is a list of
-        uci move objects. In this case, the action returned by this function
-        would be the index of the uci move object in the action space.
-        """
+        # For example, an environment may have an action space of unhashable
+        # objects, e.g. uci move objects in gymchess, q-distributions are maintained
+        # as dictionaries of integers to floats, and the action space is a list of
+        # uci move objects. In this case, the action returned by this function
+        # would be the index of the uci move object in the action space.
+        # """
         root_state = self.tree.get_root().get_state()
-        return self.search_tree_policy.get_action_index(root_state)
+        return self.search_tree_policy.get_action(root_state)
 
-    def get_best_object_action(self):
-        action_idx = self.get_best_object_action_index()
-        root_state = self.tree.get_root().get_state()
-        return root_state.get_actions()[action_idx]
+    # def get_best_object_action(self):
+    #     action_idx = self.get_best_object_action_index()
+    #     root_state = self.tree.get_root().get_state()
+    #     return root_state.get_actions()[action_idx]
 
     def root_q_distribution(self) -> Dict[int, float]:
         self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
         root_node = self.tree.get_root()
         return {a: root_node.get_q_value(a) for a in root_node.state.get_actions()}
 
-    def get_computational_reward(self, verbose=False) -> float:
+    def get_computational_reward(self) -> float:
         """
         Difference between the value of best action before and after the
         computation, both considered under the Q-distribution derived from
@@ -353,23 +367,23 @@ class MetaEnv(gym.Env):
             # q-distribution under the current tree
             q_dist = self.root_q_distribution()
             # best action under the current policy (assumed to be created with the previous tree)
-            prior_action = self.get_best_object_action_index()
+            prior_action = self.get_best_object_action()
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
-            if verbose:
+            if self.verbose:
                 print('Estimating value of new policy:\n', self.tree)
 
-            updated_policy_value = self.search_tree_policy.evaluate(self.tree, verbose=verbose)
+            updated_policy_value = self.search_tree_policy.evaluate(self.tree, verbose=self.verbose)
 
-            if verbose:
+            if self.verbose:
                 print()
                 print('Estimating value of prior policy:\n', self.search_tree_policy.tree)
 
-            prior_policy_value = self.prev_search_policy.evaluate(self.tree, verbose=verbose)
+            prior_policy_value = self.prev_search_policy.evaluate(self.tree, verbose=self.verbose)
 
             self.last_computational_reward = updated_policy_value - prior_policy_value
-            if verbose:
+            if self.verbose:
                 print()
                 print(f'Computational Reward = {updated_policy_value:.3f} - '
                       f'{prior_policy_value:.3f} = {self.last_computational_reward:.3f}')
@@ -377,8 +391,7 @@ class MetaEnv(gym.Env):
         return self.last_computational_reward
 
     def step(self,
-             computational_action: Union[int, list, np.ndarray],
-             verbose=False
+             computational_action: Union[int, list, np.ndarray]
              ) -> Tuple[Union[np.ndarray, Dict[str, np.ndarray]], float, bool, dict]:
         """
         Performs a step in the meta environment. The action is interpreted as follows:
@@ -418,7 +431,10 @@ class MetaEnv(gym.Env):
             self.steps += 1
 
             if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
+                self.done = True
                 return self.terminate_step()
+
+            self.done = False
 
             self.perform_computational_action(computational_action)
 
@@ -426,7 +442,7 @@ class MetaEnv(gym.Env):
 
             meta_reward = -self.cost_of_computation
             if self.computational_rewards:
-                meta_reward += self.get_computational_reward(verbose=verbose)
+                meta_reward += self.get_computational_reward()
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
@@ -472,14 +488,14 @@ class MetaEnv(gym.Env):
     def observe_terminate(self):
 
         if self.finish_on_terminate:
-            return self.get_observation(), 0., True, {}
+            return self.get_observation(), 0., self.done, {}
 
-        info.update({
+        info = {
             'computational_reward': 0,
             'object_level_reward': self.last_meta_reward
-        })
+        }
 
-        return self.get_observation(), self.last_meta_reward, done, info
+        return self.get_observation(), self.last_meta_reward, self.done, info
 
     def perform_computational_action(self, computational_action: int):
         """
@@ -496,9 +512,7 @@ class MetaEnv(gym.Env):
             object_action_idx = (computational_action - 1) % self.n_object_actions
             self.tree.expand_action(node_idx, object_action_idx)
 
-    def act(self,
-            computational_action: Union[int, list, np.ndarray],
-            verbose=False):
+    def act(self, computational_action: Union[int, list, np.ndarray]):
         if self.one_hot_action_space and not isinstance(computational_action, int):
             computational_action = int(np.argmax(computational_action))
 
@@ -508,15 +522,16 @@ class MetaEnv(gym.Env):
         self.steps += 1
 
         if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
+            self.done = True
             self.terminate()
         else:
+            self.done = False
             self.perform_computational_action(computational_action)
 
     def terminate(self):
 
         # Perform a step in the underlying environment
-        action_idx = self.get_best_object_action_index()
-        action = self.tree.get_root().get_state().get_actions()[action_idx]
+        action = self.get_best_object_action()
 
         self.set_environment_to_root_state()
         object_obs, object_r, done, info = self.object_env.step(action)
@@ -533,7 +548,7 @@ class MetaEnv(gym.Env):
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
 
-    def observe(self, verbose=False):
+    def observe(self):
         if self.last_meta_action == 0:
             return self.observe_terminate()
 
@@ -541,7 +556,7 @@ class MetaEnv(gym.Env):
 
         meta_reward = -self.cost_of_computation
         if self.computational_rewards:
-            meta_reward += self.get_computational_reward(verbose=verbose)
+            meta_reward += self.get_computational_reward()
 
         # Set the environment to the state of the root node for inter-step consistency
         self.set_environment_to_root_state()
@@ -552,7 +567,7 @@ class MetaEnv(gym.Env):
             'object_level_reward': 0
         }
 
-        return self.get_observation(), meta_reward, False, info
+        return self.get_observation(), meta_reward, self.done, info
 
     def _dump_debug_info(self,
                          e: Exception,
@@ -767,12 +782,21 @@ class MetaEnv(gym.Env):
         meta_action_probs = meta_action_probs[: 1 + len(self.tree.node_list)]
         meta_action_probs = np.reshape(meta_action_probs, (1, meta_action_probs.size))
 
+        n_actions = len(self.tree.node_list)
+
         probs_ax.set_title('Meta-level Action probabilities')
-        probs_ax = sns.heatmap(meta_action_probs, annot=True,
+        probs_ax = sns.heatmap(meta_action_probs, annot=n_actions <= 16,
                                fmt='.3f', vmin=0, vmax=1, cbar=False)
-        label_strings = [r'$\perp$'] + [
-            f'Expand Node {i}' if len(self.tree.node_list) < 10 else i
-            for i, _ in enumerate(self.tree.node_list)
+
+        def label(i: int) -> str:
+            if n_actions > 16:
+                return ''
+            if n_actions >= 10:
+                return str(i)
+            return f'Expand Node {i}'
+
+        label_strings = [r'$\perp$' if n_actions < 16 else ''] + [
+            str(i) for i, _ in enumerate(self.tree.node_list)
         ]
         probs_ax.set_xticks(ticks=0.5 + np.arange(len(label_strings)),
                             labels=label_strings, ha='center')
@@ -793,13 +817,16 @@ class MetaEnv(gym.Env):
             q_dist = np.array(list(q_dist.values()))
 
             sns.barplot(x=list(range(q_dist.size)), y=q_dist, ax=ax)
+            ax.bar_label(ax.containers[0], labels=action_labels,
+                         label_type='center', rotation=90, color='white')
+            ax.set_xticklabels([''] * len(action_labels))
 
-            if any([len(label) > 3 for label in action_labels]):
-                rotation = 90
-            else:
-                rotation = 0
+            # if any([len(label) > 3 for label in action_labels]):
+            #     rotation = 90
+            # else:
+            #     rotation = 0
 
-            ax.set_xticklabels(action_labels, rotation=rotation)
+            # ax.set_xticklabels(action_labels, rotation=rotation)
 
             min_val = min(self.object_reward_min, min(q_dist))
             max_val = max(self.object_reward_max, max(q_dist))

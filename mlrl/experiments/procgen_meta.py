@@ -4,6 +4,7 @@ from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.procgen import META_ALLOWED_COMBOS
 from mlrl.procgen.procgen_state import ProcgenState, ProcgenProcessing
 from mlrl.procgen.procgen_env import make_vectorised_procgen
+from mlrl.procgen.batched_procgen_meta_env import BatchedProcgenMetaEnv
 from mlrl.procgen.meta_renderer import render_tree_policy
 from mlrl.experiments.procgen_dqn import create_rainbow_agent
 from mlrl.utils.system import restrict_gpus
@@ -14,11 +15,7 @@ from typing import Tuple, List
 import re
 
 import gym
-
-from tf_agents.environments.gym_wrapper import GymWrapper
 from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
-
-import tensorflow as tf
 
 
 def patch_action_repeats(gym_env, config: dict):
@@ -104,14 +101,27 @@ def create_batched_procgen_meta_envs(
     if n_envs == 0:
         raise ValueError('n_envs must be > 0')
 
-    return BatchedPyEnvironment([
-        GymWrapper(create_procgen_meta_env(
+    # return BatchedPyEnvironment([
+    #     GymWrapper(create_procgen_meta_env(
+    #         object_config,
+    #         min_computation_steps=min_computation_steps,
+    #         **config
+    #     ))
+    #     for _ in range(n_envs)
+    # ], multithreading=env_multithreading)
+
+    meta_envs = [
+        create_procgen_meta_env(
             object_config,
             min_computation_steps=min_computation_steps,
             **config
-        ))
+        )
         for _ in range(n_envs)
-    ], multithreading=env_multithreading)
+    ]
+    max_expands_per_env = len(ProcgenState.ACTIONS)
+
+    return BatchedProcgenMetaEnv(meta_envs, max_expands_per_env, object_config,
+                                 multithreading=env_multithreading)
 
 
 def create_runner_envs(
@@ -208,25 +218,27 @@ def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, ve
 
 def get_object_level_metrics(batched_env: BatchedPyEnvironment):
     return aggregate_object_level_metrics([
-        tf_py_env._gym_env.get_object_level_metrics()
-        for tf_py_env in batched_env.envs
+        meta_env.get_object_level_metrics()
+        for meta_env in batched_env.meta_envs
     ])
 
 
 def reset_object_level_metrics(batched_env: BatchedPyEnvironment):
-    for tf_py_env in batched_env.envs:
-        tf_py_env._gym_env.reset_metrics()
+    for meta_env in batched_env.meta_envs:
+        meta_env.reset_metrics()
 
 
 def end_of_epoch_callback(logs: dict, runner: PPORunner):
     collect_object_level_metrics = get_object_level_metrics(runner.collect_env)
     for metric, value in collect_object_level_metrics.items():
         logs[f'Collect{metric}'] = value
+    reset_object_level_metrics(runner.collect_env)
 
-    if any('Eval' in k for k in logs): 
+    if any('Eval' in k for k in logs):
         eval_object_level_metrics = get_object_level_metrics(runner.eval_env)
         for metric, value in eval_object_level_metrics.items():
             logs[f'Eval{metric}'] = value
+    reset_object_level_metrics(runner.eval_env)
 
 
 def create_runner(args):

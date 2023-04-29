@@ -52,7 +52,7 @@ class PPORunner:
                  gc_interval: int = 5,
                  model_save_metric: str = 'AverageReturn',
                  model_save_metric_comparator: str = 'max',
-                 end_of_epoch_callback:Callable[[dict, 'PPORunner'], None] = None,
+                 end_of_epoch_callback: Callable[[dict, 'PPORunner'], None] = None,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations

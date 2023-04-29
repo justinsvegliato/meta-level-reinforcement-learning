@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
 from functools import cached_property
-from functools import lru_cache as cache
 from typing import Generic, List, Optional, Tuple, Dict, TypeVar, Union
 
 import gym
