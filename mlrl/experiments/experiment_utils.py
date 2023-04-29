@@ -159,6 +159,10 @@ def create_training_run(
 def create_parser():
     parser = argparse.ArgumentParser()
 
+    # System parameters
+    parser.add_argument('-gpus', '--gpus', nargs='+', type=int, default=None,
+                        help='GPU ids to use. If not specified, all GPUs will be used.')
+
     # Run parameters
     parser.add_argument('--learning_rate', type=float, default=3e-4,
                         help='Learning rate for the optimiser.')
@@ -227,14 +231,6 @@ def create_parser():
                         help='Number of agent transformer heads.')
     parser.add_argument('--n_lstm_layers', type=int, default=0,
                         help='Number of lstm layers.')
-
-    # DQN parameters
-    # parser.add_argument('--target_network_update_period', type=int, default=500,
-    #                     help='Maximum number of nodes in the search tree.')
-    # parser.add_argument('--epsilon_greedy', type=float, default=0.1,
-    #                     help='Epsilon for epsilon-greedy exploration.')
-    # parser.add_argument('--initial_collect_steps', type=int, default=500,
-    #                     help='Number of steps to collect before training.')
 
     return parser
 

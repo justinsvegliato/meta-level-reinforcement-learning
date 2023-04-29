@@ -333,6 +333,11 @@ class MetaEnv(gym.Env):
         root_state = self.tree.get_root().get_state()
         return self.search_tree_policy.get_action_index(root_state)
 
+    def get_best_object_action(self):
+        action_idx = self.get_best_object_action_index()
+        root_state = self.tree.get_root().get_state()
+        return root_state.get_actions()[action_idx]
+
     def root_q_distribution(self) -> Dict[int, float]:
         self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
         root_node = self.tree.get_root()
@@ -370,57 +375,6 @@ class MetaEnv(gym.Env):
                       f'{prior_policy_value:.3f} = {self.last_computational_reward:.3f}')
 
         return self.last_computational_reward
-
-    def terminate_step(self):
-
-        # Perform a step in the underlying environment
-        action_idx = self.get_best_object_action_index()
-        action = self.tree.get_root().get_state().get_actions()[action_idx]
-
-        self.set_environment_to_root_state()
-        object_obs, object_r, done, info = self.object_env.step(action)
-
-        self.object_level_metrics(object_obs, object_r, done, info)
-        if self.object_level_transition_observers is not None:
-            for observer in self.object_level_transition_observers:
-                observer(object_obs, object_r, done, info)
-
-        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
-            self.tree = self.tree.get_root_subtree(action)
-        else:
-            self.tree = self.get_root_tree()
-
-        self.search_tree_policy = self.make_tree_policy(self.tree)
-
-        if self.finish_on_terminate:
-            return self.get_observation(), 0., True, {}
-
-        self.last_meta_reward = object_r
-
-        self.prev_search_policy = None
-        self.n_computations = 0
-
-        info.update({
-            'computational_reward': 0,
-            'object_level_reward': self.last_meta_reward
-        })
-
-        return self.get_observation(), self.last_meta_reward, done, info
-
-    def perform_computational_action(self, computational_action: int):
-        """
-        Performs a computational action on the tree.
-        """
-        self.n_computations += 1
-        if self.expand_all_actions:
-            # Expand all actions from the given node
-            node_idx = self.tree_tokeniser.get_node_idx(self.tree, computational_action)
-            self.tree.expand_all(node_idx)
-        else:
-            # perform a computational action on the search tree
-            node_idx = (computational_action - 1) // self.n_object_actions
-            object_action_idx = (computational_action - 1) % self.n_object_actions
-            self.tree.expand_action(node_idx, object_action_idx)
 
     def step(self,
              computational_action: Union[int, list, np.ndarray],
@@ -467,6 +421,7 @@ class MetaEnv(gym.Env):
                 return self.terminate_step()
 
             self.perform_computational_action(computational_action)
+
             self.search_tree_policy = self.make_tree_policy(self.tree)
 
             meta_reward = -self.cost_of_computation
@@ -488,6 +443,116 @@ class MetaEnv(gym.Env):
             self._dump_debug_info(e, computational_action,
                                   open_debug_server=self.open_debug_server_on_fail)
             raise e
+
+    def terminate_step(self):
+
+        # Perform a step in the underlying environment
+        action = self.get_best_object_action()
+
+        self.set_environment_to_root_state()
+        object_obs, object_r, done, info = self.object_env.step(action)
+
+        self.object_level_metrics(object_obs, object_r, done, info)
+        if self.object_level_transition_observers is not None:
+            for observer in self.object_level_transition_observers:
+                observer(object_obs, object_r, done, info)
+
+        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+            self.tree = self.tree.get_root_subtree(action)
+        else:
+            self.tree = self.get_root_tree()
+            self.last_meta_reward = object_r
+            self.prev_search_policy = None
+            self.n_computations = 0
+
+        self.search_tree_policy = self.make_tree_policy(self.tree)
+
+        return self.observe_terminate()
+
+    def observe_terminate(self):
+
+        if self.finish_on_terminate:
+            return self.get_observation(), 0., True, {}
+
+        info.update({
+            'computational_reward': 0,
+            'object_level_reward': self.last_meta_reward
+        })
+
+        return self.get_observation(), self.last_meta_reward, done, info
+
+    def perform_computational_action(self, computational_action: int):
+        """
+        Performs a computational action on the tree.
+        """
+        self.n_computations += 1
+        if self.expand_all_actions:
+            # Expand all actions from the given node
+            node_idx = self.tree_tokeniser.get_node_idx(self.tree, computational_action)
+            self.tree.expand_all(node_idx)
+        else:
+            # perform a computational action on the search tree
+            node_idx = (computational_action - 1) // self.n_object_actions
+            object_action_idx = (computational_action - 1) % self.n_object_actions
+            self.tree.expand_action(node_idx, object_action_idx)
+
+    def act(self,
+            computational_action: Union[int, list, np.ndarray],
+            verbose=False):
+        if self.one_hot_action_space and not isinstance(computational_action, int):
+            computational_action = int(np.argmax(computational_action))
+
+        self.prev_search_policy = self.search_tree_policy
+        self.last_computational_reward = 0
+        self.last_meta_action = computational_action
+        self.steps += 1
+
+        if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
+            self.terminate()
+        else:
+            self.perform_computational_action(computational_action)
+
+    def terminate(self):
+
+        # Perform a step in the underlying environment
+        action_idx = self.get_best_object_action_index()
+        action = self.tree.get_root().get_state().get_actions()[action_idx]
+
+        self.set_environment_to_root_state()
+        object_obs, object_r, done, info = self.object_env.step(action)
+
+        self.object_level_metrics(object_obs, object_r, done, info)
+        if self.object_level_transition_observers is not None:
+            for observer in self.object_level_transition_observers:
+                observer(object_obs, object_r, done, info)
+
+        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+            self.tree = self.tree.get_root_subtree(action)
+        else:
+            self.tree = self.get_root_tree()
+
+        self.search_tree_policy = self.make_tree_policy(self.tree)
+
+    def observe(self, verbose=False):
+        if self.last_meta_action == 0:
+            return self.observe_terminate()
+
+        self.search_tree_policy = self.make_tree_policy(self.tree)
+
+        meta_reward = -self.cost_of_computation
+        if self.computational_rewards:
+            meta_reward += self.get_computational_reward(verbose=verbose)
+
+        # Set the environment to the state of the root node for inter-step consistency
+        self.set_environment_to_root_state()
+        self.last_meta_reward = meta_reward
+
+        info = {
+            'computational_reward': self.last_computational_reward,
+            'object_level_reward': 0
+        }
+
+        return self.get_observation(), meta_reward, False, info
 
     def _dump_debug_info(self,
                          e: Exception,
@@ -602,7 +667,7 @@ class MetaEnv(gym.Env):
         else:
             computational_reward = 0
 
-        action = self.get_best_object_action_index()
+        action = self.get_best_object_action()
         root_node = self.tree.get_root()
         action_label = root_node.state.get_action_label(action)
 

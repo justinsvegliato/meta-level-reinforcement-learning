@@ -20,12 +20,17 @@ def create_random_search_policy_no_terminate(env):
 
     def mask_token_splitter_no_terminate(obs):
         tokens, mask = mask_token_splitter(obs)
+        if isinstance(mask, tf.Tensor):
+            mask = mask.numpy()
+
         not_terminate = np.ones(mask.shape)
         for i in range(mask.shape[0]):
             # if there are no more expansions, don't mask terminate
-            if np.sum(mask[i, 1:].numpy()) > 1:
+            if np.sum(mask[i, 1:]) > 1:
                 not_terminate[i, 0] = 0
-        mask = mask * tf.convert_to_tensor(not_terminate, dtype=tf.int32)
+
+        mask = tf.convert_to_tensor(mask * not_terminate, dtype=tf.int32)
+
         return tokens, mask
 
     return RandomPyPolicy(

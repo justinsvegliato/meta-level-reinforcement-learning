@@ -29,6 +29,7 @@ class EvalRunner:
                  eval_env: BatchedPyEnvironment,
                  policy,
                  rewrite_rewards: bool = False,
+                 video_policy=None,
                  video_env: Optional[BatchedPyEnvironment] = None,
                  videos_dir: str = None,
                  use_tf_function: bool = True,
@@ -45,6 +46,14 @@ class EvalRunner:
                 policy, use_tf_function=use_tf_function, batch_time_steps=False)
         else:
             self.eval_policy = policy
+
+        if video_policy is None:
+            self.video_policy = policy
+        elif convert_to_eager:
+            self.video_policy = py_tf_eager_policy.PyTFEagerPolicy(
+                video_policy, use_tf_function=use_tf_function, batch_time_steps=False)
+        else:
+            self.video_policy = video_policy
 
         self.metrics = metrics or []
 
@@ -123,7 +132,7 @@ class EvalRunner:
         video_file = f'{self.videos_dir}/{filename}.mp4'
 
         create_and_save_meta_policy_video(
-            self.eval_policy, self.video_env,
+            self.video_policy, self.video_env,
             max_steps=steps,
             filename=video_file,
             rewrite_rewards=self.rewrite_rewards,

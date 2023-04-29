@@ -6,6 +6,7 @@ from mlrl.procgen.procgen_state import ProcgenState, ProcgenProcessing
 from mlrl.procgen.procgen_env import make_vectorised_procgen
 from mlrl.procgen.meta_renderer import render_tree_policy
 from mlrl.experiments.procgen_dqn import create_rainbow_agent
+from mlrl.utils.system import restrict_gpus
 
 import json
 from pathlib import Path
@@ -279,17 +280,9 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        # Restrict TensorFlow to only use the first GPU
-        try:
-            tf.config.set_visible_devices(gpus[2:], 'GPU')
-            logical_gpus = tf.config.list_logical_devices('GPU')
-            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
-        except RuntimeError as e:
-            # Visible devices must be set before GPUs have been initialized
-            print(e)
-
     args = parse_args()
+
+    if args.get('gpus'):
+        restrict_gpus(args['gpus'])
+
     main(args)

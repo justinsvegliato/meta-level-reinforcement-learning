@@ -5,6 +5,7 @@ from mlrl.meta.meta_policies.terminator_policy import TerminatorPolicy
 from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
 from mlrl.experiments.procgen_meta import reset_object_level_metrics, get_object_level_metrics
 from mlrl.utils import time_id
+from mlrl.utils.system import restrict_gpus
 
 import argparse
 from typing import Dict, Callable
@@ -38,10 +39,9 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         folder=args['pretrained_runs_folder'],
         run=args['pretrained_run'],
         percentile=args.get('pretrained_percentile', 0.75),
-        verbose=True
+        verbose=False
     )
-    n_envs = args.get('n_envs', 16)
-
+    n_envs = args.pop('n_envs', 16)
 
     results = []
     for policy_name, create_policy in policy_creators.items():
@@ -67,6 +67,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             create_policy(batched_meta_env),
             videos_dir=outputs_dir / 'videos',
             video_env=video_env,
+            video_policy=create_policy(video_env),
             rewrite_rewards=True,
             use_tf_function=False
         )
@@ -129,15 +130,21 @@ class ResultsAccumulator:
 def parse_args():
     parser = argparse.ArgumentParser()
 
+    # System parameters
+    parser.add_argument('-gpus', '--gpus', nargs='+', type=int, default=None,
+                        help='GPU ids to use. If not specified, all GPUs will be used.')
+
+    # Run parameters
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=20)
     parser.add_argument('--n_envs', type=int, default=16)
-    parser.add_argument('--eval_steps_per_env', type=int, default=100)
+    parser.add_argument('--eval_steps_per_env', type=int, default=10)
 
+    # Video parameters
     parser.add_argument('--no_video', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
-    parser.add_argument('--video_steps', type=int, default=30)
+    parser.add_argument('--video_steps', type=int, default=10)
 
     return vars(parser.parse_args())
 
@@ -148,6 +155,9 @@ def main():
     print(f'Running with args:')
     for k, v in args.items():
         print(f'\t- {k}: {v}')
+
+    if args.get('gpus'):
+        restrict_gpus(args['gpus'])
 
     eval_steps_per_env = args.get('eval_steps_per_env', 1000)
 

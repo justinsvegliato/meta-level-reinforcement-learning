@@ -2,6 +2,7 @@ from mlrl.meta.search_tree import ObjectState
 from mlrl.utils import one_hot
 
 from typing import List
+from time import time
 
 import tensorflow as tf
 import numpy as np
@@ -79,16 +80,40 @@ class ProcgenState(ObjectState):
         ProcgenState.COMBO_STRINGS = actions
         ProcgenState.ACTIONS = action_idxs
 
-    def __init__(self, env: Env):
-        if isinstance(env, ToGymEnv):
-            env = env.env
-            _, self.observation, *_ = env.observe()
-            self.observation = self.observation / 255.  # need to later handle frame stack and grayscale options
-        else:
-            self.observation = env.current_time_step().observation
+    def __init__(self, env: Env = None):
+        """
+        If an environment is provided, the state and object variables are extracted from it.
+        Otherwise, set_variables must be called later.
+        """
+        if env is not None:
+            if isinstance(env, ToGymEnv):
+                env = env.env
+                _, self.observation, *_ = env.observe()
+                self.observation = self.observation / 255.  # need to later handle frame stack and grayscale options
+            else:
+                self.observation = env.current_time_step().observation
 
-        self.state = env.callmethod('get_state')
-        self.state_vec, self.q_values = ProcgenProcessing.call(self.observation)
+            self.state = env.callmethod('get_state')
+            self.state_vec, self.q_values = ProcgenProcessing.call(self.observation)
+
+            self._state_str = str(self.state)
+            self._hash_value = hash(self._state_str)
+        else:
+            self.state_vec = None
+            self.state = None
+            self.observation = None
+            self.q_values = None
+            self._state_str = None
+            self._hash_value = hash(time())
+
+    def set_variables(self, state, state_vec: np.array, observation: np.array, q_values: np.array):
+        self.state = state
+        self.state_vec = state_vec
+        self.observation = observation
+        self.q_values = q_values
+
+        self._state_str = str(self.state)
+        self._hash_value = hash(self._state_str)
 
     def get_observation(self):
         return self.observation
@@ -118,7 +143,10 @@ class ProcgenState(ObjectState):
         return one_hot(ProcgenState.ACTIONS.index(action), n)
 
     def get_state_string(self) -> str:
-        return str(self.state)
+        return self._state_str
+
+    def __hash__(self):
+        return self._hash_value
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({hash(self)})'
