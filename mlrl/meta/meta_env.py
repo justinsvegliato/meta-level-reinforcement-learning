@@ -34,23 +34,28 @@ gym.envs.register(
 class ObjectLevelMetrics:
 
     def __init__(self):
-        self.reward_sum = 0
+        self.return_val = 0
+        self.sum_of_returns = 0
         self.n_steps = 0
-        self.n_episodes = 1
+        self.n_episodes = 0
 
     def reset(self):
-        self.reward_sum = 0
-        self.n_episodes = 1
+        self.return_val = 0
+        self.sum_of_returns = 0
         self.n_steps = 0
+        self.n_episodes = 0
 
     def __call__(self, obs, reward, done, info):
         self.n_steps += np.size(reward)
-        self.reward_sum += np.sum(reward)
+        self.return_val += np.sum(reward)
+        if done:
+            self.sum_of_returns += self.return_val
+            self.return_val = 0
         self.n_episodes += np.sum(done)
 
     def get_results(self):
         return {
-            'ObjectLevelMeanReward': self.reward_sum / max(1, self.n_episodes),
+            'ObjectLevelMeanReward': self.sum_of_returns / max(1, self.n_episodes),
             'ObjectLevelMeanStepsPerEpisode': self.n_steps / max(1, self.n_episodes),
             'ObjectLevelEpisodes': self.n_episodes
         }
@@ -63,6 +68,8 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
 
     for metric in metrics:
         n_episodes = metric['ObjectLevelEpisodes']
+        if n_episodes == 0:
+            continue
         sum_reward += metric['ObjectLevelMeanReward'] * n_episodes
         n_steps += metric['ObjectLevelMeanStepsPerEpisode'] * n_episodes
         total_episodes += n_episodes
@@ -236,6 +243,7 @@ class MetaEnv(gym.Env):
         self.last_meta_action = None
         self.last_meta_reward = 0
         self.last_computational_reward = 0
+        self.last_object_level_reward = 0
         self.meta_action_strings = self.get_action_strings()
         self.steps = 0
 
@@ -467,6 +475,7 @@ class MetaEnv(gym.Env):
 
         self.set_environment_to_root_state()
         object_obs, object_r, done, info = self.object_env.step(action)
+        self.last_object_level_reward = object_r
 
         self.object_level_metrics(object_obs, object_r, done, info)
         if self.object_level_transition_observers is not None:
@@ -501,7 +510,9 @@ class MetaEnv(gym.Env):
         """
         Performs a computational action on the tree.
         """
+        self.last_object_level_reward = 0.
         self.n_computations += 1
+
         if self.expand_all_actions:
             # Expand all actions from the given node
             node_idx = self.tree_tokeniser.get_node_idx(self.tree, computational_action)
@@ -669,7 +680,8 @@ class MetaEnv(gym.Env):
     def get_render_title(self) -> str:
 
         if self.last_meta_action is None:
-            return 'Initial State'
+            object_info = self.get_object_level_info_string()
+            return f'Initial State\n{object_info}'
 
         i = int(self.last_meta_action)
         if i in self.meta_action_strings:
@@ -686,12 +698,20 @@ class MetaEnv(gym.Env):
         root_node = self.tree.get_root()
         action_label = root_node.state.get_action_label(action)
 
-        return f'Meta-action: [{action_string}] | '\
-               f'Meta-Reward: {self.last_meta_reward:.3f} | '\
-               f'Best Object-action: {action_label} | '\
-               f'Comp-Reward: {computational_reward:.3f} | '\
-               f'Comp-Cost: {self.cost_of_computation:.3f} | '\
-               f't = {self.steps}'
+        meta_info = f'Meta-action: [{action_string}] | '\
+                    f'Meta-Reward: {self.last_meta_reward:.3f} | '\
+                    f'Best Object-action: {action_label} | '\
+                    f'Comp-Reward: {computational_reward:.3f} | '\
+                    f'Comp-Cost: {self.cost_of_computation:.3f} | '\
+                    f't = {self.steps}'
+
+        object_info = self.get_object_level_info_string()
+
+        return f'{meta_info}\n{object_info}'
+
+    def get_object_level_info_string(self) -> str:
+        return f'Object-level Reward: {self.last_object_level_reward:.2f} | ' + \
+            ' | '.join(f'{k}: {v:.2f}' for k, v in self.get_object_level_metrics().items())
 
     def render(self,
                mode: str = 'rgb_array',

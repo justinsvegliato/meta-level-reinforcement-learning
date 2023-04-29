@@ -88,7 +88,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             results_observer(evaluations)
 
         results.append(evaluations)
-    
+
         if create_video:
             eval_runner.create_policy_eval_video(filename=f'{policy_name}_{percentile=}', **video_args)
 
@@ -102,7 +102,7 @@ class ResultsAccumulator:
         self.results_df = None
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def __call__(self, results: dict):
         self.results.append(results)
         self.results_df = pd.DataFrame(self.results)
@@ -137,14 +137,14 @@ def parse_args():
     # Run parameters
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
-    parser.add_argument('--max_tree_size', type=int, default=20)
+    parser.add_argument('--max_tree_size', type=int, default=64)
     parser.add_argument('--n_envs', type=int, default=16)
-    parser.add_argument('--eval_steps_per_env', type=int, default=10)
+    parser.add_argument('--eval_steps_per_env', type=int, default=1000)
 
     # Video parameters
     parser.add_argument('--no_video', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
-    parser.add_argument('--video_steps', type=int, default=10)
+    parser.add_argument('--video_steps', type=int, default=120)
 
     return vars(parser.parse_args())
 
@@ -152,7 +152,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    print(f'Running with args:')
+    print('Running with args:')
     for k, v in args.items():
         print(f'\t- {k}: {v}')
 
@@ -170,10 +170,10 @@ def main():
         }
 
     policy_creators = {
+        'Terminator': TerminatorPolicy,
         'AStar': AStarPolicy,
         'Random': create_random_search_policy,
-        'RandomNoTerminate': create_random_search_policy_no_terminate,
-        'Terminator': TerminatorPolicy
+        'RandomNoTerminate': create_random_search_policy_no_terminate
     }
 
     results_accumulator = ResultsAccumulator(output_dir=Path('outputs/baseline/procgen') / time_id())
