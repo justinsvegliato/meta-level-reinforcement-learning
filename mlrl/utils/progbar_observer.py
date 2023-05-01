@@ -18,15 +18,21 @@ class ProgressBarObserver:
         self.bar = Progbar(max_progress)
         self.metrics = metrics or []
 
-    def __call__(self, traj: Trajectory):
-        self.progress += np.sum(~traj.is_boundary())
+    def print(self):
+        values = [(metric.name, metric.result()) for metric in self.metrics]
+        self.bar.update(self.progress, values=values)
+
+    def advance(self, n: int):
+        self.progress += n
 
         if self.progress % self.update_interval == 0:
-            values = [(metric.name, metric.result()) for metric in self.metrics]
-            self.bar.update(self.progress, values=values)
+            self.print()
 
         if self.progress >= self.max_progress:
             self.reset()
+
+    def __call__(self, traj: Trajectory):
+        self.advance(np.sum(~traj.is_boundary()))
 
     def reset(self):
         self.progress = 0

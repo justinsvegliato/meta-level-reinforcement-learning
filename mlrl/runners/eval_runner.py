@@ -1,6 +1,3 @@
-import argparse
-import json
-from pathlib import Path
 from mlrl.meta.meta_policies.a_star_policy import AStarPolicy
 from mlrl.meta.meta_policies.random_policy import (
     create_random_search_policy, create_random_search_policy_no_terminate
@@ -10,9 +7,12 @@ from mlrl.utils import get_current_git_commit, sanitize_dict, time_id
 from mlrl.utils.render_utils import create_and_save_meta_policy_video
 from mlrl.utils.progbar_observer import ProgressBarObserver
 
+import argparse
+import json
 from pathlib import Path
 from typing import Optional
 import time
+
 
 import silence_tensorflow.auto  # noqa
 from tf_agents.metrics import py_metrics
@@ -25,9 +25,9 @@ from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 class EvalRunner:
 
     def __init__(self,
-                 eval_steps: int,
                  eval_env: BatchedPyEnvironment,
                  policy,
+                 eval_steps: Optional[int] = None,
                  rewrite_rewards: bool = False,
                  video_policy=None,
                  video_env: Optional[BatchedPyEnvironment] = None,
@@ -35,11 +35,19 @@ class EvalRunner:
                  use_tf_function: bool = True,
                  convert_to_eager: bool = True,
                  metrics: Optional[list] = None,
+                 stop_eval_condition: callable = None,
+                 prog_bar: Optional[ProgressBarObserver] = None,
                  step_counter=None):
         self.eval_env = eval_env
         self.video_env = video_env or eval_env
         self.videos_dir = videos_dir or '.'
+        self.stop_eval_condition = stop_eval_condition
         Path(self.videos_dir).mkdir(parents=True, exist_ok=True)
+
+        if eval_steps is None and stop_eval_condition is None:
+            raise ValueError('Either eval_steps or stop_eval_condition must be specified.')
+
+        self.eval_steps = eval_steps or 1
 
         if convert_to_eager:
             self.eval_policy = py_tf_eager_policy.PyTFEagerPolicy(
@@ -67,13 +75,17 @@ class EvalRunner:
         else:
             self.eval_reward_rewriter = None
 
-        actor_collect_metrics = actor.collect_metrics(buffer_size=eval_steps)
-        self.progbar = ProgressBarObserver(
-            eval_steps,
-            metrics=[m for m in actor_collect_metrics if 'return' in m.name.lower()],
-            update_interval=1
-        )
-        eval_observers.append(self.progbar)
+        actor_collect_metrics = actor.collect_metrics(buffer_size=self.eval_steps)
+
+        if self.eval_steps > 1:
+            self.prog_bar = prog_bar or ProgressBarObserver(
+                self.eval_steps,
+                metrics=[m for m in actor_collect_metrics if 'return' in m.name.lower()],
+                update_interval=1
+            )
+            eval_observers.append(self.prog_bar)
+        else:
+            self.prog_bar = prog_bar
 
         self.step_counter = step_counter or train_utils.create_train_step()
         self.eval_actor = actor.Actor(
@@ -83,7 +95,7 @@ class EvalRunner:
             metrics=actor_collect_metrics,
             observers=eval_observers,
             reference_metrics=[py_metrics.EnvironmentSteps()],
-            steps_per_run=eval_steps)
+            steps_per_run=self.eval_steps)
 
         py_metrics.AverageEpisodeLengthMetric()
 
@@ -96,11 +108,19 @@ class EvalRunner:
         self.eval_actor.reset()
         for metric in self.metrics:
             metric.reset()
-        self.progbar.reset()
+
+        if self.prog_bar is not None:
+            self.prog_bar.reset()
 
         start_time = time.time()
+
         try:
-            self.eval_actor.run()
+            if self.stop_eval_condition is not None:
+                while not self.stop_eval_condition():
+                    self.eval_actor.run()
+            else:
+                self.eval_actor.run()
+
         except KeyboardInterrupt:
             print('\nEvaluation interrupted.')
 

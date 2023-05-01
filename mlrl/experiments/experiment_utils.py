@@ -182,7 +182,7 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=5,
+    parser.add_argument('--eval_interval', type=int, default=15,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')

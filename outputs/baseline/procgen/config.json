@@ -1,1 +1,1 @@
-{"gpus": null, "pretrained_runs_folder": "sync/dqn", "pretrained_run": "run-16823527592836354", "max_tree_size": 64, "n_envs": 32, "eval_steps_per_env": 3000, "no_video": false, "video_fps": 1, "video_steps": 120}
+{"gpus": null, "pretrained_runs_folder": "runs", "pretrained_run": "run-16823527592836354", "max_tree_size": 64, "n_envs": 32, "n_object_level_episodes": 25, "max_object_level_steps": 500, "no_video": false, "video_fps": 1, "video_steps": 120}

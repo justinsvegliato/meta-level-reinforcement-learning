@@ -4,8 +4,11 @@ from mlrl.meta.meta_policies.random_policy import create_random_search_policy, c
 from mlrl.meta.meta_policies.terminator_policy import TerminatorPolicy
 from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
 from mlrl.experiments.procgen_meta import reset_object_level_metrics, get_object_level_metrics
+from mlrl.procgen.time_limit_observer import TimeLimitObserver
 from mlrl.utils import time_id
 from mlrl.utils.system import restrict_gpus
+
+from tensorflow.keras.utils import Progbar
 
 import argparse
 from typing import Dict, Callable
@@ -23,8 +26,9 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         args: dict,
                                         outputs_dir: Path,
                                         percentile=0.75,
-                                        eval_steps_per_env=1000,
+                                        n_object_level_episodes=10,
                                         video_args: dict = None,
+                                        max_object_level_steps=50,
                                         results_observer: Callable[[dict], None] = None):
     create_video = video_args is not None
 
@@ -40,7 +44,26 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         percentile=args.get('pretrained_percentile', 0.75),
         verbose=False
     )
-    n_envs = args.pop('n_envs', 16)
+    n_envs = args.pop('n_envs', 8)
+
+    prog_bar = Progbar(
+        n_object_level_episodes,
+        unit_name='episode',
+        stateful_metrics=['ObjectLevelMeanReward',
+                          'ObjectLevelMeanStepsPerEpisode',
+                          'ObjectLevelEpisodes']
+    )
+
+    def completed_n_object_level_episodes(batched_meta_env, n: int) -> bool:
+        n_complete = sum([
+            env.object_level_metrics.get_num_episodes()
+            for env in batched_meta_env.envs
+        ])
+
+        metrics = get_object_level_metrics(batched_meta_env)
+        prog_bar.update(n_complete, values=metrics.items())
+
+        return n_complete >= n
 
     results = []
     for policy_name, create_policy in policy_creators.items():
@@ -61,15 +84,22 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             video_env = None
 
         eval_runner = EvalRunner(
-            eval_steps_per_env * n_envs,
-            batched_meta_env,
-            create_policy(batched_meta_env),
-            videos_dir=outputs_dir / 'videos',
-            video_env=video_env,
-            video_policy=create_policy(video_env),
+            eval_env=batched_meta_env,
+            policy=create_policy(batched_meta_env),
             rewrite_rewards=True,
-            use_tf_function=False
+            use_tf_function=False,
+            stop_eval_condition=lambda: completed_n_object_level_episodes(batched_meta_env,
+                                                                          n_object_level_episodes),
+            video_env=video_env,
+            video_policy=create_policy(video_env) if video_env is not None else None,
+            videos_dir=outputs_dir / 'videos'
         )
+
+        for env in batched_meta_env.envs:
+            time_limit = TimeLimitObserver(env, max_object_level_steps)
+            env.object_level_transition_observers.append(time_limit)
+            env.object_level_metrics.episode_complete_callback = \
+                lambda stats: results_observer.add_episode_stats(policy_name, percentile, stats)
 
         print(f'Evaluating {policy_name}')
         reset_object_level_metrics(batched_meta_env)
@@ -98,7 +128,9 @@ class ResultsAccumulator:
 
     def __init__(self, output_dir: Path):
         self.results = []
+        self.episode_stats = []
         self.results_df = None
+        self.episode_stats_df = None
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -106,15 +138,25 @@ class ResultsAccumulator:
         self.results.append(results)
         self.results_df = pd.DataFrame(self.results)
         self.results_df.to_csv(self.output_dir / 'results.csv', index=False)
+        self.episode_stats_df = pd.DataFrame(self.episode_stats)
+        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
         self.plot_results()
+
+    def add_episode_stats(self, policy: str, percentile: float, stats: dict):
+        self.episode_stats.append({
+            'Meta-level Policy': policy,
+            'Pretrained Percentile': percentile,
+            'Number of Steps': stats['steps'],
+            'Return': stats['return'],
+        })
 
     def plot_results(self):
         plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
 
         plt.figure(figsize=(15, 10))
 
-        sns.lineplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', label='Pretrained Return', alpha=0.25, color='r')
-        sns.scatterplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', color='r', legend=False)
+        # sns.lineplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', label='Pretrained Return', alpha=0.25, color='r')
+        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', color='r', legend=False)
 
         sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
         sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
@@ -123,14 +165,18 @@ class ResultsAccumulator:
         plt.ylabel(plot_name)
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
-        plt.savefig(self.output_dir / 'object-return-with-pretrained-return.png')
+        plt.savefig(self.output_dir / 'mean-object-return-vs-percentile.png')
 
-        plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
+        plt.close()
 
         plt.figure(figsize=(15, 10))
 
-        sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
+        # sns.lineplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', label='Pretrained Return', alpha=0.25, color='r')
+        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', color='r', legend=False)
+
+        sns.lineplot(data=self.episode_stats_df, x='Pretrained Percentile', y='Return', hue='Meta-level Policy', alpha=0.5)
         sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
+        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
 
         plt.xlabel('Pretrained Percentile')
         plt.ylabel(plot_name)
@@ -150,13 +196,15 @@ def parse_args():
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=64)
-    parser.add_argument('--n_envs', type=int, default=32)
-    parser.add_argument('--eval_steps_per_env', type=int, default=3000)
+    parser.add_argument('--n_envs', type=int, default=16)
+    # parser.add_argument('--eval_steps_per_env', type=int, default=3000)
+    parser.add_argument('--n_episodes', type=int, default=100)
+    parser.add_argument('--max_steps', type=int, default=500)
 
     # Video parameters
     parser.add_argument('--no_video', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
-    parser.add_argument('--video_steps', type=int, default=120)
+    parser.add_argument('--video_steps', type=int, default=10)
 
     return vars(parser.parse_args())
 
@@ -171,7 +219,8 @@ def main():
     if args.get('gpus'):
         restrict_gpus(args['gpus'])
 
-    eval_steps_per_env = args.get('eval_steps_per_env', 1000)
+    n_object_level_episodes = args.get('n_episodes', 10)
+    max_object_level_steps = args.get('max_steps', 500)
 
     if args.get('no_video', False):
         video_args = None
@@ -182,14 +231,15 @@ def main():
         }
 
     policy_creators = {
-        'Terminator': TerminatorPolicy,
+        'Instant Terminate': TerminatorPolicy,
         'AStar': AStarPolicy,
         'Random': create_random_search_policy,
-        'RandomNoTerminate': create_random_search_policy_no_terminate
+        'Random (No Terminate)': create_random_search_policy_no_terminate
     }
-    output_dir = Path('outputs/baseline/procgen')
+    output_dir = Path('outputs/baseline/procgen') / time_id()
+    print(f'Writing results to {output_dir}')
 
-    results_accumulator = ResultsAccumulator(output_dir=output_dir / time_id())
+    results_accumulator = ResultsAccumulator(output_dir=output_dir)
 
     with open(output_dir / 'config.json', 'w') as f:
         json.dump(args, f)
@@ -199,9 +249,10 @@ def main():
         test_policies_with_pretrained_model(
             policy_creators, args, output_dir,
             percentile=percentile,
-            eval_steps_per_env=eval_steps_per_env,
+            n_object_level_episodes=n_object_level_episodes,
             video_args=video_args,
-            results_observer=results_accumulator
+            results_observer=results_accumulator,
+            max_object_level_steps=max_object_level_steps
         )
 
 

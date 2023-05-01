@@ -123,7 +123,7 @@ class NodeTokeniser(TreeTokeniser):
         """
         if node.token is not None:
             # only value that can have changed
-            node.token[1] = tree.has_valid_expansions(node)
+            node.token[1] = float(tree.has_valid_expansions(node))
             return node.token
 
         state = node.get_state()

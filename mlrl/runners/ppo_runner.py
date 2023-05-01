@@ -194,9 +194,9 @@ class PPORunner:
         # set up evaluation runner
         if eval_steps > 0 and self.eval_env is not None:
             self.evaluator = EvalRunner(
-                eval_steps,
-                eval_env,
-                self.agent.policy,
+                eval_steps=eval_steps,
+                eval_env=eval_env,
+                policy=self.agent.policy,
                 video_env=video_env,
                 videos_dir=self.videos_dir,
                 rewrite_rewards=rewrite_rewards,

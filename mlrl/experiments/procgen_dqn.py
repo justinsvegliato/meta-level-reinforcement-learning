@@ -334,7 +334,9 @@ def main():
     n_eval_envs = config.get('n_eval_envs', 64)
     eval_steps = config.get('eval_steps', 1000)
     eval_envs = make_vectorised_procgen(config, n_envs=n_eval_envs)
-    eval_runner = EvalRunner(n_eval_envs * eval_steps, eval_envs, agent.policy)
+    eval_runner = EvalRunner(eval_steps=n_eval_envs * eval_steps,
+                             eval_env=eval_envs,
+                             policy=agent.policy)
 
     video_renderer = create_video_renderer(config)
 

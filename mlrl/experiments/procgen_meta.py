@@ -6,6 +6,7 @@ from mlrl.procgen.procgen_state import ProcgenState, ProcgenProcessing
 from mlrl.procgen.procgen_env import make_vectorised_procgen
 from mlrl.procgen.batched_procgen_meta_env import BatchedProcgenMetaEnv
 from mlrl.procgen.meta_renderer import render_tree_policy
+from mlrl.procgen.time_limit_observer import TimeLimitObserver
 from mlrl.experiments.procgen_dqn import create_rainbow_agent
 from mlrl.utils.system import restrict_gpus
 
@@ -96,19 +97,11 @@ def create_batched_procgen_meta_envs(
         n_envs: int,
         object_config: dict,
         min_computation_steps: int = 0,
+        max_object_level_steps: int = 500,
         env_multithreading=True, **config) -> BatchedPyEnvironment:
 
     if n_envs == 0:
         raise ValueError('n_envs must be > 0')
-
-    # return BatchedPyEnvironment([
-    #     GymWrapper(create_procgen_meta_env(
-    #         object_config,
-    #         min_computation_steps=min_computation_steps,
-    #         **config
-    #     ))
-    #     for _ in range(n_envs)
-    # ], multithreading=env_multithreading)
 
     meta_envs = [
         create_procgen_meta_env(
@@ -119,6 +112,10 @@ def create_batched_procgen_meta_envs(
         for _ in range(n_envs)
     ]
     max_expands_per_env = len(ProcgenState.ACTIONS)
+
+    for env in meta_envs:
+        time_limit = TimeLimitObserver(env, max_object_level_steps)
+        env.object_level_transition_observers.append(time_limit)
 
     return BatchedProcgenMetaEnv(meta_envs, max_expands_per_env, object_config,
                                  multithreading=env_multithreading)
