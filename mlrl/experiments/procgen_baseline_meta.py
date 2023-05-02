@@ -138,8 +138,10 @@ class ResultsAccumulator:
         self.results.append(results)
         self.results_df = pd.DataFrame(self.results)
         self.results_df.to_csv(self.output_dir / 'results.csv', index=False)
+
         self.episode_stats_df = pd.DataFrame(self.episode_stats)
         self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
+
         self.plot_results()
 
     def add_episode_stats(self, policy: str, percentile: float, stats: dict):
@@ -149,14 +151,24 @@ class ResultsAccumulator:
             'Number of Steps': stats['steps'],
             'Return': stats['return'],
         })
+        self.episode_stats_df = pd.DataFrame(self.episode_stats)
+        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
+
+        self.plot_results()
 
     def plot_results(self):
-        plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
+        self.episode_stats_df = pd.DataFrame(self.episode_stats)
+        self.results_df = pd.DataFrame(self.results)
+        self.plot_rewritten_returns()
+        self.plot_object_level_returns()
+
+    def plot_rewritten_returns(self):
+        plot_name, plot_key = 'Mean Rewritten Meta Return', 'EvalRewrittenAverageReturn'
+
+        if plot_key not in self.results_df.columns:
+            return
 
         plt.figure(figsize=(15, 10))
-
-        # sns.lineplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', label='Pretrained Return', alpha=0.25, color='r')
-        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', color='r', legend=False)
 
         sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
         sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
@@ -166,23 +178,24 @@ class ResultsAccumulator:
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
         plt.savefig(self.output_dir / 'mean-object-return-vs-percentile.png')
-
         plt.close()
 
+    def plot_object_level_returns(self):
+        plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
+
+        if plot_key not in self.results_df.columns:
+            return
+
         plt.figure(figsize=(15, 10))
-
-        # sns.lineplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', label='Pretrained Return', alpha=0.25, color='r')
-        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y='pretrained_return', color='r', legend=False)
-
         sns.lineplot(data=self.episode_stats_df, x='Pretrained Percentile', y='Return', hue='Meta-level Policy', alpha=0.5)
         sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
-        # sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
 
         plt.xlabel('Pretrained Percentile')
         plt.ylabel(plot_name)
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
         plt.savefig(self.output_dir / 'object-return-vs-percentile.png')
+        plt.close()
 
 
 def parse_args():
@@ -197,14 +210,13 @@ def parse_args():
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=64)
     parser.add_argument('--n_envs', type=int, default=16)
-    # parser.add_argument('--eval_steps_per_env', type=int, default=3000)
     parser.add_argument('--n_episodes', type=int, default=100)
     parser.add_argument('--max_steps', type=int, default=500)
 
     # Video parameters
     parser.add_argument('--no_video', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
-    parser.add_argument('--video_steps', type=int, default=10)
+    parser.add_argument('--video_steps', type=int, default=120)
 
     return vars(parser.parse_args())
 

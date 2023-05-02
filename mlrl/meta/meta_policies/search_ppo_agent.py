@@ -12,8 +12,10 @@ from tf_agents.train.utils import train_utils
 from tf_agents.networks.mask_splitter_network import MaskSplitterNetwork
 from tf_agents.train.utils import spec_utils
 
+import os
 
-def create_search_ppo_agent(env, config, train_step=None):
+
+def create_search_ppo_agent(env, config, train_step=None, return_networks=False):
 
     observation_tensor_spec, action_tensor_spec, time_step_tensor_spec = (
         spec_utils.get_tensor_specs(env))
@@ -44,7 +46,7 @@ def create_search_ppo_agent(env, config, train_step=None):
 
     train_step = train_step or train_utils.create_train_step()
 
-    return PPOAgent(
+    agent = PPOAgent(
         time_step_tensor_spec,
         action_tensor_spec,
         actor_net=actor_net,
@@ -62,3 +64,32 @@ def create_search_ppo_agent(env, config, train_step=None):
         discount_factor=0.99,
         num_epochs=1,  # deprecated param
     )
+
+    if return_networks:
+        actor_model = tf.keras.Sequential([actor_net])
+        actor_model(env.reset().observation)
+        value_model = tf.keras.Sequential([value_net])
+        value_model(env.current_time_step().observation)
+        return agent, actor_model, value_model
+
+    return agent
+
+
+def load_ppo_agent(env, args, ckpt_dir: str = None):
+
+    agent, actor_net, value_net = create_search_ppo_agent(env, args,
+                                                          return_networks=True)
+
+    actor_net.load_weights(os.path.join(ckpt_dir, 'actor_network'))
+    value_net.load_weights(os.path.join(ckpt_dir, 'value_network'))
+
+    # checkpoint = tf.train.Checkpoint(policy=agent.policy)
+
+    # if ckpt_dir:
+    #     file_prefix = os.path.join(ckpt_dir,
+    #                                tf.saved_model.VARIABLES_DIRECTORY,
+    #                                tf.saved_model.VARIABLES_FILENAME)
+
+    #     checkpoint.restore(file_prefix)
+
+    return agent

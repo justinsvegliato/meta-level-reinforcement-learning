@@ -241,8 +241,8 @@ def end_of_epoch_callback(logs: dict, runner: PPORunner):
 def create_runner(args):
 
     object_config = load_pretrained_q_network(
-        folder=args['pretrained_runs_folder'],
-        run=args['pretrained_run'],
+        folder=args.get('pretrained_runs_folder', 'runs'),
+        run=args.get('pretrained_run', 'run-16823527592836354'),
         percentile=args.get('pretrained_percentile', 0.75)
     )
 

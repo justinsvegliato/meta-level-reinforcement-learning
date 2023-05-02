@@ -68,6 +68,8 @@ class PPORunner:
         self.config = config
         self.name = run_name or f'ppo_run_{time_id()}'
         self.root_dir = f'outputs/runs/{self.name}/'
+        self.network_checkpoints = os.path.join(self.root_dir, 'network_checkpoints')
+        Path(self.network_checkpoints).mkdir(parents=True, exist_ok=True)
         self.gc_interval = gc_interval
 
         self.collect_env = collect_env
@@ -97,7 +99,10 @@ class PPORunner:
         self.learning_rate = learning_rate_fn
         config['learning_rate'] = self.learning_rate
 
-        self.agent = create_search_ppo_agent(self.collect_env, config, self.train_step_counter)
+        self.agent, self.actor_model, self.value_model = create_search_ppo_agent(self.collect_env,
+                                                                                 config,
+                                                                                 self.train_step_counter,
+                                                                                 return_networks=True)
 
         self.replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=self.agent.collect_data_spec,
@@ -306,6 +311,14 @@ class PPORunner:
               f'{self.model_save_metric} = {self.model_save_metric_best or 0:.3f}')
         self.save_best_model()
 
+    def checkpoint_networks(self):
+        ckpt_dir = os.path.join(self.network_checkpoints,
+                                f'step_{self.train_step_counter.numpy()}')
+        Path(ckpt_dir).mkdir(parents=True, exist_ok=True)
+        self.actor_model.save_weights(os.path.join(ckpt_dir, 'actor_network'))
+        self.value_model.save_weights(os.path.join(ckpt_dir, 'value_network'))
+        print(f'Saved value and actor networks to {ckpt_dir}')
+
     def _run(self):
         wandb.init(project='mlrl', entity='drcope',
                    reinit=True, config=self.get_config())
@@ -329,6 +342,9 @@ class PPORunner:
                 if new_val != self.model_save_metric_best:
                     self.model_save_metric_best = new_val
                     self.save_best()
+
+            if i % self.policy_save_interval == 0:
+                self.checkpoint_networks()
 
             if self.end_of_epoch_callback is not None:
                 self.end_of_epoch_callback(iteration_logs, self)
@@ -367,6 +383,7 @@ class PPORunner:
             raise e
 
         finally:
+            self.checkpoint_networks()
             self.save_checkpoint()
             wandb.finish()
             if self.profile_run:

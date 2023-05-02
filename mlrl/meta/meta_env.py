@@ -114,7 +114,7 @@ class MetaEnv(gym.Env):
                  cost_of_computation: float = 0.001,
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
-                 expand_all_actions: bool = False,
+                 expand_all_actions: bool = True,
                  finish_on_terminate: bool = False,
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
