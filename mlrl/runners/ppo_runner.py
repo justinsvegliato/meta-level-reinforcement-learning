@@ -208,6 +208,8 @@ class PPORunner:
                 step_counter=self.train_step_counter)
         else:
             self.evaluator = None
+            
+        self.wandb_run = None
 
     def get_config(self):
         """ Returns the config of the runner. """
@@ -320,12 +322,12 @@ class PPORunner:
         print(f'Saved value and actor networks to {ckpt_dir}')
 
     def _run(self):
-        wandb.init(project='mlrl', entity='drcope',
-                   reinit=True, config=self.get_config())
+        self.wandb_run = wandb.init(project='mlrl', entity='drcope', dir=self.root_dir + '/wandb',
+                                    reinit=True, config=self.get_config())
 
         for i in range(self.num_iterations):
             iteration_logs = {'iteration': i}
-            print(f'Iteration: {i}')
+            print(f'[{self.wandb_run.id}/{self.wandb_run.name}] Iteration: {i}')
 
             iteration_logs['TrainStep'] = self.train_step_counter.numpy()
 
