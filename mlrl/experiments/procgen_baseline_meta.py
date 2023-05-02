@@ -29,6 +29,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         n_object_level_episodes=10,
                                         video_args: dict = None,
                                         max_object_level_steps=50,
+                                        n_envs=8,
                                         results_observer: Callable[[dict], None] = None):
     create_video = video_args is not None
 
@@ -44,7 +45,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         percentile=args.get('pretrained_percentile', 0.75),
         verbose=False
     )
-    n_envs = args.pop('n_envs', 8)
+    n_envs = args.pop('n_envs', n_envs)
 
     prog_bar = Progbar(
         n_object_level_episodes,
@@ -88,6 +89,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             policy=create_policy(batched_meta_env),
             rewrite_rewards=True,
             use_tf_function=False,
+            convert_to_eager=False,
             stop_eval_condition=lambda: completed_n_object_level_episodes(batched_meta_env,
                                                                           n_object_level_episodes),
             video_env=video_env,
@@ -198,7 +200,7 @@ class ResultsAccumulator:
         plt.close()
 
 
-def parse_args():
+def create_parser():
     parser = argparse.ArgumentParser()
 
     # System parameters
@@ -218,7 +220,11 @@ def parse_args():
     parser.add_argument('--video_fps', type=int, default=1)
     parser.add_argument('--video_steps', type=int, default=120)
 
-    return vars(parser.parse_args())
+    return parser
+
+
+def parse_args():
+    return vars(create_parser().parse_args())
 
 
 def main():
