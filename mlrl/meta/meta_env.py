@@ -688,7 +688,7 @@ class MetaEnv(gym.Env):
         if i in self.meta_action_strings:
             action_string = self.meta_action_strings[i]
         else:
-            action_string = f'Invalid'
+            action_string = 'Invalid'
 
         if self.tree.get_num_nodes() != 1:
             computational_reward = self.last_computational_reward
