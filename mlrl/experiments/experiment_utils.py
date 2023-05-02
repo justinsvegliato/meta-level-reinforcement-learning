@@ -49,7 +49,7 @@ def create_meta_env(object_env: gym.Env,
                        initial_tree,
                        max_tree_size=config.get('max_tree_size', 10),
                        split_mask_and_tokens=config.get('split_mask_and_tokens', True),
-                       expand_all_actions=config.get('expand_all_actions', False),
+                       expand_all_actions=config.get('expand_all_actions', True),
                        computational_rewards=config.get('computational_rewards', True),
                        finish_on_terminate=config.get('finish_on_terminate', False),
                        min_computation_steps=config.get('min_computation_steps', min_computation_steps),
@@ -182,7 +182,7 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=5,
+    parser.add_argument('--eval_interval', type=int, default=15,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')

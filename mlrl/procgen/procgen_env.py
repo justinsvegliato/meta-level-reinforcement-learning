@@ -10,6 +10,7 @@ from mlrl.utils.procgen_gym3_wrapper import ProcgenGym3Wrapper
 def make_vectorised_procgen(
         config: dict,
         procgen_env_name: str = None,
+        seed: Optional[int] = None,
         n_envs: Optional[int] = 64) -> PyEnvironment:
 
     env_name = procgen_env_name or config.get('env', 'coinrun')
@@ -23,6 +24,7 @@ def make_vectorised_procgen(
         env_name=env_name,
         use_backgrounds=False,
         restrict_themes=True,
+        rand_seed=seed,
         distribution_mode='easy'), key='rgb')
 
     wrapped_procgen_gym3 = ProcgenGym3Wrapper(procgen_gym3, action_repeats=action_repeats)

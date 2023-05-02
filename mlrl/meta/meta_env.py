@@ -33,31 +33,44 @@ gym.envs.register(
 
 class ObjectLevelMetrics:
 
-    def __init__(self):
+    def __init__(self, episode_complete_callback: Optional[Callable[[dict], None]] = None):
         self.return_val = 0
-        self.sum_of_returns = 0
         self.n_steps = 0
-        self.n_episodes = 0
+        self.episode_stats = []
+        self.episode_complete_callback = episode_complete_callback
 
     def reset(self):
         self.return_val = 0
-        self.sum_of_returns = 0
         self.n_steps = 0
-        self.n_episodes = 0
+        self.episode_stats = []
+
+    def get_num_episodes(self):
+        return len(self.episode_stats)
 
     def __call__(self, obs, reward, done, info):
-        self.n_steps += np.size(reward)
         self.return_val += np.sum(reward)
         if done:
-            self.sum_of_returns += self.return_val
+            stats = {
+                'return': self.return_val,
+                'steps': self.n_steps
+            }
+            self.episode_stats.append(stats)
+            if self.episode_complete_callback is not None:
+                self.episode_complete_callback(stats)
+
             self.return_val = 0
-        self.n_episodes += np.sum(done)
+            self.n_steps = 0
+        else:
+            self.n_steps += np.size(reward)
 
     def get_results(self):
+        sum_of_returns = sum([stat['return'] for stat in self.episode_stats])
+        total_steps = sum([stat['steps'] for stat in self.episode_stats])
+        n_episodes = len(self.episode_stats)
         return {
-            'ObjectLevelMeanReward': self.sum_of_returns / max(1, self.n_episodes),
-            'ObjectLevelMeanStepsPerEpisode': self.n_steps / max(1, self.n_episodes),
-            'ObjectLevelEpisodes': self.n_episodes
+            'ObjectLevelMeanReward': sum_of_returns / max(1, n_episodes),
+            'ObjectLevelMeanStepsPerEpisode': total_steps / max(1, n_episodes),
+            'ObjectLevelEpisodes': n_episodes
         }
 
 
@@ -101,7 +114,7 @@ class MetaEnv(gym.Env):
                  cost_of_computation: float = 0.001,
                  computational_rewards: bool = True,
                  max_tree_size: int = 10,
-                 expand_all_actions: bool = False,
+                 expand_all_actions: bool = True,
                  finish_on_terminate: bool = False,
                  keep_subtree_on_terminate: bool = True,
                  root_based_computational_rewards: bool = False,
@@ -144,8 +157,8 @@ class MetaEnv(gym.Env):
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
         self.min_computation_steps = min_computation_steps
-        self.object_level_transition_observers = object_level_transition_observers or []
         self.object_level_metrics = ObjectLevelMetrics()
+        self.object_level_transition_observers = [self.object_level_metrics] + (object_level_transition_observers or [])
 
         self.random_cost_of_computation = random_cost_of_computation
         self.cost_of_computation_interval = cost_of_computation_interval
@@ -548,10 +561,8 @@ class MetaEnv(gym.Env):
         object_obs, object_r, done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
 
-        self.object_level_metrics(object_obs, object_r, done, info)
-        if self.object_level_transition_observers is not None:
-            for observer in self.object_level_transition_observers:
-                observer(object_obs, object_r, done, info)
+        for observer in self.object_level_transition_observers:
+            observer(object_obs, object_r, done, info)
 
         if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
@@ -561,7 +572,7 @@ class MetaEnv(gym.Env):
         self.search_tree_policy = self.make_tree_policy(self.tree)
 
     def observe(self):
-        if self.last_meta_action == 0:
+        if self.done:
             return self.observe_terminate()
 
         self.search_tree_policy = self.make_tree_policy(self.tree)

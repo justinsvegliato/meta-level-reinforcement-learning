@@ -3,7 +3,7 @@ from typing import Any, Callable, List, Optional, Union
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import SearchTreePolicy
-from mlrl.meta.metrics import MeanFinalPolicyValueMetric
+# from mlrl.meta.metrics import MeanFinalPolicyValueMetric
 from mlrl.maze.maze_utils import construct_maze_policy_string
 
 from tf_agents.trajectories import trajectory
@@ -41,6 +41,9 @@ class TrajectoryRewriterWrapper:
             i: self.get_env(i).search_tree_policy for i in range(self.n_envs)
         }
         self.eval_trees = {i: None for i in range(self.n_envs)}
+        self.prev_policy_values = {i: 0. for i in range(self.n_envs)}
+        self.policy_values = {i: 0. for i in range(self.n_envs)}
+        self.computational_rewards = {i: 0. for i in range(self.n_envs)}
 
     def is_terminal(self, i: int = 0) -> bool:
         return self.traj.is_last()[i] or self.traj.action[i] == 0
@@ -77,6 +80,9 @@ class TrajectoryRewriterWrapper:
                 evaluating each action.
         """
         self.is_handled[i] = True
+        if self.is_terminal(i):
+            return
+
         prev_policy = self.get_prev_policy(i)
         policy = self.get_policy(i)
         if None in [prev_policy, policy, final_tree]:
@@ -85,6 +91,10 @@ class TrajectoryRewriterWrapper:
         prev_policy_value = prev_policy.evaluate(final_tree)
         policy_value = policy.evaluate(final_tree)
         computational_reward = policy_value - prev_policy_value
+
+        self.prev_policy_values[i] = prev_policy_value
+        self.policy_values[i] = policy_value
+        self.computational_rewards[i] = computational_reward
 
         meta_env = self.get_env(i)
         reward = computational_reward - meta_env.cost_of_computation
@@ -112,6 +122,9 @@ class TrajectoryRewriterWrapper:
             'policy': self.policies,
             'eval_tree': self.eval_trees,
             'terminal': [self.is_terminal(i) for i in range(self.n_envs)],
+            'prev_policy_value': self.prev_policy_values,
+            'policy_value': self.policy_values,
+            'computational_reward': self.computational_rewards
         }
 
 
@@ -170,7 +183,7 @@ class RetroactiveRewardsRewriter:
         self.return_metric = py_metrics.AverageReturnMetric(buffer_size=metric_buffer_size,
                                                             batch_size=self.n_envs,
                                                             name=metric_name)
-        self.mean_policy_value_metric = MeanFinalPolicyValueMetric()
+        # self.mean_policy_value_metric = MeanFinalPolicyValueMetric()
 
     def get_env(self, i: int = 0) -> MetaEnv:
         env = self.env.envs[i] if hasattr(self.env, 'envs') else self.env
@@ -180,7 +193,8 @@ class RetroactiveRewardsRewriter:
 
     def reset(self):
         self.trajectories = []
-        self.return_metric.reset()
+        for metric in self.get_metrics():
+            metric.reset()
 
     def flush_all(self):
         for i in range(self.n_envs):
@@ -241,7 +255,7 @@ class RetroactiveRewardsRewriter:
             # and so the policy has already been reset
             last_policy = unhandled_trajectories[-2].get_policy(i)
             final_tree = last_policy.tree if last_policy is not None else None
-            self.mean_policy_value_metric(final_tree.root_node.get_value())
+            # self.mean_policy_value_metric(final_tree.root_node.get_value())
         else:
             final_tree = None  # implies that terminate was the first and only action
 
@@ -272,4 +286,5 @@ class RetroactiveRewardsRewriter:
             self.flush_handled_trajectories()
 
     def get_metrics(self):
-        return [self.return_metric, self.mean_policy_value_metric]
+        # return [self.return_metric, self.mean_policy_value_metric]
+        return [self.return_metric]

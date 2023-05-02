@@ -26,7 +26,7 @@ def create_random_search_policy_no_terminate(env):
         not_terminate = np.ones(mask.shape)
         for i in range(mask.shape[0]):
             # if there are no more expansions, don't mask terminate
-            if np.sum(mask[i, 1:]) > 1:
+            if np.sum(mask[i, 1:]) >= 1:
                 not_terminate[i, 0] = 0
 
         mask = tf.convert_to_tensor(mask * not_terminate, dtype=tf.int32)
