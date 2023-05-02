@@ -56,7 +56,7 @@ class EvalRunner:
             self.eval_policy = policy
 
         if video_policy is None:
-            self.video_policy = policy
+            self.video_policy = self.eval_policy
         elif convert_to_eager:
             self.video_policy = py_tf_eager_policy.PyTFEagerPolicy(
                 video_policy, use_tf_function=use_tf_function, batch_time_steps=False)
