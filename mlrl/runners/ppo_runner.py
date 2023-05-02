@@ -332,6 +332,7 @@ class PPORunner:
             if self.eval_interval > 0 and i % self.eval_interval == 0:
                 eval_logs = self.run_evaluation(i)
                 iteration_logs.update(eval_logs)
+                self.checkpoint_networks()
 
             iteration_logs.update(self.collect())
             iteration_logs.update(self.train())
@@ -342,9 +343,6 @@ class PPORunner:
                 if new_val != self.model_save_metric_best:
                     self.model_save_metric_best = new_val
                     self.save_best()
-
-            if i % self.policy_save_interval == 0:
-                self.checkpoint_networks()
 
             if self.end_of_epoch_callback is not None:
                 self.end_of_epoch_callback(iteration_logs, self)
