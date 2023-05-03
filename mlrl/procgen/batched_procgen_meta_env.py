@@ -20,7 +20,7 @@ from tf_agents.utils import nest_utils
 
 
 class NodeExpansionRequest:
-    
+
     def __init__(self,
                  node: SearchTreeNode[ProcgenState],
                  child_node: SearchTreeNode[ProcgenState],
