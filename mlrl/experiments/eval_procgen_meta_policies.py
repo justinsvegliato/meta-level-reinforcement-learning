@@ -56,6 +56,8 @@ def load_best_policies(runs: List[dict], output_dir: Path, selection_method: str
         xs = list(x)
 
         if selection_method == 'best':
+            model_epoch = max(xs, key=lambda i: y[xs.index(i)])
+        elif selection_method == 'best_smoothed':
             model_epoch = max(xs, key=lambda i: y_smooth[xs.index(i)])
         elif selection_method == 'last':
             model_epoch = max(xs)
@@ -106,10 +108,10 @@ def main():
         # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
         # Path('outputs/runs/ppo_run_01-51-04-01-05-2023/'),
         # Path('outputs/runs/ppo_run_39-44-04-01-05-2023/'),
-        Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
-        Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
-        Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
-        # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
+        # Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
+        # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
+        # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
+        Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
     ]
 
     runs = [
@@ -134,7 +136,7 @@ def main():
         percentile = run['config']['pretrained_percentile']
 
         policy_creators = {
-            f'Learned Meta-Policy': lambda _: run['best_policy']
+            'Learned Meta-Policy': lambda _: run['best_policy']
         }
 
         test_policies_with_pretrained_model(policy_creators,
