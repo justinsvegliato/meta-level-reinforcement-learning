@@ -72,7 +72,7 @@ def get_wandb_info_from_run_dir(root_dir: str) -> dict:
         if config is None:
             continue
 
-        if config.get('root_dir', dict(value=None))['value'] == str(root_dir) + '/':
+        if config.get('root_dir') == str(root_dir) + '/':
             info = get_wandb_info(wandb_path)
             info['root_dir'] = root_dir
             return info

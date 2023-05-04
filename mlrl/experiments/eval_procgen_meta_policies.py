@@ -3,6 +3,7 @@ import seaborn as sns
 import numpy as np
 from pathlib import Path
 from typing import List
+import json
 
 from mlrl.meta.meta_policies.search_ppo_agent import load_ppo_agent
 from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
@@ -42,14 +43,22 @@ def load_policy_from_checkpoint(run: dict, epoch: int):
     return agent.policy
 
 
-def load_best_policy(run: List[dict], output_dir: Path = None, selection_method: str = 'best'):
+def load_best_policy(run: List[dict],
+                     output_path: Path = None,
+                     selection_method: str = 'best',
+                     smoothing_radius: int = 1):
 
     _, ax = plt.subplots()
     wanbd_run = run['run']
     df = run['history']
     df = df[df['EvalRewrittenAverageReturn'].notna()]
     y = df['EvalRewrittenAverageReturn'].array
-    y_smooth = np.concatenate([[y[0]], np.convolve(y, np.ones(3) / 3, mode='valid'), [y[-1]]])
+    smooth_d = 1 + 2 * smoothing_radius
+    y_smooth = np.concatenate([
+        [y[0]] * smoothing_radius,
+        np.convolve(y, np.ones(smooth_d) / smooth_d, mode='valid'),
+        [y[-1]] * smoothing_radius
+    ])
 
     x = df['TrainStep'].array
     xs = list(x)
@@ -62,7 +71,7 @@ def load_best_policy(run: List[dict], output_dir: Path = None, selection_method:
         model_epoch = max(xs)
     else:
         raise ValueError(f'Unknown selection method: {selection_method}. '
-                          'Options are: "best", "last", "best_smoothed"')
+                         'Options are: "best", "last", "best_smoothed"')
 
     run['model_epoch'] = model_epoch
 
@@ -79,14 +88,15 @@ def load_best_policy(run: List[dict], output_dir: Path = None, selection_method:
     ax.set_ylabel('Mean Rewritten Return')
     ax.set_title('Meta Policy Training')
 
-    if output_dir:
-        plt.savefig(output_dir / 'meta_policy_training_curves.png')
+    if output_path:
+        plt.savefig(output_path)
 
 
 def parse_args():
     parser = create_parser()
     parser.add_argument('--model_selection', type=str, default='best',
-                        help='Which model to use for evaluation, one of: "best", "last"')
+                        help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
+    parser.add_argument('--smoothing_radius', type=int, default=1)
     return vars(parser.parse_args())
 
 
@@ -101,7 +111,6 @@ def main():
     if eval_args.get('gpus'):
         restrict_gpus(eval_args['gpus'])
     output_dir = Path('outputs/eval/procgen') / time_id()
-    print(f'Writing results to {output_dir}')
 
     results_accumulator = ResultsAccumulator(output_dir=output_dir)
 
@@ -109,10 +118,10 @@ def main():
         # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
         # Path('outputs/runs/ppo_run_01-51-04-01-05-2023/'),
         # Path('outputs/runs/ppo_run_39-44-04-01-05-2023/'),
-        # Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
         # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
         # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
         # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
+        Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
         Path('outputs/runs/ppo_run_48-08-23-02-05-2023/'),
         Path('outputs/runs/ppo_run_44-49-22-02-05-2023/')
     ]
@@ -122,8 +131,14 @@ def main():
         for root_dir in meta_policy_model_paths
     ]
 
+    with open(output_dir / 'wandb_runs_info.json', 'w') as f:
+        json.dump(runs, f, default=lambda _: '<not serializable>')
+
     for run in runs:
-        load_best_policy(run, output_dir, eval_args['model_selection'])
+        run_name = run['run'].name
+        output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
+        load_best_policy(run, output_path, eval_args['model_selection'],
+                         eval_args['smoothing_radius'])
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)
@@ -136,6 +151,8 @@ def main():
             'steps': eval_args.get('video_steps', 60)
         }
 
+    print(f'Writing results to {output_dir}')
+
     for run in runs:
         percentile = run['config']['pretrained_percentile']
 
@@ -143,6 +160,9 @@ def main():
             'Learned Meta-Policy': lambda _: run['best_policy']
         }
 
+        run_id = run['run_id']
+        run_name = run['run'].name
+        print(f'Evaluating on with pretrained model at percentile {percentile} [{run_id}/{run_name}]')
         test_policies_with_pretrained_model(policy_creators,
                                             percentile=percentile,
                                             args=run['run_args'],
@@ -151,7 +171,10 @@ def main():
                                             video_args=video_args,
                                             max_object_level_steps=max_object_level_steps,
                                             n_envs=1,
-                                            n_object_level_episodes=n_object_level_episodes)
+                                            n_object_level_episodes=n_object_level_episodes,
+                                            run_id=f'{run_id}/{run_name}')
+
+    print(f'Finished evaluation. Find results at {output_dir}')
 
 
 if __name__ == '__main__':

@@ -30,6 +30,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         video_args: dict = None,
                                         max_object_level_steps=50,
                                         n_envs=8,
+                                        run_id: str = None,
                                         results_observer: Callable[[dict], None] = None):
     create_video = video_args is not None
 
@@ -52,7 +53,9 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         unit_name='episode',
         stateful_metrics=['ObjectLevelMeanReward',
                           'ObjectLevelMeanStepsPerEpisode',
-                          'ObjectLevelEpisodes']
+                          'ObjectLevelEpisodes',
+                          'ObjectLevelCurrentEpisodeReturn',
+                          'ObjectLevelCurrentEpisodeSteps']
     )
 
     def completed_n_object_level_episodes(batched_meta_env, n: int) -> bool:
@@ -101,7 +104,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             time_limit = TimeLimitObserver(env, max_object_level_steps)
             env.object_level_transition_observers.append(time_limit)
             env.object_level_metrics.episode_complete_callback = \
-                lambda stats: results_observer.add_episode_stats(policy_name, percentile, stats)
+                lambda stats: results_observer.add_episode_stats(run_id, policy_name, percentile, stats)
 
         print(f'Evaluating {policy_name}')
         reset_object_level_metrics(batched_meta_env)
@@ -110,6 +113,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
 
         evaluations = {
             'Meta-level Policy': policy_name,
+            'Run ID': run_id,
             **args,
             **object_config,
             **eval_results,
@@ -146,8 +150,9 @@ class ResultsAccumulator:
 
         self.plot_results()
 
-    def add_episode_stats(self, policy: str, percentile: float, stats: dict):
+    def add_episode_stats(self, run_id: str, policy: str, percentile: float, stats: dict):
         self.episode_stats.append({
+            'Run ID': run_id or '',
             'Meta-level Policy': policy,
             'Pretrained Percentile': percentile,
             'Number of Steps': stats['steps'],

@@ -63,10 +63,23 @@ class ObjectLevelMetrics:
         else:
             self.n_steps += np.size(reward)
 
-    def get_results(self):
+    def get_live_results(self):
         sum_of_returns = self.return_val + sum([stat['return'] for stat in self.episode_stats])
         total_steps = self.n_steps + sum([stat['steps'] for stat in self.episode_stats])
         n_episodes = len(self.episode_stats) + int(self.n_steps > 0)
+
+        return {
+            'ObjectLevelMeanReward': sum_of_returns / max(1, n_episodes),
+            'ObjectLevelMeanStepsPerEpisode': total_steps / max(1, n_episodes),
+            'ObjectLevelEpisodes': n_episodes,
+            'ObjectLevelCurrentEpisodeReturn': self.return_val,
+            'ObjectLevelCurrentEpisodeSteps': self.n_steps
+        }
+
+    def get_results(self):
+        sum_of_returns = sum([stat['return'] for stat in self.episode_stats])
+        total_steps = sum([stat['steps'] for stat in self.episode_stats])
+        n_episodes = len(self.episode_stats)
 
         return {
             'ObjectLevelMeanReward': sum_of_returns / max(1, n_episodes),
@@ -81,6 +94,8 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
     sum_reward = 0
     n_steps = 0
     total_episodes = 0
+    curr_returns = 0
+    curr_n_steps = 0
 
     for metric in metrics:
         n_episodes = metric['ObjectLevelEpisodes']
@@ -88,12 +103,18 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
             continue
         sum_reward += metric['ObjectLevelMeanReward'] * n_episodes
         n_steps += metric['ObjectLevelMeanStepsPerEpisode'] * n_episodes
+        curr_returns += metric['ObjectLevelCurrentEpisodeReturn']
+        curr_n_steps += metric['ObjectLevelCurrentEpisodeSteps']
         total_episodes += n_episodes
+
+    n_envs = len(metrics)
 
     return {
         'ObjectLevelMeanReward': sum_reward / max(1, total_episodes),
         'ObjectLevelMeanStepsPerEpisode': n_steps / max(1, total_episodes),
-        'ObjectLevelEpisodes': total_episodes
+        'ObjectLevelEpisodes': total_episodes,
+        'ObjectLevelCurrentEpisodeReturn': curr_returns / max(1, n_envs),
+        'ObjectLevelCurrentEpisodeSteps': curr_n_steps / max(1, n_envs)
     }
 
 
