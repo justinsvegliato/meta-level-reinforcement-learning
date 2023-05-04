@@ -68,6 +68,9 @@ class SearchTreePolicy(ABC):
         def recursive_compute_value(node: SearchTreeNode, trajectory=None) -> float:
             trajectory = trajectory or []
 
+            if node.is_terminal_state:
+                return 0
+
             cycle = find_cycle(node.state, trajectory)
             if cycle:
                 return self.compute_exp_cycle_value(cycle)

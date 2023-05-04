@@ -322,7 +322,7 @@ class PPORunner:
         print(f'Saved value and actor networks to {ckpt_dir}')
 
     def _run(self):
-        self.wandb_run = wandb.init(project='mlrl', entity='drcope', dir=self.root_dir + '/wandb',
+        self.wandb_run = wandb.init(project='mlrl', entity='drcope', dir=self.root_dir,
                                     reinit=True, config=self.get_config())
 
         for i in range(self.num_iterations):
