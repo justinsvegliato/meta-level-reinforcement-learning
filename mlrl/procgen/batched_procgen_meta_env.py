@@ -154,7 +154,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
         for req, state_vec, q_value, new_state, obs, reward, done in results:
             req.child_node.reward = reward
-            req.child_node.is_terminal_node = done
+            req.child_node.is_terminal_state = done
             req.child_node.state.set_variables([new_state], state_vec, obs, q_value)
 
     def _step(self, meta_actions: List[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, dict]:

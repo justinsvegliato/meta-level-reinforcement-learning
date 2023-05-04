@@ -43,7 +43,7 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
 
         state_nodes = tree.get_state_nodes(state)
         children = sum([node.get_children(action) for node in state_nodes], [])
-        if any(node.is_terminal for node in state_nodes):
+        if any(node.is_terminal_state for node in state_nodes):
             q_value = 0
             if verbose:
                 print('Q-value of terminal state:', q_value)
@@ -55,7 +55,7 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
             q_value = 0
 
             for child in children:
-                if child.is_terminal:
+                if child.is_terminal_state:
                     value = 0
                 else:
                     cycle_trajectory = find_cycle(child.state, trajectory)
