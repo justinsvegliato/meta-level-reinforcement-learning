@@ -15,3 +15,4 @@ class TimeLimitObserver:
             # https://github.com/openai/procgen/blob/5e1dbf341d291eff40d1f9e0c0a0d5003643aebf/procgen/src/game.cpp#L124
             self.object_env.step(-1)
             self.metrics(None, [], True, None)
+            info['time_limit_reached'] = True

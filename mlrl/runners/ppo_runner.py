@@ -208,6 +208,8 @@ class PPORunner:
                 step_counter=self.train_step_counter)
         else:
             self.evaluator = None
+            
+        self.wandb_run = None
 
     def get_config(self):
         """ Returns the config of the runner. """
@@ -320,18 +322,19 @@ class PPORunner:
         print(f'Saved value and actor networks to {ckpt_dir}')
 
     def _run(self):
-        wandb.init(project='mlrl', entity='drcope',
-                   reinit=True, config=self.get_config())
+        self.wandb_run = wandb.init(project='mlrl', entity='drcope', dir=self.root_dir,
+                                    reinit=True, config=self.get_config())
 
         for i in range(self.num_iterations):
             iteration_logs = {'iteration': i}
-            print(f'Iteration: {i}')
+            print(f'[{self.wandb_run.id}/{self.wandb_run.name}] Iteration: {i}')
 
             iteration_logs['TrainStep'] = self.train_step_counter.numpy()
 
             if self.eval_interval > 0 and i % self.eval_interval == 0:
                 eval_logs = self.run_evaluation(i)
                 iteration_logs.update(eval_logs)
+                self.checkpoint_networks()
 
             iteration_logs.update(self.collect())
             iteration_logs.update(self.train())
@@ -342,9 +345,6 @@ class PPORunner:
                 if new_val != self.model_save_metric_best:
                     self.model_save_metric_best = new_val
                     self.save_best()
-
-            if i % self.policy_save_interval == 0:
-                self.checkpoint_networks()
 
             if self.end_of_epoch_callback is not None:
                 self.end_of_epoch_callback(iteration_logs, self)

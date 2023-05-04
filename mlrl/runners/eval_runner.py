@@ -35,6 +35,7 @@ class EvalRunner:
                  use_tf_function: bool = True,
                  convert_to_eager: bool = True,
                  metrics: Optional[list] = None,
+                 observers: Optional[list] = None,
                  stop_eval_condition: callable = None,
                  prog_bar: Optional[ProgressBarObserver] = None,
                  step_counter=None):
@@ -65,7 +66,7 @@ class EvalRunner:
 
         self.metrics = metrics or []
 
-        eval_observers = []
+        eval_observers = observers or []
         self.rewrite_rewards = rewrite_rewards
         if rewrite_rewards:
             self.eval_reward_rewriter = RetroactiveRewardsRewriter(self.eval_env,
