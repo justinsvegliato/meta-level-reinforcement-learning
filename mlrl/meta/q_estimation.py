@@ -43,27 +43,33 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
 
         state_nodes = tree.get_state_nodes(state)
         children = sum([node.get_children(action) for node in state_nodes], [])
-        if children:
+        if any(node.is_terminal for node in state_nodes):
+            q_value = 0
+            if verbose:
+                print('Q-value of terminal state:', q_value)
+
+        elif children:
             if verbose:
                 print('Aggregating Q-value estimates from children:', children)
 
             q_value = 0
 
             for child in children:
-                cycle_trajectory = find_cycle(child.state, trajectory)
-                if cycle_trajectory:
-                    value = self.compute_cycle_value(cycle_trajectory)
-                    if verbose:
-                        print(f'Cycle value of duplicate child {child}:', value)
+                if child.is_terminal:
+                    value = 0
                 else:
-                    if verbose:
-                        print()
-                    child_q_values = self.estimate_optimal_q_distribution(
-                        tree, child.state,
-                        trajectory=trajectory + [(state, action, child.reward)],
-                        verbose=verbose
-                    )
-                    value = max(child_q_values.values())
+                    cycle_trajectory = find_cycle(child.state, trajectory)
+                    if cycle_trajectory:
+                        value = self.compute_cycle_value(cycle_trajectory)
+                        if verbose:
+                            print(f'Cycle value of duplicate child {child}:', value)
+                    else:
+                        child_q_values = self.estimate_optimal_q_distribution(
+                            tree, child.state,
+                            trajectory=trajectory + [(state, action, child.reward)],
+                            verbose=verbose
+                        )
+                        value = max(child_q_values.values())
 
                 q_value = child.reward + self.discount * value
 

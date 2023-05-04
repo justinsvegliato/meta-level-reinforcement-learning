@@ -64,13 +64,16 @@ class ObjectLevelMetrics:
             self.n_steps += np.size(reward)
 
     def get_results(self):
-        sum_of_returns = sum([stat['return'] for stat in self.episode_stats])
-        total_steps = sum([stat['steps'] for stat in self.episode_stats])
-        n_episodes = len(self.episode_stats)
+        sum_of_returns = self.return_val + sum([stat['return'] for stat in self.episode_stats])
+        total_steps = self.n_steps + sum([stat['steps'] for stat in self.episode_stats])
+        n_episodes = len(self.episode_stats) + int(self.n_steps > 0)
+
         return {
             'ObjectLevelMeanReward': sum_of_returns / max(1, n_episodes),
             'ObjectLevelMeanStepsPerEpisode': total_steps / max(1, n_episodes),
-            'ObjectLevelEpisodes': n_episodes
+            'ObjectLevelEpisodes': n_episodes,
+            'ObjectLevelCurrentEpisodeReturn': self.return_val,
+            'ObjectLevelCurrentEpisodeSteps': self.n_steps
         }
 
 
@@ -800,6 +803,8 @@ class MetaEnv(gym.Env):
             plt.show()
         else:
             plt.close()
+
+        self.set_environment_to_root_state()
 
         return meta_env_img
 

@@ -42,35 +42,35 @@ def load_policy_from_checkpoint(run: dict, epoch: int):
     return agent.policy
 
 
-def load_best_policies(runs: List[dict], output_dir: Path, selection_method: str = 'best'):
+def load_best_policy(run: List[dict], output_dir: Path = None, selection_method: str = 'best'):
 
     _, ax = plt.subplots()
-    for run in runs:
-        wanbd_run = run['run']
-        df = run['history']
-        df = df[df['EvalRewrittenAverageReturn'].notna()]
-        y = df['EvalRewrittenAverageReturn'].array
-        y_smooth = np.concatenate([[y[0]], np.convolve(y, np.ones(3) / 3, mode='valid'), [y[-1]]])
+    wanbd_run = run['run']
+    df = run['history']
+    df = df[df['EvalRewrittenAverageReturn'].notna()]
+    y = df['EvalRewrittenAverageReturn'].array
+    y_smooth = np.concatenate([[y[0]], np.convolve(y, np.ones(3) / 3, mode='valid'), [y[-1]]])
 
-        x = df['TrainStep'].array
-        xs = list(x)
+    x = df['TrainStep'].array
+    xs = list(x)
 
-        if selection_method == 'best':
-            model_epoch = max(xs, key=lambda i: y[xs.index(i)])
-        elif selection_method == 'best_smoothed':
-            model_epoch = max(xs, key=lambda i: y_smooth[xs.index(i)])
-        elif selection_method == 'last':
-            model_epoch = max(xs)
-        else:
-            raise ValueError(f'Unknown selection method: {selection_method}')
+    if selection_method == 'best':
+        model_epoch = max(xs, key=lambda i: y[xs.index(i)])
+    elif selection_method == 'best_smoothed':
+        model_epoch = max(xs, key=lambda i: y_smooth[xs.index(i)])
+    elif selection_method == 'last':
+        model_epoch = max(xs)
+    else:
+        raise ValueError(f'Unknown selection method: {selection_method}. '
+                          'Options are: "best", "last", "best_smoothed"')
 
-        run['model_epoch'] = model_epoch
+    run['model_epoch'] = model_epoch
 
-        run['best_policy'] = load_policy_from_checkpoint(run, model_epoch)
+    run['best_policy'] = load_policy_from_checkpoint(run, model_epoch)
 
-        line, *_ = ax.plot(x, y, alpha=0.25)
-        ax.plot(df['TrainStep'], y_smooth, label=wanbd_run.name, color=line.get_color())
-        ax.scatter(model_epoch, y_smooth[xs.index(model_epoch)], color=line.get_color())
+    line, *_ = ax.plot(x, y, alpha=0.25)
+    ax.plot(df['TrainStep'], y_smooth, label=wanbd_run.name, color=line.get_color())
+    ax.scatter(model_epoch, y_smooth[xs.index(model_epoch)], color=line.get_color())
 
     # # legend outside plot
     # ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
@@ -79,7 +79,8 @@ def load_best_policies(runs: List[dict], output_dir: Path, selection_method: str
     ax.set_ylabel('Mean Rewritten Return')
     ax.set_title('Meta Policy Training')
 
-    plt.savefig(output_dir / 'meta_policy_training_curves.png')
+    if output_dir:
+        plt.savefig(output_dir / 'meta_policy_training_curves.png')
 
 
 def parse_args():
@@ -111,7 +112,9 @@ def main():
         # Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
         # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
         # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
-        Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
+        # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
+        Path('outputs/runs/ppo_run_48-08-23-02-05-2023/'),
+        Path('outputs/runs/ppo_run_44-49-22-02-05-2023/')
     ]
 
     runs = [
@@ -119,7 +122,8 @@ def main():
         for root_dir in meta_policy_model_paths
     ]
 
-    load_best_policies(runs, output_dir, selection_method=eval_args['model_selection'])
+    for run in runs:
+        load_best_policy(run, output_dir, eval_args['model_selection'])
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)
