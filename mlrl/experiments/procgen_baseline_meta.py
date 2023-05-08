@@ -40,13 +40,15 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         'finish_on_terminate': True,
     })
 
+    if 'n_envs' in args:
+        args.pop('n_envs')
+
     object_config = load_pretrained_q_network(
         folder=args['pretrained_runs_folder'],
         run=args['pretrained_run'],
         percentile=args.get('pretrained_percentile', 0.75),
         verbose=False
     )
-    n_envs = args.pop('n_envs', n_envs)
 
     prog_bar = Progbar(
         n_object_level_episodes,
@@ -164,10 +166,13 @@ class ResultsAccumulator:
         self.plot_results()
 
     def plot_results(self):
-        self.episode_stats_df = pd.DataFrame(self.episode_stats)
-        self.results_df = pd.DataFrame(self.results)
-        self.plot_rewritten_returns()
-        self.plot_object_level_returns()
+        try:
+            self.episode_stats_df = pd.DataFrame(self.episode_stats)
+            self.results_df = pd.DataFrame(self.results)
+            self.plot_rewritten_returns()
+            self.plot_object_level_returns()
+        except Exception as e:
+            print(f'Failed to plot results: {e}')
 
     def plot_rewritten_returns(self):
         plot_name, plot_key = 'Mean Rewritten Meta Return', 'EvalRewrittenAverageReturn'
@@ -217,11 +222,13 @@ def create_parser():
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=64)
     parser.add_argument('--n_envs', type=int, default=16)
-    parser.add_argument('--n_episodes', type=int, default=100)
+    parser.add_argument('--n_episodes', type=int, default=20)
     parser.add_argument('--max_steps', type=int, default=500)
+    parser.add_argument('--percentiles', type=float, nargs='+',
+                        default=[0.1, 0.25, 0.5, 0.75, 0.9])
 
     # Video parameters
-    parser.add_argument('--no_video', action='store_true', default=False)
+    parser.add_argument('--create_videos', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
     parser.add_argument('--video_steps', type=int, default=120)
 
@@ -245,18 +252,18 @@ def main():
     n_object_level_episodes = args.get('n_episodes', 10)
     max_object_level_steps = args.get('max_steps', 500)
 
-    if args.get('no_video', False):
-        video_args = None
-    else:
+    if args.get('create_videos', False):
         video_args = {
             'fps': args.get('video_fps', 1),
             'steps': args.get('video_steps', 60)
         }
+    else:
+        video_args = None
 
     policy_creators = {
-        'Instant Terminate': TerminatorPolicy,
-        'AStar': AStarPolicy,
-        'Random': create_random_search_policy,
+        # 'Instant Terminate': TerminatorPolicy,
+        # 'AStar': AStarPolicy,
+        # 'Random': create_random_search_policy,
         'Random (No Terminate)': create_random_search_policy_no_terminate
     }
     output_dir = Path('outputs/baseline/procgen') / time_id()
@@ -267,7 +274,8 @@ def main():
     with open(output_dir / 'config.json', 'w') as f:
         json.dump(args, f)
 
-    for percentile in [0.25, 0.5, 0.75, 0.9]:
+    percentiles = args.get('percentiles') or [0.1, 0.25, 0.5, 0.75, 0.9]
+    for percentile in percentiles:
         print(f'Evaluating with pretrained model at return {percentile = }')
         test_policies_with_pretrained_model(
             policy_creators, args, output_dir,

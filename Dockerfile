@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.12.0-jupyter
+FROM tensorflow/tensorflow:2.12.0-gpu-jupyter
 
 # RUN rm -f /etc/apt/sources.list.d/cuda.list
 # RUN rm -f /etc/apt/sources.list.d/nvidia-ml.list

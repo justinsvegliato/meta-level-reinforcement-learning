@@ -53,6 +53,7 @@ class PPORunner:
                  model_save_metric: str = 'AverageReturn',
                  model_save_metric_comparator: str = 'max',
                  end_of_epoch_callback: Callable[[dict, 'PPORunner'], None] = None,
+                 debug_on_crash: bool = False,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -88,6 +89,7 @@ class PPORunner:
         self.model_save_metric_best = float('-inf') if self.model_save_comparator is max else float('inf')
 
         self.train_step_counter = train_utils.create_train_step()
+        self.debug_on_crash = debug_on_crash
 
         start_lr = config.get('learning_rate', 3e-4)
 
@@ -208,7 +210,7 @@ class PPORunner:
                 step_counter=self.train_step_counter)
         else:
             self.evaluator = None
-            
+
         self.wandb_run = None
 
     def get_config(self):
@@ -374,12 +376,13 @@ class PPORunner:
         except Exception as e:
             print()
             print(f'Error during training: {e}')
-            import debugpy
-            debugpy.listen(('0.0.0.0', 5678))
-            print('Waiting for debugger...')
-            debugpy.wait_for_client()
-            print('Debugger attached.')
-            debugpy.breakpoint()
+            if self.debug_on_crash:
+                import debugpy
+                debugpy.listen(('0.0.0.0', 5678))
+                print('Waiting for debugger...')
+                debugpy.wait_for_client()
+                print('Debugger attached.')
+                debugpy.breakpoint()
             raise e
 
         finally:

@@ -78,6 +78,7 @@ def load_best_policy(run: List[dict],
     run['best_policy'] = load_policy_from_checkpoint(run, model_epoch)
 
     line, *_ = ax.plot(x, y, alpha=0.25)
+    df.sort_values(by='TrainStep', inplace=True)
     ax.plot(df['TrainStep'], y_smooth, label=wanbd_run.name, color=line.get_color())
     ax.scatter(model_epoch, y_smooth[xs.index(model_epoch)], color=line.get_color())
 
@@ -114,27 +115,32 @@ def main():
 
     results_accumulator = ResultsAccumulator(output_dir=output_dir)
 
-    meta_policy_model_paths = [
-        # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
-        # Path('outputs/runs/ppo_run_01-51-04-01-05-2023/'),
-        # Path('outputs/runs/ppo_run_39-44-04-01-05-2023/'),
-        # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
-        # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
-        # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
-        Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
-        Path('outputs/runs/ppo_run_48-08-23-02-05-2023/'),
-        Path('outputs/runs/ppo_run_44-49-22-02-05-2023/')
-    ]
+    # meta_policy_model_paths = [
+    #     # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_01-51-04-01-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_39-44-04-01-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_48-08-23-02-05-2023/'),
+    #     # Path('outputs/runs/ppo_run_44-49-22-02-05-2023/'),
+    # ]
 
-    runs = [
-        get_wandb_info_from_run_dir(root_dir)
-        for root_dir in meta_policy_model_paths
-    ]
+    meta_policy_model_paths = {
+        0.1: Path('outputs/runs/ppo_run_43-06-13-08-05-2023/'),
+    }
+
+    runs = {
+        percentile: get_wandb_info_from_run_dir(root_dir)
+        for percentile, root_dir in meta_policy_model_paths.items()
+        if percentile in eval_args['percentiles']
+    }
 
     with open(output_dir / 'wandb_runs_info.json', 'w') as f:
         json.dump(runs, f, default=lambda _: '<not serializable>')
 
-    for run in runs:
+    for run in runs.values():
         run_name = run['run'].name
         output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
         load_best_policy(run, output_path, eval_args['model_selection'],
@@ -153,8 +159,7 @@ def main():
 
     print(f'Writing results to {output_dir}')
 
-    for run in runs:
-        percentile = run['config']['pretrained_percentile']
+    for percentile, run in runs.items():
 
         policy_creators = {
             'Learned Meta-Policy': lambda _: run['best_policy']
