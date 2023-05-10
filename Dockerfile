@@ -35,3 +35,7 @@ RUN cd /tmp/gym-maze; python setup.py install
 ENV PYTHONPATH="/tmp/gym-maze/build/lib:$PYTHONPATH"
 
 RUN git config --global --add safe.directory /tf
+
+# LaTeX for matplotlib
+RUN apt-get install texlive-binaries texlive texlive-latex-extra texlive-fonts-recommended dvipng cm-super -y
+RUN pip install latex
