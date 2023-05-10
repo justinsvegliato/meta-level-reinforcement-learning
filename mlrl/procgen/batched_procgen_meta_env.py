@@ -5,7 +5,6 @@ from mlrl.procgen.procgen_env import make_vectorised_procgen
 
 from typing import List, Tuple, Optional, Dict
 
-from multiprocessing import pool 
 from multiprocessing import dummy as mp_threads
 import numpy as np
 import gym
@@ -160,9 +159,6 @@ class BatchedProcgenMetaEnv(PyEnvironment):
     def _step(self, meta_actions: List[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
         self.expansion_requests.clear()
 
-        def collect_expansion_requests(i, action):
-            self.collect_expansion_requests(i, action)
-
         if self.multithreading:
             self._pool.starmap(self.collect_expansion_requests,
                                zip(self.meta_envs, meta_actions))
@@ -174,7 +170,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
             self.handle_requests()
 
         if self.multithreading:
-            time_steps = self._pool.map(lambda e: self._create_time_step(e), self.meta_envs)
+            time_steps = self._pool.map(self._create_time_step, self.meta_envs)
         else:
             time_steps = [
                 self._create_time_step(env) for env in self.meta_envs

@@ -157,14 +157,24 @@ class GreedySearchTreePolicy(SearchTreePolicy):
 
         return probs
 
-    def __repr__(self, sep='') -> str:
+    def get_trajectory(self) -> List[SearchTreeNode]:
 
-        def build_trajectory(node: SearchTreeNode) -> List[str]:
+        def build_trajectory(node: SearchTreeNode) -> List[SearchTreeNode]:
             action = self.get_action(node.state)
             if node.has_action_children(action):
                 child = node.children[action][0]
-                return [node.state.get_action_label(action)] + build_trajectory(child)
-            return [node.state.get_action_label(action)]
+                return [node] + build_trajectory(child)
+            return [node]
 
-        traj_string = sep.join(build_trajectory(self.tree.get_root()))
+        return build_trajectory(self.tree.get_root())
+
+    def __repr__(self, sep='') -> str:
+        traj = self.get_trajectory()
+
+        traj_string = sep.join([
+            node.state.get_action_label(node.action)
+            for node in traj
+            if node.action is not None
+        ])
+
         return f'Greedy Policy Trajectory: {traj_string}'

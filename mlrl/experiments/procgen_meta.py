@@ -147,7 +147,7 @@ def create_runner_envs(
 
 
 def parse_model_weights_string(path: str) -> Tuple[int, float]:
-    pattern = r"sequential_best_(\d+)_(\d+\.\d+).index"
+    pattern = r"sequential_best_(\d+)_(-?\d+\.\d+).index"
 
     match = re.match(pattern, path)
 
@@ -162,7 +162,7 @@ def parse_model_weights_string(path: str) -> Tuple[int, float]:
 def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], percentile: float) -> Tuple[str, int, float]:
     sorted_paths = sorted(model_paths, key=lambda x: x[2])
     index = round(len(sorted_paths) * percentile)
-    return sorted_paths[index]
+    return sorted_paths[max(0, min(len(sorted_paths) - 1, index))]
 
 
 def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, verbose: bool = True):

@@ -98,6 +98,7 @@ def parse_args():
     parser.add_argument('--model_selection', type=str, default='best',
                         help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
     parser.add_argument('--smoothing_radius', type=int, default=1)
+    parser.add_argument('--min_computational_steps', type=int, default=10)
     return vars(parser.parse_args())
 
 
@@ -128,7 +129,7 @@ def main():
     # ]
 
     meta_policy_model_paths = {
-        0.1: Path('outputs/runs/ppo_run_43-06-13-08-05-2023/'),
+        0.1: Path("outputs/runs/ppo_run_06-55-11-09-05-2023/"),
     }
 
     runs = {
@@ -164,6 +165,7 @@ def main():
         policy_creators = {
             'Learned Meta-Policy': lambda _: run['best_policy']
         }
+        run['run_args']['min_computational_steps'] = eval_args['min_computational_steps']
 
         run_id = run['run_id']
         run_name = run['run'].name

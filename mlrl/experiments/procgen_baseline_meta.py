@@ -177,9 +177,6 @@ class ResultsAccumulator:
     def plot_rewritten_returns(self):
         plot_name, plot_key = 'Mean Rewritten Meta Return', 'EvalRewrittenAverageReturn'
 
-        if plot_key not in self.results_df.columns:
-            return
-
         plt.figure(figsize=(15, 10))
 
         sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
@@ -194,9 +191,6 @@ class ResultsAccumulator:
 
     def plot_object_level_returns(self):
         plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
-
-        if plot_key not in self.results_df.columns:
-            return
 
         plt.figure(figsize=(15, 10))
         sns.lineplot(data=self.episode_stats_df, x='Pretrained Percentile', y='Return', hue='Meta-level Policy', alpha=0.5)
