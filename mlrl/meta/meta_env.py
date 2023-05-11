@@ -421,6 +421,9 @@ class MetaEnv(gym.Env):
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
+            if self.prev_search_policy is None:
+                return 0.0
+
             if self.verbose:
                 print('Estimating value of new policy:\n', self.tree)
 
