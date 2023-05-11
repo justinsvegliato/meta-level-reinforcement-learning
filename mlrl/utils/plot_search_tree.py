@@ -36,7 +36,9 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
               large_node_size=1200,
               edge_width=1,
               zoom=10,
-              show=True, title='Search Tree'):
+              show=True,
+              title='Search Tree',
+              **draw_kwargs):
 
     nx_tree = nx.DiGraph()
     construct_tree(nx_tree, search_tree.get_root(), remove_duplicate_states=remove_duplicate_states)
@@ -83,9 +85,9 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
             get_colour(search_tree.node_list[node_idx])
             for node_idx in nx_tree.nodes()
         ]
-        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, node_color=colour_map, width=edge_width)
+        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, node_color=colour_map, width=edge_width, **draw_kwargs)
     else:
-        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, width=edge_width)
+        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, width=edge_width, **draw_kwargs)
 
     nx.draw_networkx_edge_labels(nx_tree, pos, edge_labels=edge_labels, ax=ax)
     nx.draw_networkx_labels(nx_tree, pos, labels=node_labels, ax=ax, font_color='white')
