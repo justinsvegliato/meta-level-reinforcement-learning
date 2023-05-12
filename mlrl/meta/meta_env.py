@@ -367,11 +367,13 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
 
-        if self.n_computations < self.min_computation_steps:
+        if self.n_computations < self.min_computation_steps and \
+                self.any_node_expansions_available(search_tokens):
             search_tokens[0, 1] = 0.  # Set to 0 so terminal cannot be selected
+        else:
+            search_tokens[0, 1] = 1.
 
         if self.split_mask_and_tokens:
             action_mask = search_tokens[:, 1].astype(np.int32)
@@ -381,6 +383,12 @@ class MetaEnv(gym.Env):
             }
         else:
             return search_tokens
+
+    def any_node_expansions_available(self, search_tokens) -> bool:
+        """
+        Returns True if the search tokens contain any unexpanded nodes
+        """
+        return np.any(search_tokens[1:, 1] == 1)
 
     def get_best_object_action(self) -> int:
         # """
@@ -586,19 +594,25 @@ class MetaEnv(gym.Env):
         except Exception as e:
             return self._handle_exception(e, computational_action)
 
-    def terminate(self):
-
-        # Perform a step in the underlying environment
+    def act_in_object_level_environment(self):
         action = self.get_best_object_action()
 
         self.set_environment_to_root_state()
-        object_obs, object_r, done, info = self.object_env.step(action)
+        object_obs, object_r, object_done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
 
         for observer in self.object_level_transition_observers:
-            observer(object_obs, object_r, done, info)
+            observer(object_obs, object_r, object_done, info)
 
-        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+        return object_obs, object_r, object_done, info
+
+    def terminate(self):
+
+        self.act_in_object_level_environment()
+
+        if not self.finish_on_terminate and \
+                self.keep_subtree_on_terminate and \
+                self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
