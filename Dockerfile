@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.12.0-jupyter
+FROM tensorflow/tensorflow:2.12.0-gpu-jupyter
 
 # RUN rm -f /etc/apt/sources.list.d/cuda.list
 # RUN rm -f /etc/apt/sources.list.d/nvidia-ml.list
@@ -35,3 +35,7 @@ RUN cd /tmp/gym-maze; python setup.py install
 ENV PYTHONPATH="/tmp/gym-maze/build/lib:$PYTHONPATH"
 
 RUN git config --global --add safe.directory /tf
+
+# LaTeX for matplotlib
+RUN apt-get install texlive-binaries texlive texlive-latex-extra texlive-fonts-recommended dvipng cm-super -y
+RUN pip install latex

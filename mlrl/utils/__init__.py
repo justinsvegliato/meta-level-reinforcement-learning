@@ -1,7 +1,8 @@
 from datetime import datetime
 import subprocess
-from typing import Optional
+from typing import Optional, Any
 import numpy as np
+from collections import defaultdict
 
 import silence_tensorflow.auto  # noqa
 import tensorflow as tf
@@ -32,6 +33,34 @@ def compute_positional_encoding(position: int, d_model: int) -> np.ndarray:
 
     return encoding
 
+
+def clean_for_json(item: Any) -> Any:
+    if item is None:
+        return 'N/A'
+    elif type(item) in [str, int, float, bool]:
+        return item
+    elif isinstance(item, tf.Tensor):
+        return clean_for_json(item.numpy())
+    elif isinstance(item, np.ndarray):
+        return clean_for_json(item.tolist())
+    elif isinstance(item, list):
+        return [clean_for_json(x) for x in item]
+    elif type(item) in [np.float32, np.float32]:
+        return float(item)
+    elif type(item) in [np.int32, np.int64]:
+        return int(item)
+    elif isinstance(item, tuple):
+        return tuple([clean_for_json(x) for x in item])
+    elif type(item) in [dict, defaultdict]:
+        return {
+            clean_for_json(k): clean_for_json(v)
+            for k, v in item.items()
+        }
+
+    try:
+        return str(item)
+    except Exception:
+        raise ValueError(f'Unexpected item type: {item=}')
 
 
 def time_id() -> str:

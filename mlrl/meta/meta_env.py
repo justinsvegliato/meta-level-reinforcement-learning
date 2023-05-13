@@ -2,7 +2,7 @@ from mlrl.meta.q_estimation import SearchOptimalQEstimator, DeterministicOptimal
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.tree_policy import GreedySearchTreePolicy, SearchTreePolicy
 from mlrl.meta.tree_tokenisation import NodeActionTokeniser, NodeTokeniser
-from mlrl.utils import time_id
+from mlrl.utils import clean_for_json
 from mlrl.utils.plot_search_tree import plot_tree
 from mlrl.utils.render_utils import plot_to_array
 
@@ -156,6 +156,7 @@ class MetaEnv(gym.Env):
                  open_debug_server_on_fail: bool = False,
                  object_level_transition_observers: Optional[List[TransitionObserver]] = None,
                  verbose: bool = False,
+                 reset_on_crash: bool = True,
                  dump_debug_images: bool = True):
         """
         Args:
@@ -203,7 +204,8 @@ class MetaEnv(gym.Env):
         # Utility params
         self.split_mask_and_tokens = split_mask_and_tokens
         self.dump_debug_images = dump_debug_images
-        self.open_debug_server_on_fail = open_debug_server_on_fail
+        self.open_debug_server_on_fail = open_debug_server_on_fail and not reset_on_crash
+        self.reset_on_crash = reset_on_crash
         self.verbose = verbose
 
         # Meta env state
@@ -307,6 +309,10 @@ class MetaEnv(gym.Env):
         self.object_env.reset()
         self.tree = self.get_root_tree()
         self.search_tree_policy = self.make_tree_policy(self.tree)
+        self.reset_computation_variables()
+        return self.get_observation()
+
+    def reset_computation_variables(self):
         self.prev_search_policy = None
         self.n_computations = 0
         self.last_meta_action = None
@@ -315,7 +321,6 @@ class MetaEnv(gym.Env):
         self.steps = 0
         self.cost_of_computation = self.get_next_computation_cost()
         self.update_tree_meta_vars()
-        return self.get_observation()
 
     def reset_metrics(self):
         self.object_level_metrics.reset()
@@ -362,11 +367,13 @@ class MetaEnv(gym.Env):
         The valid action mask is a binary vector with a 1 in each position
         corresponding to a valid computational action.
         """
-
         search_tokens = self.tree_tokeniser.tokenise(self.tree)
 
-        if self.n_computations < self.min_computation_steps:
+        if self.n_computations < self.min_computation_steps and \
+                self.any_node_expansions_available(search_tokens):
             search_tokens[0, 1] = 0.  # Set to 0 so terminal cannot be selected
+        else:
+            search_tokens[0, 1] = 1.
 
         if self.split_mask_and_tokens:
             action_mask = search_tokens[:, 1].astype(np.int32)
@@ -376,6 +383,12 @@ class MetaEnv(gym.Env):
             }
         else:
             return search_tokens
+
+    def any_node_expansions_available(self, search_tokens) -> bool:
+        """
+        Returns True if the search tokens contain any unexpanded nodes
+        """
+        return np.any(search_tokens[1:, 1] == 1)
 
     def get_best_object_action(self) -> int:
         # """
@@ -416,6 +429,9 @@ class MetaEnv(gym.Env):
             self.last_computational_reward = max(q_dist.values()) - q_dist[prior_action]
 
         else:
+            if self.prev_search_policy is None:
+                return 0.0
+
             if self.verbose:
                 print('Estimating value of new policy:\n', self.tree)
 
@@ -501,9 +517,7 @@ class MetaEnv(gym.Env):
             return self.get_observation(), meta_reward, False, info
 
         except Exception as e:
-            self._dump_debug_info(e, computational_action,
-                                  open_debug_server=self.open_debug_server_on_fail)
-            raise e
+            return self._handle_exception(e, computational_action)
 
     def terminate_step(self):
 
@@ -538,7 +552,7 @@ class MetaEnv(gym.Env):
 
         info = {
             'computational_reward': 0,
-            'object_level_reward': self.last_meta_reward
+            'object_level_reward': self.last_object_level_reward
         }
 
         return self.get_observation(), self.last_meta_reward, self.done, info
@@ -561,66 +575,92 @@ class MetaEnv(gym.Env):
             self.tree.expand_action(node_idx, object_action_idx)
 
     def act(self, computational_action: Union[int, list, np.ndarray]):
-        if self.one_hot_action_space and not isinstance(computational_action, int):
-            computational_action = int(np.argmax(computational_action))
+        try:
+            if self.one_hot_action_space and not isinstance(computational_action, int):
+                computational_action = int(np.argmax(computational_action))
 
-        self.prev_search_policy = self.search_tree_policy
-        self.last_computational_reward = 0
-        self.last_meta_action = computational_action
-        self.steps += 1
+            self.prev_search_policy = self.search_tree_policy
+            self.last_computational_reward = 0
+            self.last_meta_action = computational_action
+            self.steps += 1
 
-        if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
-            self.done = True
-            self.terminate()
-        else:
-            self.done = False
-            self.perform_computational_action(computational_action)
+            if computational_action == 0 or not self.tree_tokeniser.can_tokenise(self.tree):
+                self.done = True
+                self.terminate()
+            else:
+                self.done = False
+                self.perform_computational_action(computational_action)
 
-    def terminate(self):
+        except Exception as e:
+            return self._handle_exception(e, computational_action)
 
-        # Perform a step in the underlying environment
+    def act_in_object_level_environment(self):
         action = self.get_best_object_action()
 
         self.set_environment_to_root_state()
-        object_obs, object_r, done, info = self.object_env.step(action)
+        object_obs, object_r, object_done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
 
         for observer in self.object_level_transition_observers:
-            observer(object_obs, object_r, done, info)
+            observer(object_obs, object_r, object_done, info)
 
-        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+        return object_obs, object_r, object_done, info
+
+    def terminate(self):
+
+        self.act_in_object_level_environment()
+
+        if not self.finish_on_terminate and \
+                self.keep_subtree_on_terminate and \
+                self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
 
+        self.reset_computation_variables()
+
     def observe(self):
-        if self.done:
-            return self.observe_terminate()
+        try:
+            if self.done:
+                return self.observe_terminate()
 
-        self.search_tree_policy = self.make_tree_policy(self.tree)
+            self.search_tree_policy = self.make_tree_policy(self.tree)
 
-        meta_reward = -self.cost_of_computation
-        if self.computational_rewards:
-            meta_reward += self.get_computational_reward()
+            meta_reward = -self.cost_of_computation
+            if self.computational_rewards:
+                meta_reward += self.get_computational_reward()
 
-        # Set the environment to the state of the root node for inter-step consistency
-        self.set_environment_to_root_state()
-        self.last_meta_reward = meta_reward
+            # Set the environment to the state of the root node for inter-step consistency
+            self.set_environment_to_root_state()
+            self.last_meta_reward = meta_reward
 
-        info = {
-            'computational_reward': self.last_computational_reward,
-            'object_level_reward': 0
-        }
+            info = {
+                'computational_reward': self.last_computational_reward,
+                'object_level_reward': 0
+            }
 
-        return self.get_observation(), meta_reward, self.done, info
+            return self.get_observation(), meta_reward, self.done, info
+
+        except Exception as e:
+            return self._handle_exception(e)
+
+    def _handle_exception(self, e: Exception, *args):
+        debug_dir = self._dump_debug_info(e, *args,
+                                          open_debug_server=self.open_debug_server_on_fail)
+        if self.reset_on_crash:
+            print(f'Resetting environment after crash: {e}')
+            print(f'Debug info dumped to {debug_dir}')
+            return self.reset(), 0., True, {}
+        else:
+            raise e
 
     def _dump_debug_info(self,
                          e: Exception,
                          computational_action: Optional[int] = None,
                          debug_dir: Optional[str] = None,
-                         open_debug_server: bool = True):
+                         open_debug_server: bool = True) -> str:
         """
         Dumps debug information to the provided folder or to `./outputs/debug/{timestamp}`.
         Starts a debug server on port 5678 to allow inspection of the program state.
@@ -630,18 +670,25 @@ class MetaEnv(gym.Env):
             e: The exception that was raised
             debug_dir: The directory to dump the debug information to
             open_debug_server: Whether to open a debug server
+
+        Returns:
+            The directory that the debug information was dumped to
         """
+        from time import time
+        debug_dir = debug_dir or f'./outputs/debug/{time()}'
+
+        from pathlib import Path
+        Path(debug_dir).mkdir(parents=True, exist_ok=True)
+
         try:
-            debug_dir = debug_dir or f'./outputs/debug/{time_id()}'
-
-            from pathlib import Path
-            Path(debug_dir).mkdir(parents=True, exist_ok=True)
-
             import traceback
             with open(f'{debug_dir}/exception_log.txt', 'a') as f:
                 f.write(str(e))
                 f.write(traceback.format_exc())
+        except Exception as e2:
+            print(f'Failed to dump exception log: {e2}')
 
+        try:
             info = self.get_info()
             info['exception'] = str(e)
             if computational_action is not None:
@@ -651,16 +698,38 @@ class MetaEnv(gym.Env):
             with open(f'{debug_dir}/env_info.json', 'w') as f:
                 json.dump(info, f, indent=4)
 
-            self.plot_search_tokens(show=False)
-            plt.savefig(f'{debug_dir}/crash_search_tokens.png')
-            plt.close()
+        except Exception as e2:
+            print(f'Failed to dump environment info: {e2}')
 
-            self.render(save_fig_to=f'{debug_dir}/crash_render.png')
+        try:
+            obs = self.get_observation()
+            if isinstance(obs, dict):
+                obs['token_dim_labels'] = self.tree_tokeniser.get_token_labels()
+            else:
+                obs = {
+                    'observation': obs,
+                    'token_dim_labels': self.tree_tokeniser.get_token_labels()
+                }
+            with open(f'{debug_dir}/observation.json', 'w') as f:
+                json.dump(clean_for_json(obs), f, indent=4)
+
+            # self.plot_search_tokens(show=False)
+            # plt.savefig(f'{debug_dir}/crash_search_tokens.png')
+            # plt.close()
 
         except Exception as debug_e:
-            print(f'Failed to dump debug information: {debug_e}')
+            print(f'Failed to write observation: {debug_e}')
+            with open(f'{debug_dir}/observation.json', 'w') as f:
+                f.write(f'Failed to write observation: {debug_e}')
+                import traceback
+                f.write(traceback.format_exc())
 
-        finally:
+        try:
+            self.render(save_fig_to=f'{debug_dir}/crash_render.png')
+        except Exception as debug_e:
+            print(f'Failed to dump render: {debug_e}')
+
+        try:
             if open_debug_server:
                 import debugpy
                 # 5678 is the default attach port in the VS Code debug configurations.
@@ -671,6 +740,10 @@ class MetaEnv(gym.Env):
                 print("Debugger attached")
                 debugpy.breakpoint()
                 print('Breakpoint reached')
+        except Exception as debug_e:
+            print(f'Failed to start debug server: {debug_e}')
+
+        return debug_dir
 
     def get_object_level_seed(self) -> Optional[int]:
         if not hasattr(self.object_env, 'get_seed'):

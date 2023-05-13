@@ -147,7 +147,7 @@ def create_runner_envs(
 
 
 def parse_model_weights_string(path: str) -> Tuple[int, float]:
-    pattern = r"sequential_best_(\d+)_(\d+\.\d+).index"
+    pattern = r"sequential_best_(\d+)_(-?\d+\.\d+).index"
 
     match = re.match(pattern, path)
 
@@ -162,10 +162,14 @@ def parse_model_weights_string(path: str) -> Tuple[int, float]:
 def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], percentile: float) -> Tuple[str, int, float]:
     sorted_paths = sorted(model_paths, key=lambda x: x[2])
     index = round(len(sorted_paths) * percentile)
-    return sorted_paths[index]
+    return sorted_paths[max(0, min(len(sorted_paths) - 1, index))]
 
 
-def load_pretrained_q_network(folder: str, run: str, percentile: float = 1.0, verbose: bool = True):
+def load_pretrained_q_network(folder: str,
+                              run: str,
+                              percentile: float = 1.0,
+                              epoch: int = None,
+                              verbose: bool = True):
     folder = f'{folder}/categorical_dqn_agent/{run}'
 
     with open(folder + '/config.json') as f:
@@ -243,7 +247,8 @@ def create_runner(args):
     object_config = load_pretrained_q_network(
         folder=args.get('pretrained_runs_folder', 'runs'),
         run=args.get('pretrained_run', 'run-16823527592836354'),
-        percentile=args.get('pretrained_percentile', 0.75)
+        percentile=args.get('pretrained_percentile', 0.75),
+        epoch=args.get('pretrained_epoch', None),
     )
 
     args['object_level_config'] = object_config

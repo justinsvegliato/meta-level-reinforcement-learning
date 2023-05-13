@@ -88,7 +88,7 @@ class NodeTokeniser(TreeTokeniser):
                  max_tokens: int,
                  action_vec_dim: int,
                  state_vec_dim: int,
-                 include_unexpandable_leaves: bool = False,
+                 include_unexpandable_leaves: bool = True,
                  **kwargs):
         super().__init__(max_tokens, **kwargs)
         self.action_vec_dim = action_vec_dim

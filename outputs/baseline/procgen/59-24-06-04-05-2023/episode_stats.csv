@@ -1,0 +1,49 @@
+Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
+,AStar,0.9,500,128.0
+,AStar,0.9,500,103.0
+,AStar,0.9,500,105.0
+,AStar,0.9,500,129.0
+,AStar,0.9,500,102.0
+,AStar,0.9,500,123.0
+,AStar,0.9,500,127.0
+,AStar,0.9,500,126.0
+,AStar,0.9,500,108.0
+,AStar,0.9,500,124.0
+,AStar,0.9,500,78.0
+,AStar,0.9,500,123.0
+,AStar,0.9,500,131.0
+,AStar,0.9,500,120.0
+,AStar,0.9,500,101.0
+,AStar,0.9,500,104.0
+,AStar,0.9,500,89.0
+,AStar,0.9,500,122.0
+,AStar,0.9,500,110.0
+,AStar,0.9,500,120.0
+,AStar,0.9,500,111.0
+,AStar,0.9,500,165.0
+,AStar,0.9,500,113.0
+,AStar,0.9,500,135.0
+,Random (No Terminate),0.9,4,1.0
+,Random (No Terminate),0.9,500,98.0
+,Random (No Terminate),0.9,500,97.0
+,Random (No Terminate),0.9,500,123.0
+,Random (No Terminate),0.9,500,78.0
+,Random (No Terminate),0.9,500,115.0
+,Random (No Terminate),0.9,500,126.0
+,Random (No Terminate),0.9,500,88.0
+,Random (No Terminate),0.9,500,133.0
+,Random (No Terminate),0.9,470,98.0
+,Random (No Terminate),0.9,500,116.0
+,Random (No Terminate),0.9,500,74.0
+,Random (No Terminate),0.9,500,106.0
+,Random (No Terminate),0.9,500,102.0
+,Random (No Terminate),0.9,500,127.0
+,Random (No Terminate),0.9,500,102.0
+,Random (No Terminate),0.9,500,110.0
+,Random (No Terminate),0.9,353,62.0
+,Random (No Terminate),0.9,378,86.0
+,Random (No Terminate),0.9,500,116.0
+,Random (No Terminate),0.9,500,106.0
+,Random (No Terminate),0.9,500,96.0
+,Random (No Terminate),0.9,500,105.0
+,Random (No Terminate),0.9,500,127.0

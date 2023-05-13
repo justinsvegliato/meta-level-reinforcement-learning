@@ -392,6 +392,7 @@ class DQNRun:
     def _setup_callbacks(self):
         self.wandb_run = wandb.init(project=self.wandb_project,
                                     entity=self.wandb_entity,
+                                    dir=self.run_dir,
                                     config=self.get_config())
 
         callbacks = self.user_given_callbacks
