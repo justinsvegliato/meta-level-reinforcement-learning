@@ -1,8 +1,9 @@
-from .hierarchical_pos import hierarchy_pos_large_tree
-from ..meta.search_tree import SearchTree, SearchTreeNode
+from mlrl.utils.hierarchical_pos import hierarchy_pos_large_tree
+from mlrl.meta.search_tree import SearchTree, SearchTreeNode
+from mlrl.meta.tree_policy import SearchTreePolicy
 
+from typing import Optional
 import networkx as nx
-
 import matplotlib.pyplot as plt
 
 
@@ -12,6 +13,7 @@ def construct_tree(tree: nx.DiGraph,
 
     tree.add_node(
         node.node_id,
+        search_tree_node=node,
         state=node.get_state().get_state_string()
     )
 
@@ -21,13 +23,18 @@ def construct_tree(tree: nx.DiGraph,
                 continue
             construct_tree(tree, child, remove_duplicate_states=remove_duplicate_states)
             tree.add_edge(node.node_id, child.node_id,
+                          parent=node, child=child,
                           action=node.state.get_action_label(action),
                           reward=child.get_reward_received(),
                           id=child.get_id()),
 
 
-def plot_tree(search_tree: SearchTree, figsize=(20, 20),
-              show_reward=False, show_id=False, ax=None,
+def plot_tree(search_tree: SearchTree,
+              policy: Optional[SearchTreePolicy] = None,
+              figsize=(20, 20),
+              show_reward=False,
+              show_id=False, ax=None,
+              trajectory_colour='tab:orange',
               can_expand_colour='tab:green',
               remove_duplicate_states=True,
               node_label_threshold=20,
@@ -52,8 +59,16 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
         }
     else:
         edge_labels = {
-            (n1, n2): '' for n1, n2, data in nx_tree.edges(data=True)
+            (n1, n2): '' for n1, n2, _ in nx_tree.edges(data=True)
         }
+
+    edge_colours = None
+    if policy is not None:
+        traj = policy.get_trajectory()
+        edge_colours = [
+            trajectory_colour if data['parent'] in traj and data['child'] in traj else 'black'
+            for *_, data in nx_tree.edges(data=True)
+        ]
 
     node_labels = {
         node: data['state'] if len(data['state']) < min_state_string_length else ''
@@ -85,9 +100,12 @@ def plot_tree(search_tree: SearchTree, figsize=(20, 20),
             get_colour(search_tree.node_list[node_idx])
             for node_idx in nx_tree.nodes()
         ]
-        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, node_color=colour_map, width=edge_width, **draw_kwargs)
+        nx.draw(nx_tree, pos, node_size=node_size, ax=ax,
+                node_color=colour_map, width=edge_width,
+                edge_color=edge_colours, **draw_kwargs)
     else:
-        nx.draw(nx_tree, pos, node_size=node_size, ax=ax, width=edge_width, **draw_kwargs)
+        nx.draw(nx_tree, pos, node_size=node_size, ax=ax,
+                width=edge_width, edge_color=edge_colours, **draw_kwargs)
 
     nx.draw_networkx_edge_labels(nx_tree, pos, edge_labels=edge_labels, ax=ax)
     nx.draw_networkx_labels(nx_tree, pos, labels=node_labels, ax=ax, font_color='white')

@@ -255,6 +255,8 @@ def parse_args():
                         help='Train minibatch batch size.')
     parser.add_argument('--train_steps_per_epoch', type=int, default=20000,
                         help='Number of training steps to perform each epoch.')
+    parser.add_argument('--collect_steps_per_iteration', type=int, default=1,
+                        help='Number of collect steps to do per training step.')
     parser.add_argument('--n_collect_envs', type=int, default=64,
                         help='Number of collect envs run in parallel.')
     parser.add_argument('--eval_steps', type=int, default=1000,

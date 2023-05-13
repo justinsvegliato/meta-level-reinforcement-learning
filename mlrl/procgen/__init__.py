@@ -44,7 +44,7 @@ META_ALLOWED_COMBOS = {
     'climber': ['LEFT', 'RIGHT', 'UP', ''],
     'plunder': ['LEFT', 'RIGHT', 'UP', ''],
     'chaser': ['LEFT', 'RIGHT', 'UP', 'DOWN'],
-    'bocssfight': ['LEFT+DOWN', 'LEFT', 'LEFT+UP', 'DOWN',
+    'bossfight': ['LEFT+DOWN', 'LEFT', 'LEFT+UP', 'DOWN',
                   'UP', 'RIGHT+DOWN', 'RIGHT', 'RIGHT+UP',
                   '', 'D'],
     'ninja': ['LEFT', 'LEFT+UP', 'UP', 'RIGHT', 'RIGHT+UP',

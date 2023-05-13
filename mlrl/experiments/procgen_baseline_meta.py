@@ -22,6 +22,98 @@ import seaborn as sns
 sns.set()
 
 
+def evaluate_meta_policy(create_policy,
+                         n_envs,
+                         n_object_level_episodes,
+                         outputs_dir,
+                         object_config: dict,
+                         args: dict,
+                         max_object_level_steps: int = 500,
+                         episode_complete_cb: Callable[[dict], None] = None,
+                         create_video: bool = False):
+    batched_meta_env = create_batched_procgen_meta_envs(
+        n_envs=n_envs,
+        object_config=object_config,
+        **args
+    )
+
+    # allocates each environment an equal number of episodes to complete
+    # any remaining episodes are allocated to the first few environments
+    # these allocations prevent mean returns from being skewed by environments
+    # that happen to end early, and thereby complete more episodes
+    allocations = [n_object_level_episodes // batched_meta_env.batch_size] * batched_meta_env.batch_size
+    for i in range(n_object_level_episodes % batched_meta_env.batch_size):
+        allocations[i] += 1
+
+    prog_bar = Progbar(
+        n_object_level_episodes,
+        unit_name='episode',
+        stateful_metrics=['ObjectLevelMeanReward',
+                        'ObjectLevelMeanStepsPerEpisode',
+                        'ObjectLevelEpisodes',
+                        'ObjectLevelCurrentEpisodeReturn',
+                        'ObjectLevelCurrentEpisodeSteps']
+    )
+
+    def completed_n_object_level_episodes() -> bool:
+        n_complete = sum([
+            max(env.object_level_metrics.get_num_episodes(), allocations[i])
+            for i, env in enumerate(batched_meta_env.envs)
+        ])
+
+        metrics = get_object_level_metrics(batched_meta_env)
+        prog_bar.update(n_complete, values=metrics.items())
+
+        return n_complete >= n_object_level_episodes
+
+    if create_video:
+        video_env = create_batched_procgen_meta_envs(
+            n_envs=2,
+            object_config=object_config,
+            **args
+        )
+    else:
+        video_env = None
+
+    eval_runner = EvalRunner(
+        eval_env=batched_meta_env,
+        policy=create_policy(batched_meta_env),
+        rewrite_rewards=True,
+        use_tf_function=False,
+        convert_to_eager=False,
+        stop_eval_condition=completed_n_object_level_episodes,
+        video_env=video_env,
+        video_policy=create_policy(video_env) if video_env is not None else None,
+        videos_dir=outputs_dir / 'videos'
+    )
+
+    for env in batched_meta_env.envs:
+        time_limit = TimeLimitObserver(env, max_object_level_steps)
+        env.object_level_transition_observers.append(time_limit)
+        if episode_complete_cb is not None:
+            env.object_level_metrics.episode_complete_callback = episode_complete_cb
+                
+
+    print(f'Evaluating {policy_name}')
+    reset_object_level_metrics(batched_meta_env)
+    eval_results = eval_runner.run()
+    object_level_results = get_object_level_metrics(batched_meta_env)
+
+    evaluations = {
+        'Meta-level Policy': policy_name,
+        'Run ID': run_id,
+        **args,
+        **object_config,
+        **eval_results,
+        **object_level_results
+    }
+    return evaluations
+
+    if create_video:
+        eval_runner.create_policy_eval_video(filename=f'{policy_name}_{percentile=}', **video_args)
+
+
+
 def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         args: dict,
                                         outputs_dir: Path,
@@ -33,6 +125,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         run_id: str = None,
                                         results_observer: Callable[[dict], None] = None):
     create_video = video_args is not None
+    n_envs = min(n_envs, n_object_level_episodes)
 
     args.update({
         'pretrained_percentile': percentile,
@@ -50,84 +143,22 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         verbose=False
     )
 
-    prog_bar = Progbar(
-        n_object_level_episodes,
-        unit_name='episode',
-        stateful_metrics=['ObjectLevelMeanReward',
-                          'ObjectLevelMeanStepsPerEpisode',
-                          'ObjectLevelEpisodes',
-                          'ObjectLevelCurrentEpisodeReturn',
-                          'ObjectLevelCurrentEpisodeSteps']
-    )
-
-    def completed_n_object_level_episodes(batched_meta_env, n: int) -> bool:
-        n_complete = sum([
-            env.object_level_metrics.get_num_episodes()
-            for env in batched_meta_env.envs
-        ])
-
-        metrics = get_object_level_metrics(batched_meta_env)
-        prog_bar.update(n_complete, values=metrics.items())
-
-        return n_complete >= n
-
     results = []
     for policy_name, create_policy in policy_creators.items():
-
-        batched_meta_env = create_batched_procgen_meta_envs(
+        evaluations = evaluate_meta_policy(
+            create_policy=create_policy,
             n_envs=n_envs,
+            n_object_level_episodes=n_object_level_episodes,
+            outputs_dir=outputs_dir,
             object_config=object_config,
-            **args
+            args=args,
+            max_object_level_steps=max_object_level_steps,
+            episode_complete_cb=lambda stats: results_observer.add_episode_stats(run_id, policy_name, percentile, stats),
+            create_video=create_video
         )
-
-        if create_video:
-            video_env = create_batched_procgen_meta_envs(
-                n_envs=2,
-                object_config=object_config,
-                **args
-            )
-        else:
-            video_env = None
-
-        eval_runner = EvalRunner(
-            eval_env=batched_meta_env,
-            policy=create_policy(batched_meta_env),
-            rewrite_rewards=True,
-            use_tf_function=False,
-            convert_to_eager=False,
-            stop_eval_condition=lambda: completed_n_object_level_episodes(batched_meta_env,
-                                                                          n_object_level_episodes),
-            video_env=video_env,
-            video_policy=create_policy(video_env) if video_env is not None else None,
-            videos_dir=outputs_dir / 'videos'
-        )
-
-        for env in batched_meta_env.envs:
-            time_limit = TimeLimitObserver(env, max_object_level_steps)
-            env.object_level_transition_observers.append(time_limit)
-            env.object_level_metrics.episode_complete_callback = \
-                lambda stats: results_observer.add_episode_stats(run_id, policy_name, percentile, stats)
-
-        print(f'Evaluating {policy_name}')
-        reset_object_level_metrics(batched_meta_env)
-        eval_results = eval_runner.run()
-        object_level_results = get_object_level_metrics(batched_meta_env)
-
-        evaluations = {
-            'Meta-level Policy': policy_name,
-            'Run ID': run_id,
-            **args,
-            **object_config,
-            **eval_results,
-            **object_level_results
-        }
-        if results_observer is not None:
-            results_observer(evaluations)
-
+        evaluations['Meta-level Policy'] = policy_name
+        evaluations['Run ID'] = run_id
         results.append(evaluations)
-
-        if create_video:
-            eval_runner.create_policy_eval_video(filename=f'{policy_name}_{percentile=}', **video_args)
 
     return results
 
@@ -215,7 +246,7 @@ def create_parser():
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
     parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
     parser.add_argument('--max_tree_size', type=int, default=64)
-    parser.add_argument('--n_envs', type=int, default=16)
+    parser.add_argument('--n_envs', type=int, default=20)
     parser.add_argument('--n_episodes', type=int, default=20)
     parser.add_argument('--max_steps', type=int, default=500)
     parser.add_argument('--percentiles', type=float, nargs='+',
