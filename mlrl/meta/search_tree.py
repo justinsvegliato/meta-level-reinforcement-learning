@@ -166,6 +166,7 @@ class SearchTreeNode(Generic[StateType]):
         self.children: Dict[int, List['SearchTreeNode']] = dict()
         self.q_function = q_function
         self.q_values: Dict[int, float] = dict()
+        self.q_vals_computed = False
         self.tried_actions = []
         self._duplicate_state_ancestor = None
         self.token = None
@@ -293,6 +294,8 @@ class SearchTreeNode(Generic[StateType]):
 
         object_action = self.state.get_actions()[action_idx]
         self.tried_actions.append(action_idx)
+        for node in self.path:
+            node.q_vals_computed = False
         return self.create_child(env, object_action, new_node_id)
 
     def get_path_to_root(self) -> List['SearchTreeNode[StateType]']:
@@ -437,6 +440,7 @@ class SearchTree(Generic[StateType]):
                 node.node_id, parent, node.state, node.action, node.reward,
                 node.is_terminal_state, self.discount, self.q_function
             )
+            new_node.q_vals_computed = node.q_vals_computed
             new_node.tried_actions = copy.deepcopy(node.tried_actions)
             for a in node.children:
                 for child in node.children[a]:

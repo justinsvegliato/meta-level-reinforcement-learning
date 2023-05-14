@@ -63,7 +63,7 @@ def clean_for_json(item: Any) -> Any:
         raise ValueError(f'Unexpected item type: {item=}')
 
 
-def time_id() -> str:
+def time_id(reversed_order=False) -> str:
     """ Returns an id string based on the current time. """
     now = datetime.now()
 
@@ -74,8 +74,10 @@ def time_id() -> str:
     min = now.minute
     second = now.second
 
-    return f'{second:02d}-{min:02d}-{hour:02d}-{day:02d}-{month:02d}-{year:02d}'
+    if reversed_order:
+        return f'{second:02d}-{min:02d}-{hour:02d}-{day:02d}-{month:02d}-{year:02d}'
 
+    return f'{year:02d}-{month:02d}-{day:02d}-{hour:02d}-{min:02d}-{second:02d}'
 
 def get_current_git_commit(directory: str = '.') -> Optional[str]:
     """

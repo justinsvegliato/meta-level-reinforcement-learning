@@ -1,0 +1,13 @@
+{
+    "eval_steps": 8196,
+    "n_eval_envs": 64,
+    "env_multithreading": true,
+    "policy": "random_no_terminate",
+    "expand_all_actions": true,
+    "max_tree_size": 32,
+    "meta_discount": 0.99,
+    "seed": 0,
+    "computational_rewards": true,
+    "rewrite_rewards": true,
+    "finish_on_terminate": true
+}

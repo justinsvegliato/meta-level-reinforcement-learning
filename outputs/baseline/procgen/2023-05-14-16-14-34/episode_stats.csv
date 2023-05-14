@@ -1,0 +1,21 @@
+Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,3,0.0
+,Instant Terminate,1.0,10,0.0
+,Instant Terminate,1.0,14,0.0
+,Instant Terminate,1.0,19,1.0
+,Instant Terminate,1.0,19,1.0
+,Instant Terminate,1.0,30,4.0
+,Instant Terminate,1.0,31,0.0
+,Instant Terminate,1.0,34,2.0
+,Instant Terminate,1.0,35,3.0
+,Instant Terminate,1.0,47,6.0
+,Instant Terminate,1.0,55,3.0
+,Instant Terminate,1.0,59,3.0
+,Instant Terminate,1.0,63,7.0
+,Instant Terminate,1.0,77,6.0
+,Instant Terminate,1.0,97,7.0
+,Instant Terminate,1.0,170,40.0
+,Instant Terminate,1.0,176,40.0
+,Instant Terminate,1.0,185,40.0
+,Instant Terminate,1.0,204,40.0

@@ -15,7 +15,7 @@ from mlrl.utils import time_id
 sns.set()
 
 
-def load_policy_from_checkpoint(run: dict, epoch: int):
+def load_meta_policy_from_checkpoint(run: dict, epoch: int):
 
     ckpt_dir = run['root_dir'] / f'network_checkpoints/step_{epoch}'
 
@@ -30,7 +30,7 @@ def load_policy_from_checkpoint(run: dict, epoch: int):
     load_pretrained_q_network(
         folder=run_args['pretrained_runs_folder'],
         run=run_args['pretrained_run'],
-        percentile=run_args['pretrained_percentile'],
+        epoch=run_args['object_level_config']['pretrained_epoch'],
         verbose=False
     )
 
@@ -43,14 +43,15 @@ def load_policy_from_checkpoint(run: dict, epoch: int):
     return agent.policy
 
 
-def load_best_policy(run: List[dict],
-                     output_path: Path = None,
-                     selection_method: str = 'best',
-                     smoothing_radius: int = 1):
+def load_best_meta_policy(run: List[dict],
+                          output_path: Path = None,
+                          selection_method: str = 'best',
+                          smoothing_radius: int = 1):
 
     _, ax = plt.subplots()
     wanbd_run = run['run']
     df = run['history']
+    df.sort_values(by='TrainStep', inplace=True)
     df = df[df['EvalRewrittenAverageReturn'].notna()]
     y = df['EvalRewrittenAverageReturn'].array
     smooth_d = 1 + 2 * smoothing_radius
@@ -75,7 +76,7 @@ def load_best_policy(run: List[dict],
 
     run['model_epoch'] = model_epoch
 
-    run['best_policy'] = load_policy_from_checkpoint(run, model_epoch)
+    run['best_policy'] = load_meta_policy_from_checkpoint(run, model_epoch)
 
     line, *_ = ax.plot(x, y, alpha=0.25)
     df.sort_values(by='TrainStep', inplace=True)
@@ -97,8 +98,10 @@ def parse_args():
     parser = create_parser()
     parser.add_argument('--model_selection', type=str, default='best',
                         help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
+    parser.add_argument('--env', type=str, default='bigfish',
+                        help='Environment to evaluate on, one of: "bigfish", "coinrun"')
     parser.add_argument('--smoothing_radius', type=int, default=1)
-    parser.add_argument('--min_computational_steps', type=int, default=10)
+    parser.add_argument('--min_computational_steps', type=int, default=30)
     return vars(parser.parse_args())
 
 
@@ -112,9 +115,6 @@ def main():
 
     if eval_args.get('gpus'):
         restrict_gpus(eval_args['gpus'])
-    output_dir = Path('outputs/eval/procgen') / time_id()
-
-    results_accumulator = ResultsAccumulator(output_dir=output_dir)
 
     # meta_policy_model_paths = [
     #     # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
@@ -129,14 +129,22 @@ def main():
     # ]
 
     meta_policy_model_paths = {
-        0.1: Path("outputs/runs/ppo_run_06-55-11-09-05-2023/"),
+        'bigfish': {0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/')},
+        'fruitbot': {1.0: Path('outputs/runs/ppo_run_15-48-02-12-05-2023/')},
+        'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')}
     }
 
     runs = {
         percentile: get_wandb_info_from_run_dir(root_dir)
-        for percentile, root_dir in meta_policy_model_paths.items()
+        for env, env_model_paths in meta_policy_model_paths.items()
+        if env == eval_args['env']
+        for percentile, root_dir in env_model_paths.items()
         if percentile in eval_args['percentiles']
     }
+
+    object_env = eval_args['env']
+    output_dir = Path('outputs/eval/procgen') / object_env / time_id()
+    results_accumulator = ResultsAccumulator(output_dir=output_dir)
 
     with open(output_dir / 'wandb_runs_info.json', 'w') as f:
         json.dump(runs, f, default=lambda _: '<not serializable>')
@@ -144,19 +152,19 @@ def main():
     for run in runs.values():
         run_name = run['run'].name
         output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
-        load_best_policy(run, output_path, eval_args['model_selection'],
+        load_best_meta_policy(run, output_path, eval_args['model_selection'],
                          eval_args['smoothing_radius'])
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)
 
-    if eval_args.get('no_video', False):
-        video_args = None
-    else:
+    if eval_args.get('create_videos', False):
         video_args = {
             'fps': eval_args.get('video_fps', 1),
             'steps': eval_args.get('video_steps', 60)
         }
+    else:
+        video_args = None
 
     print(f'Writing results to {output_dir}')
 
@@ -177,7 +185,7 @@ def main():
                                             results_observer=results_accumulator,
                                             video_args=video_args,
                                             max_object_level_steps=max_object_level_steps,
-                                            n_envs=1,
+                                            n_envs=eval_args['n_envs'],
                                             n_object_level_episodes=n_object_level_episodes,
                                             run_id=f'{run_id}/{run_name}')
 

@@ -1,0 +1,321 @@
+Meta-level Policy,Pretrained Percentile,Number of Steps,Return
+Instant Terminate,0.25,11,1.0
+Instant Terminate,0.25,39,5.0
+Instant Terminate,0.25,50,7.0
+Instant Terminate,0.25,53,12.0
+Instant Terminate,0.25,59,4.0
+Instant Terminate,0.25,39,5.0
+Instant Terminate,0.25,90,8.0
+Instant Terminate,0.25,92,4.0
+Instant Terminate,0.25,94,11.0
+Instant Terminate,0.25,83,2.0
+Instant Terminate,0.25,103,17.0
+Instant Terminate,0.25,30,2.0
+Instant Terminate,0.25,137,25.0
+Instant Terminate,0.25,102,7.0
+Instant Terminate,0.25,161,26.0
+Instant Terminate,0.25,170,28.0
+Instant Terminate,0.25,0,0.0
+Instant Terminate,0.25,172,10.0
+Instant Terminate,0.25,86,14.0
+Instant Terminate,0.25,91,11.0
+AStar,0.25,9,0.0
+AStar,0.25,47,4.0
+AStar,0.25,54,6.0
+AStar,0.25,73,10.0
+AStar,0.25,64,7.0
+AStar,0.25,97,12.0
+AStar,0.25,98,40.0
+AStar,0.25,143,40.0
+AStar,0.25,148,5.0
+AStar,0.25,56,11.0
+AStar,0.25,170,44.0
+AStar,0.25,33,4.0
+AStar,0.25,189,22.0
+AStar,0.25,189,45.0
+AStar,0.25,200,42.0
+AStar,0.25,207,42.0
+AStar,0.25,179,40.0
+AStar,0.25,235,52.0
+AStar,0.25,99,40.0
+AStar,0.25,294,65.0
+Random,0.25,11,2.0
+Random,0.25,41,4.0
+Random,0.25,44,4.0
+Random,0.25,47,7.0
+Random,0.25,57,7.0
+Random,0.25,63,6.0
+Random,0.25,74,1.0
+Random,0.25,86,16.0
+Random,0.25,85,11.0
+Random,0.25,109,10.0
+Random,0.25,29,1.0
+Random,0.25,108,19.0
+Random,0.25,69,9.0
+Random,0.25,142,20.0
+Random,0.25,166,17.0
+Random,0.25,54,12.0
+Random,0.25,240,43.0
+Random,0.25,32,2.0
+Random,0.25,189,16.0
+Random,0.25,150,16.0
+Random (No Terminate),0.25,3,0.0
+Random (No Terminate),0.25,54,8.0
+Random (No Terminate),0.25,55,3.0
+Random (No Terminate),0.25,17,2.0
+Random (No Terminate),0.25,77,12.0
+Random (No Terminate),0.25,74,11.0
+Random (No Terminate),0.25,161,40.0
+Random (No Terminate),0.25,175,40.0
+Random (No Terminate),0.25,98,12.0
+Random (No Terminate),0.25,179,44.0
+Random (No Terminate),0.25,186,42.0
+Random (No Terminate),0.25,20,0.0
+Random (No Terminate),0.25,218,44.0
+Random (No Terminate),0.25,219,40.0
+Random (No Terminate),0.25,226,42.0
+Random (No Terminate),0.25,232,43.0
+Random (No Terminate),0.25,180,40.0
+Random (No Terminate),0.25,17,1.0
+Random (No Terminate),0.25,47,7.0
+Random (No Terminate),0.25,279,80.0
+Instant Terminate,0.5,500,69.0
+Instant Terminate,0.5,291,23.0
+Instant Terminate,0.5,147,22.0
+Instant Terminate,0.5,178,17.0
+Instant Terminate,0.5,500,54.0
+Instant Terminate,0.5,366,56.0
+Instant Terminate,0.5,185,9.0
+Instant Terminate,0.5,26,5.0
+Instant Terminate,0.5,46,4.0
+Instant Terminate,0.5,224,40.0
+Instant Terminate,0.5,300,40.0
+Instant Terminate,0.5,2,0.0
+Instant Terminate,0.5,236,40.0
+Instant Terminate,0.5,3,0.0
+Instant Terminate,0.5,17,0.0
+Instant Terminate,0.5,67,7.0
+Instant Terminate,0.5,167,8.0
+Instant Terminate,0.5,401,50.0
+Instant Terminate,0.5,384,46.0
+Instant Terminate,0.5,500,79.0
+AStar,0.5,177,40.0
+AStar,0.5,135,40.0
+AStar,0.5,238,40.0
+AStar,0.5,160,40.0
+AStar,0.5,312,80.0
+AStar,0.5,163,40.0
+AStar,0.5,171,40.0
+AStar,0.5,312,80.0
+AStar,0.5,391,91.0
+AStar,0.5,207,40.0
+AStar,0.5,167,40.0
+AStar,0.5,500,97.0
+AStar,0.5,320,81.0
+AStar,0.5,193,40.0
+AStar,0.5,500,107.0
+AStar,0.5,164,40.0
+AStar,0.5,197,40.0
+AStar,0.5,24,3.0
+AStar,0.5,500,103.0
+AStar,0.5,322,80.0
+Random,0.5,500,58.0
+Random,0.5,125,13.0
+Random,0.5,251,47.0
+Random,0.5,178,42.0
+Random,0.5,3,1.0
+Random,0.5,249,27.0
+Random,0.5,58,7.0
+Random,0.5,428,77.0
+Random,0.5,500,58.0
+Random,0.5,78,6.0
+Random,0.5,500,88.0
+Random,0.5,162,14.0
+Random,0.5,500,63.0
+Random,0.5,126,6.0
+Random,0.5,500,86.0
+Random,0.5,151,40.0
+Random,0.5,257,45.0
+Random,0.5,23,2.0
+Random,0.5,184,18.0
+Random,0.5,231,41.0
+Random (No Terminate),0.5,273,80.0
+Random (No Terminate),0.5,500,105.0
+Random (No Terminate),0.5,172,40.0
+Random (No Terminate),0.5,206,44.0
+Random (No Terminate),0.5,222,47.0
+Random (No Terminate),0.5,327,82.0
+Random (No Terminate),0.5,500,97.0
+Random (No Terminate),0.5,500,97.0
+Random (No Terminate),0.5,500,122.0
+Random (No Terminate),0.5,500,71.0
+Random (No Terminate),0.5,298,80.0
+Random (No Terminate),0.5,344,80.0
+Random (No Terminate),0.5,306,80.0
+Random (No Terminate),0.5,190,40.0
+Random (No Terminate),0.5,206,40.0
+Random (No Terminate),0.5,500,93.0
+Random (No Terminate),0.5,142,40.0
+Random (No Terminate),0.5,269,40.0
+Random (No Terminate),0.5,146,40.0
+Random (No Terminate),0.5,153,40.0
+Instant Terminate,0.75,33,4.0
+Instant Terminate,0.75,312,56.0
+Instant Terminate,0.75,481,67.0
+Instant Terminate,0.75,296,45.0
+Instant Terminate,0.75,174,15.0
+Instant Terminate,0.75,323,48.0
+Instant Terminate,0.75,51,3.0
+Instant Terminate,0.75,173,10.0
+Instant Terminate,0.75,492,68.0
+Instant Terminate,0.75,47,8.0
+Instant Terminate,0.75,115,9.0
+Instant Terminate,0.75,500,49.0
+Instant Terminate,0.75,72,5.0
+Instant Terminate,0.75,500,69.0
+Instant Terminate,0.75,336,46.0
+Instant Terminate,0.75,292,42.0
+Instant Terminate,0.75,500,55.0
+Instant Terminate,0.75,117,13.0
+Instant Terminate,0.75,500,69.0
+Instant Terminate,0.75,383,68.0
+AStar,0.75,159,40.0
+AStar,0.75,77,13.0
+AStar,0.75,193,42.0
+AStar,0.75,477,120.0
+AStar,0.75,353,80.0
+AStar,0.75,24,0.0
+AStar,0.75,500,110.0
+AStar,0.75,418,82.0
+AStar,0.75,157,40.0
+AStar,0.75,299,80.0
+AStar,0.75,359,80.0
+AStar,0.75,3,0.0
+AStar,0.75,187,40.0
+AStar,0.75,136,40.0
+AStar,0.75,184,44.0
+AStar,0.75,188,45.0
+AStar,0.75,474,121.0
+AStar,0.75,135,41.0
+AStar,0.75,187,41.0
+AStar,0.75,271,49.0
+Random,0.75,36,4.0
+Random,0.75,162,40.0
+Random,0.75,263,49.0
+Random,0.75,157,40.0
+Random,0.75,71,10.0
+Random,0.75,88,7.0
+Random,0.75,500,76.0
+Random,0.75,120,14.0
+Random,0.75,27,4.0
+Random,0.75,178,40.0
+Random,0.75,371,57.0
+Random,0.75,197,40.0
+Random,0.75,500,75.0
+Random,0.75,232,43.0
+Random,0.75,246,45.0
+Random,0.75,329,59.0
+Random,0.75,219,48.0
+Random,0.75,287,52.0
+Random,0.75,353,87.0
+Random,0.75,35,3.0
+Random (No Terminate),0.75,161,46.0
+Random (No Terminate),0.75,373,80.0
+Random (No Terminate),0.75,379,94.0
+Random (No Terminate),0.75,464,89.0
+Random (No Terminate),0.75,126,40.0
+Random (No Terminate),0.75,8,0.0
+Random (No Terminate),0.75,385,81.0
+Random (No Terminate),0.75,164,40.0
+Random (No Terminate),0.75,500,99.0
+Random (No Terminate),0.75,122,40.0
+Random (No Terminate),0.75,219,40.0
+Random (No Terminate),0.75,351,81.0
+Random (No Terminate),0.75,500,96.0
+Random (No Terminate),0.75,119,40.0
+Random (No Terminate),0.75,284,61.0
+Random (No Terminate),0.75,197,45.0
+Random (No Terminate),0.75,409,80.0
+Random (No Terminate),0.75,411,120.0
+Random (No Terminate),0.75,158,40.0
+Random (No Terminate),0.75,449,120.0
+Instant Terminate,0.9,280,30.0
+Instant Terminate,0.9,433,65.0
+Instant Terminate,0.9,500,59.0
+Instant Terminate,0.9,212,40.0
+Instant Terminate,0.9,151,40.0
+Instant Terminate,0.9,145,19.0
+Instant Terminate,0.9,220,40.0
+Instant Terminate,0.9,131,16.0
+Instant Terminate,0.9,500,68.0
+Instant Terminate,0.9,460,73.0
+Instant Terminate,0.9,495,80.0
+Instant Terminate,0.9,418,46.0
+Instant Terminate,0.9,118,13.0
+Instant Terminate,0.9,83,7.0
+Instant Terminate,0.9,189,40.0
+Instant Terminate,0.9,233,22.0
+Instant Terminate,0.9,500,92.0
+Instant Terminate,0.9,245,51.0
+Instant Terminate,0.9,61,5.0
+Instant Terminate,0.9,141,22.0
+AStar,0.9,131,40.0
+AStar,0.9,354,97.0
+AStar,0.9,169,43.0
+AStar,0.9,500,99.0
+AStar,0.9,174,40.0
+AStar,0.9,404,83.0
+AStar,0.9,157,40.0
+AStar,0.9,500,97.0
+AStar,0.9,155,40.0
+AStar,0.9,500,111.0
+AStar,0.9,124,40.0
+AStar,0.9,38,2.0
+AStar,0.9,177,41.0
+AStar,0.9,157,40.0
+AStar,0.9,273,51.0
+AStar,0.9,329,80.0
+AStar,0.9,290,44.0
+AStar,0.9,500,92.0
+AStar,0.9,13,0.0
+AStar,0.9,142,40.0
+Random,0.9,324,86.0
+Random,0.9,167,16.0
+Random,0.9,194,42.0
+Random,0.9,262,51.0
+Random,0.9,132,40.0
+Random,0.9,500,116.0
+Random,0.9,467,87.0
+Random,0.9,131,13.0
+Random,0.9,142,40.0
+Random,0.9,479,88.0
+Random,0.9,27,5.0
+Random,0.9,500,80.0
+Random,0.9,200,22.0
+Random,0.9,160,40.0
+Random,0.9,168,40.0
+Random,0.9,164,18.0
+Random,0.9,175,26.0
+Random,0.9,52,4.0
+Random,0.9,500,105.0
+Random,0.9,20,1.0
+Random (No Terminate),0.9,500,87.0
+Random (No Terminate),0.9,191,40.0
+Random (No Terminate),0.9,358,81.0
+Random (No Terminate),0.9,500,106.0
+Random (No Terminate),0.9,137,18.0
+Random (No Terminate),0.9,103,40.0
+Random (No Terminate),0.9,438,87.0
+Random (No Terminate),0.9,187,20.0
+Random (No Terminate),0.9,171,40.0
+Random (No Terminate),0.9,500,102.0
+Random (No Terminate),0.9,500,100.0
+Random (No Terminate),0.9,407,86.0
+Random (No Terminate),0.9,166,40.0
+Random (No Terminate),0.9,500,93.0
+Random (No Terminate),0.9,180,40.0
+Random (No Terminate),0.9,151,40.0
+Random (No Terminate),0.9,500,124.0
+Random (No Terminate),0.9,475,87.0
+Random (No Terminate),0.9,140,42.0
+Random (No Terminate),0.9,500,127.0

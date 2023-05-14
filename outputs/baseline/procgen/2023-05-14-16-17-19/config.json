@@ -1,0 +1,1 @@
+{"gpus": null, "pretrained_runs_folder": "runs", "pretrained_run": "run-16823527592836354", "max_tree_size": 64, "n_envs": 20, "n_episodes": 20, "max_steps": 500, "percentiles": [1.0], "create_videos": true, "video_fps": 1, "video_steps": 120}

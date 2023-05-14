@@ -1,0 +1,1601 @@
+Meta-level Policy,Pretrained Percentile,Number of Steps,Return
+Instant Terminate,0.25,10,0.0
+Instant Terminate,0.25,24,2.0
+Instant Terminate,0.25,33,5.0
+Instant Terminate,0.25,36,2.0
+Instant Terminate,0.25,13,0.0
+Instant Terminate,0.25,56,11.0
+Instant Terminate,0.25,64,10.0
+Instant Terminate,0.25,70,13.0
+Instant Terminate,0.25,50,4.0
+Instant Terminate,0.25,13,0.0
+Instant Terminate,0.25,95,7.0
+Instant Terminate,0.25,99,12.0
+Instant Terminate,0.25,19,2.0
+Instant Terminate,0.25,75,12.0
+Instant Terminate,0.25,108,13.0
+Instant Terminate,0.25,188,14.0
+Instant Terminate,0.25,192,34.0
+Instant Terminate,0.25,220,16.0
+Instant Terminate,0.25,222,25.0
+Instant Terminate,0.25,135,14.0
+Instant Terminate,0.25,52,8.0
+Instant Terminate,0.25,248,25.0
+Instant Terminate,0.25,177,19.0
+Instant Terminate,0.25,140,21.0
+Instant Terminate,0.25,276,48.0
+Instant Terminate,0.25,209,20.0
+Instant Terminate,0.25,57,4.0
+Instant Terminate,0.25,38,3.0
+Instant Terminate,0.25,68,6.0
+Instant Terminate,0.25,183,27.0
+Instant Terminate,0.25,302,33.0
+Instant Terminate,0.25,345,43.0
+Instant Terminate,0.25,123,14.0
+Instant Terminate,0.25,125,11.0
+Instant Terminate,0.25,82,10.0
+Instant Terminate,0.25,60,11.0
+Instant Terminate,0.25,402,68.0
+Instant Terminate,0.25,114,18.0
+Instant Terminate,0.25,54,5.0
+Instant Terminate,0.25,115,10.0
+Instant Terminate,0.25,20,3.0
+Instant Terminate,0.25,254,25.0
+Instant Terminate,0.25,22,0.0
+Instant Terminate,0.25,58,7.0
+Instant Terminate,0.25,97,8.0
+Instant Terminate,0.25,211,40.0
+Instant Terminate,0.25,64,7.0
+Instant Terminate,0.25,171,29.0
+Instant Terminate,0.25,63,4.0
+Instant Terminate,0.25,346,45.0
+Instant Terminate,0.25,500,55.0
+Instant Terminate,0.25,334,63.0
+Instant Terminate,0.25,45,4.0
+Instant Terminate,0.25,107,8.0
+Instant Terminate,0.25,135,18.0
+Instant Terminate,0.25,307,31.0
+Instant Terminate,0.25,49,6.0
+Instant Terminate,0.25,179,30.0
+Instant Terminate,0.25,207,31.0
+Instant Terminate,0.25,382,70.0
+Instant Terminate,0.25,106,14.0
+Instant Terminate,0.25,240,12.0
+Instant Terminate,0.25,65,4.0
+Instant Terminate,0.25,31,2.0
+Instant Terminate,0.25,88,8.0
+Instant Terminate,0.25,130,7.0
+Instant Terminate,0.25,293,19.0
+Instant Terminate,0.25,238,31.0
+Instant Terminate,0.25,137,12.0
+Instant Terminate,0.25,109,14.0
+Instant Terminate,0.25,75,9.0
+Instant Terminate,0.25,20,2.0
+Instant Terminate,0.25,41,5.0
+Instant Terminate,0.25,22,2.0
+Instant Terminate,0.25,22,1.0
+Instant Terminate,0.25,500,81.0
+Instant Terminate,0.25,14,1.0
+Instant Terminate,0.25,188,18.0
+Instant Terminate,0.25,22,1.0
+Instant Terminate,0.25,80,7.0
+Instant Terminate,0.25,46,1.0
+Instant Terminate,0.25,327,49.0
+Instant Terminate,0.25,233,14.0
+Instant Terminate,0.25,253,48.0
+Instant Terminate,0.25,63,4.0
+Instant Terminate,0.25,64,7.0
+Instant Terminate,0.25,363,28.0
+Instant Terminate,0.25,117,21.0
+Instant Terminate,0.25,104,17.0
+Instant Terminate,0.25,361,42.0
+Instant Terminate,0.25,32,1.0
+Instant Terminate,0.25,53,5.0
+Instant Terminate,0.25,86,3.0
+Instant Terminate,0.25,32,1.0
+Instant Terminate,0.25,111,2.0
+Instant Terminate,0.25,77,11.0
+Instant Terminate,0.25,135,13.0
+Instant Terminate,0.25,163,14.0
+Instant Terminate,0.25,17,3.0
+Instant Terminate,0.25,103,6.0
+AStar,0.25,10,0.0
+AStar,0.25,38,2.0
+AStar,0.25,51,1.0
+AStar,0.25,51,9.0
+AStar,0.25,62,13.0
+AStar,0.25,99,15.0
+AStar,0.25,117,15.0
+AStar,0.25,73,6.0
+AStar,0.25,77,7.0
+AStar,0.25,148,20.0
+AStar,0.25,167,24.0
+AStar,0.25,168,42.0
+AStar,0.25,179,40.0
+AStar,0.25,252,80.0
+AStar,0.25,255,49.0
+AStar,0.25,13,1.0
+AStar,0.25,140,40.0
+AStar,0.25,317,50.0
+AStar,0.25,200,40.0
+AStar,0.25,21,1.0
+AStar,0.25,279,85.0
+AStar,0.25,213,50.0
+AStar,0.25,359,63.0
+AStar,0.25,383,87.0
+AStar,0.25,292,72.0
+AStar,0.25,392,69.0
+AStar,0.25,234,51.0
+AStar,0.25,86,9.0
+AStar,0.25,157,41.0
+AStar,0.25,278,64.0
+AStar,0.25,312,80.0
+AStar,0.25,26,4.0
+AStar,0.25,21,2.0
+AStar,0.25,183,44.0
+AStar,0.25,132,19.0
+AStar,0.25,486,121.0
+AStar,0.25,3,0.0
+AStar,0.25,371,87.0
+AStar,0.25,222,41.0
+AStar,0.25,6,1.0
+AStar,0.25,40,3.0
+AStar,0.25,343,80.0
+AStar,0.25,100,12.0
+AStar,0.25,191,43.0
+AStar,0.25,290,80.0
+AStar,0.25,35,4.0
+AStar,0.25,309,49.0
+AStar,0.25,29,3.0
+AStar,0.25,1,0.0
+AStar,0.25,230,43.0
+AStar,0.25,349,86.0
+AStar,0.25,193,44.0
+AStar,0.25,126,40.0
+AStar,0.25,228,46.0
+AStar,0.25,236,41.0
+AStar,0.25,177,40.0
+AStar,0.25,164,42.0
+AStar,0.25,400,120.0
+AStar,0.25,178,42.0
+AStar,0.25,287,40.0
+AStar,0.25,221,55.0
+AStar,0.25,153,42.0
+AStar,0.25,56,12.0
+AStar,0.25,500,91.0
+AStar,0.25,148,40.0
+AStar,0.25,124,40.0
+AStar,0.25,485,120.0
+AStar,0.25,500,107.0
+AStar,0.25,500,113.0
+AStar,0.25,217,43.0
+AStar,0.25,6,0.0
+AStar,0.25,59,12.0
+AStar,0.25,142,41.0
+AStar,0.25,63,11.0
+AStar,0.25,99,19.0
+AStar,0.25,49,5.0
+AStar,0.25,168,40.0
+AStar,0.25,212,43.0
+AStar,0.25,86,7.0
+AStar,0.25,39,5.0
+AStar,0.25,206,49.0
+AStar,0.25,100,17.0
+AStar,0.25,40,6.0
+AStar,0.25,314,80.0
+AStar,0.25,349,59.0
+AStar,0.25,259,51.0
+AStar,0.25,500,103.0
+AStar,0.25,258,47.0
+AStar,0.25,423,124.0
+AStar,0.25,292,58.0
+AStar,0.25,120,13.0
+AStar,0.25,174,42.0
+AStar,0.25,500,126.0
+AStar,0.25,129,6.0
+AStar,0.25,213,40.0
+AStar,0.25,171,46.0
+AStar,0.25,377,92.0
+AStar,0.25,500,105.0
+AStar,0.25,500,109.0
+AStar,0.25,116,40.0
+Random,0.25,17,1.0
+Random,0.25,12,1.0
+Random,0.25,16,0.0
+Random,0.25,21,0.0
+Random,0.25,39,2.0
+Random,0.25,26,2.0
+Random,0.25,56,2.0
+Random,0.25,61,9.0
+Random,0.25,122,23.0
+Random,0.25,13,0.0
+Random,0.25,88,8.0
+Random,0.25,61,6.0
+Random,0.25,161,19.0
+Random,0.25,13,1.0
+Random,0.25,28,1.0
+Random,0.25,170,45.0
+Random,0.25,13,1.0
+Random,0.25,68,7.0
+Random,0.25,39,6.0
+Random,0.25,9,0.0
+Random,0.25,44,4.0
+Random,0.25,248,51.0
+Random,0.25,215,41.0
+Random,0.25,43,4.0
+Random,0.25,16,1.0
+Random,0.25,247,40.0
+Random,0.25,268,48.0
+Random,0.25,274,23.0
+Random,0.25,16,2.0
+Random,0.25,280,32.0
+Random,0.25,312,29.0
+Random,0.25,69,4.0
+Random,0.25,48,6.0
+Random,0.25,313,47.0
+Random,0.25,29,2.0
+Random,0.25,78,7.0
+Random,0.25,18,1.0
+Random,0.25,51,3.0
+Random,0.25,358,67.0
+Random,0.25,113,8.0
+Random,0.25,66,9.0
+Random,0.25,49,6.0
+Random,0.25,477,55.0
+Random,0.25,148,24.0
+Random,0.25,57,6.0
+Random,0.25,143,40.0
+Random,0.25,28,3.0
+Random,0.25,75,9.0
+Random,0.25,31,2.0
+Random,0.25,20,0.0
+Random,0.25,500,66.0
+Random,0.25,487,70.0
+Random,0.25,11,0.0
+Random,0.25,355,50.0
+Random,0.25,62,10.0
+Random,0.25,15,1.0
+Random,0.25,214,23.0
+Random,0.25,159,27.0
+Random,0.25,185,43.0
+Random,0.25,80,12.0
+Random,0.25,377,46.0
+Random,0.25,500,86.0
+Random,0.25,7,0.0
+Random,0.25,88,7.0
+Random,0.25,101,9.0
+Random,0.25,31,2.0
+Random,0.25,438,68.0
+Random,0.25,21,2.0
+Random,0.25,500,64.0
+Random,0.25,500,83.0
+Random,0.25,500,77.0
+Random,0.25,29,4.0
+Random,0.25,149,16.0
+Random,0.25,33,1.0
+Random,0.25,46,2.0
+Random,0.25,338,81.0
+Random,0.25,90,8.0
+Random,0.25,500,88.0
+Random,0.25,153,19.0
+Random,0.25,57,4.0
+Random,0.25,290,26.0
+Random,0.25,206,30.0
+Random,0.25,128,20.0
+Random,0.25,103,11.0
+Random,0.25,234,29.0
+Random,0.25,220,45.0
+Random,0.25,45,7.0
+Random,0.25,286,45.0
+Random,0.25,98,11.0
+Random,0.25,98,6.0
+Random,0.25,341,92.0
+Random,0.25,6,0.0
+Random,0.25,117,14.0
+Random,0.25,272,30.0
+Random,0.25,123,18.0
+Random,0.25,18,2.0
+Random,0.25,112,18.0
+Random,0.25,58,4.0
+Random,0.25,39,4.0
+Random,0.25,168,28.0
+Random (No Terminate),0.25,16,2.0
+Random (No Terminate),0.25,18,2.0
+Random (No Terminate),0.25,37,3.0
+Random (No Terminate),0.25,1,0.0
+Random (No Terminate),0.25,47,1.0
+Random (No Terminate),0.25,49,3.0
+Random (No Terminate),0.25,49,8.0
+Random (No Terminate),0.25,6,0.0
+Random (No Terminate),0.25,88,7.0
+Random (No Terminate),0.25,53,6.0
+Random (No Terminate),0.25,22,2.0
+Random (No Terminate),0.25,143,40.0
+Random (No Terminate),0.25,48,3.0
+Random (No Terminate),0.25,174,20.0
+Random (No Terminate),0.25,196,40.0
+Random (No Terminate),0.25,205,50.0
+Random (No Terminate),0.25,227,46.0
+Random (No Terminate),0.25,155,40.0
+Random (No Terminate),0.25,257,50.0
+Random (No Terminate),0.25,235,48.0
+Random (No Terminate),0.25,159,40.0
+Random (No Terminate),0.25,332,82.0
+Random (No Terminate),0.25,284,53.0
+Random (No Terminate),0.25,314,56.0
+Random (No Terminate),0.25,142,19.0
+Random (No Terminate),0.25,202,43.0
+Random (No Terminate),0.25,365,80.0
+Random (No Terminate),0.25,249,49.0
+Random (No Terminate),0.25,191,40.0
+Random (No Terminate),0.25,176,44.0
+Random (No Terminate),0.25,88,6.0
+Random (No Terminate),0.25,147,40.0
+Random (No Terminate),0.25,61,6.0
+Random (No Terminate),0.25,441,83.0
+Random (No Terminate),0.25,72,8.0
+Random (No Terminate),0.25,39,3.0
+Random (No Terminate),0.25,500,123.0
+Random (No Terminate),0.25,500,102.0
+Random (No Terminate),0.25,89,40.0
+Random (No Terminate),0.25,210,26.0
+Random (No Terminate),0.25,12,0.0
+Random (No Terminate),0.25,197,55.0
+Random (No Terminate),0.25,10,1.0
+Random (No Terminate),0.25,349,56.0
+Random (No Terminate),0.25,45,6.0
+Random (No Terminate),0.25,203,44.0
+Random (No Terminate),0.25,328,81.0
+Random (No Terminate),0.25,53,4.0
+Random (No Terminate),0.25,223,54.0
+Random (No Terminate),0.25,500,110.0
+Random (No Terminate),0.25,351,60.0
+Random (No Terminate),0.25,85,12.0
+Random (No Terminate),0.25,49,6.0
+Random (No Terminate),0.25,331,57.0
+Random (No Terminate),0.25,173,44.0
+Random (No Terminate),0.25,43,10.0
+Random (No Terminate),0.25,62,9.0
+Random (No Terminate),0.25,290,63.0
+Random (No Terminate),0.25,445,99.0
+Random (No Terminate),0.25,452,82.0
+Random (No Terminate),0.25,457,98.0
+Random (No Terminate),0.25,415,88.0
+Random (No Terminate),0.25,19,1.0
+Random (No Terminate),0.25,188,43.0
+Random (No Terminate),0.25,8,0.0
+Random (No Terminate),0.25,148,40.0
+Random (No Terminate),0.25,9,1.0
+Random (No Terminate),0.25,32,3.0
+Random (No Terminate),0.25,154,18.0
+Random (No Terminate),0.25,6,2.0
+Random (No Terminate),0.25,500,94.0
+Random (No Terminate),0.25,377,63.0
+Random (No Terminate),0.25,500,111.0
+Random (No Terminate),0.25,466,96.0
+Random (No Terminate),0.25,205,43.0
+Random (No Terminate),0.25,18,1.0
+Random (No Terminate),0.25,50,6.0
+Random (No Terminate),0.25,193,40.0
+Random (No Terminate),0.25,436,75.0
+Random (No Terminate),0.25,309,57.0
+Random (No Terminate),0.25,56,6.0
+Random (No Terminate),0.25,137,40.0
+Random (No Terminate),0.25,190,40.0
+Random (No Terminate),0.25,475,125.0
+Random (No Terminate),0.25,213,45.0
+Random (No Terminate),0.25,125,42.0
+Random (No Terminate),0.25,308,82.0
+Random (No Terminate),0.25,15,3.0
+Random (No Terminate),0.25,444,88.0
+Random (No Terminate),0.25,177,23.0
+Random (No Terminate),0.25,30,1.0
+Random (No Terminate),0.25,500,82.0
+Random (No Terminate),0.25,256,46.0
+Random (No Terminate),0.25,416,89.0
+Random (No Terminate),0.25,500,96.0
+Random (No Terminate),0.25,145,40.0
+Random (No Terminate),0.25,35,3.0
+Random (No Terminate),0.25,316,80.0
+Random (No Terminate),0.25,142,40.0
+Random (No Terminate),0.25,198,40.0
+Instant Terminate,0.5,6,0.0
+Instant Terminate,0.5,9,0.0
+Instant Terminate,0.5,38,7.0
+Instant Terminate,0.5,115,8.0
+Instant Terminate,0.5,22,1.0
+Instant Terminate,0.5,100,2.0
+Instant Terminate,0.5,241,16.0
+Instant Terminate,0.5,267,18.0
+Instant Terminate,0.5,96,6.0
+Instant Terminate,0.5,89,4.0
+Instant Terminate,0.5,0,0.0
+Instant Terminate,0.5,362,52.0
+Instant Terminate,0.5,21,0.0
+Instant Terminate,0.5,7,0.0
+Instant Terminate,0.5,44,5.0
+Instant Terminate,0.5,67,0.0
+Instant Terminate,0.5,225,40.0
+Instant Terminate,0.5,59,11.0
+Instant Terminate,0.5,500,66.0
+Instant Terminate,0.5,500,41.0
+Instant Terminate,0.5,493,61.0
+Instant Terminate,0.5,30,2.0
+Instant Terminate,0.5,500,44.0
+Instant Terminate,0.5,68,2.0
+Instant Terminate,0.5,184,28.0
+Instant Terminate,0.5,188,13.0
+Instant Terminate,0.5,365,44.0
+Instant Terminate,0.5,310,28.0
+Instant Terminate,0.5,77,1.0
+Instant Terminate,0.5,37,3.0
+Instant Terminate,0.5,287,42.0
+Instant Terminate,0.5,56,6.0
+Instant Terminate,0.5,259,41.0
+Instant Terminate,0.5,193,12.0
+Instant Terminate,0.5,35,1.0
+Instant Terminate,0.5,35,2.0
+Instant Terminate,0.5,6,0.0
+Instant Terminate,0.5,500,39.0
+Instant Terminate,0.5,117,7.0
+Instant Terminate,0.5,500,58.0
+Instant Terminate,0.5,225,16.0
+Instant Terminate,0.5,80,13.0
+Instant Terminate,0.5,325,23.0
+Instant Terminate,0.5,62,1.0
+Instant Terminate,0.5,218,20.0
+Instant Terminate,0.5,30,2.0
+Instant Terminate,0.5,245,40.0
+Instant Terminate,0.5,487,64.0
+Instant Terminate,0.5,194,40.0
+Instant Terminate,0.5,22,2.0
+Instant Terminate,0.5,225,7.0
+Instant Terminate,0.5,99,10.0
+Instant Terminate,0.5,34,6.0
+Instant Terminate,0.5,291,40.0
+Instant Terminate,0.5,60,6.0
+Instant Terminate,0.5,245,21.0
+Instant Terminate,0.5,328,47.0
+Instant Terminate,0.5,322,22.0
+Instant Terminate,0.5,433,41.0
+Instant Terminate,0.5,23,0.0
+Instant Terminate,0.5,500,50.0
+Instant Terminate,0.5,26,1.0
+Instant Terminate,0.5,44,3.0
+Instant Terminate,0.5,87,11.0
+Instant Terminate,0.5,120,13.0
+Instant Terminate,0.5,264,18.0
+Instant Terminate,0.5,74,6.0
+Instant Terminate,0.5,3,0.0
+Instant Terminate,0.5,67,7.0
+Instant Terminate,0.5,29,2.0
+Instant Terminate,0.5,482,80.0
+Instant Terminate,0.5,38,0.0
+Instant Terminate,0.5,51,5.0
+Instant Terminate,0.5,483,55.0
+Instant Terminate,0.5,16,2.0
+Instant Terminate,0.5,101,4.0
+Instant Terminate,0.5,420,80.0
+Instant Terminate,0.5,8,1.0
+Instant Terminate,0.5,136,14.0
+Instant Terminate,0.5,139,12.0
+Instant Terminate,0.5,280,44.0
+Instant Terminate,0.5,38,0.0
+Instant Terminate,0.5,283,27.0
+Instant Terminate,0.5,52,2.0
+Instant Terminate,0.5,332,45.0
+Instant Terminate,0.5,197,18.0
+Instant Terminate,0.5,240,10.0
+Instant Terminate,0.5,72,3.0
+Instant Terminate,0.5,1,0.0
+Instant Terminate,0.5,23,2.0
+Instant Terminate,0.5,260,31.0
+Instant Terminate,0.5,436,55.0
+Instant Terminate,0.5,500,62.0
+Instant Terminate,0.5,116,7.0
+Instant Terminate,0.5,48,3.0
+Instant Terminate,0.5,360,48.0
+Instant Terminate,0.5,58,4.0
+Instant Terminate,0.5,407,66.0
+Instant Terminate,0.5,500,82.0
+Instant Terminate,0.5,176,40.0
+AStar,0.5,82,10.0
+AStar,0.5,175,40.0
+AStar,0.5,183,40.0
+AStar,0.5,185,40.0
+AStar,0.5,148,40.0
+AStar,0.5,278,80.0
+AStar,0.5,455,122.0
+AStar,0.5,500,109.0
+AStar,0.5,500,98.0
+AStar,0.5,319,80.0
+AStar,0.5,57,7.0
+AStar,0.5,411,80.0
+AStar,0.5,500,95.0
+AStar,0.5,220,42.0
+AStar,0.5,500,124.0
+AStar,0.5,145,40.0
+AStar,0.5,457,82.0
+AStar,0.5,138,40.0
+AStar,0.5,227,43.0
+AStar,0.5,362,80.0
+AStar,0.5,203,40.0
+AStar,0.5,500,133.0
+AStar,0.5,500,112.0
+AStar,0.5,152,40.0
+AStar,0.5,169,40.0
+AStar,0.5,392,91.0
+AStar,0.5,310,80.0
+AStar,0.5,203,40.0
+AStar,0.5,148,10.0
+AStar,0.5,500,98.0
+AStar,0.5,154,40.0
+AStar,0.5,367,80.0
+AStar,0.5,59,4.0
+AStar,0.5,184,42.0
+AStar,0.5,465,80.0
+AStar,0.5,145,40.0
+AStar,0.5,119,40.0
+AStar,0.5,281,80.0
+AStar,0.5,368,85.0
+AStar,0.5,2,0.0
+AStar,0.5,178,40.0
+AStar,0.5,398,80.0
+AStar,0.5,500,104.0
+AStar,0.5,360,93.0
+AStar,0.5,453,88.0
+AStar,0.5,173,40.0
+AStar,0.5,137,40.0
+AStar,0.5,134,40.0
+AStar,0.5,369,61.0
+AStar,0.5,144,40.0
+AStar,0.5,348,80.0
+AStar,0.5,346,80.0
+AStar,0.5,353,80.0
+AStar,0.5,54,6.0
+AStar,0.5,134,40.0
+AStar,0.5,430,120.0
+AStar,0.5,183,41.0
+AStar,0.5,240,40.0
+AStar,0.5,123,40.0
+AStar,0.5,148,40.0
+AStar,0.5,24,2.0
+AStar,0.5,118,40.0
+AStar,0.5,302,81.0
+AStar,0.5,28,2.0
+AStar,0.5,205,40.0
+AStar,0.5,229,42.0
+AStar,0.5,203,40.0
+AStar,0.5,500,95.0
+AStar,0.5,255,80.0
+AStar,0.5,500,106.0
+AStar,0.5,91,12.0
+AStar,0.5,16,2.0
+AStar,0.5,126,40.0
+AStar,0.5,192,40.0
+AStar,0.5,500,72.0
+AStar,0.5,165,40.0
+AStar,0.5,170,40.0
+AStar,0.5,151,41.0
+AStar,0.5,350,80.0
+AStar,0.5,177,40.0
+AStar,0.5,134,40.0
+AStar,0.5,500,124.0
+AStar,0.5,166,40.0
+AStar,0.5,346,80.0
+AStar,0.5,484,120.0
+AStar,0.5,162,40.0
+AStar,0.5,351,80.0
+AStar,0.5,500,95.0
+AStar,0.5,65,9.0
+AStar,0.5,362,80.0
+AStar,0.5,116,40.0
+AStar,0.5,304,80.0
+AStar,0.5,40,7.0
+AStar,0.5,216,43.0
+AStar,0.5,165,40.0
+AStar,0.5,229,44.0
+AStar,0.5,201,40.0
+AStar,0.5,268,48.0
+AStar,0.5,36,3.0
+AStar,0.5,222,41.0
+Random,0.5,1,0.0
+Random,0.5,51,1.0
+Random,0.5,69,3.0
+Random,0.5,16,1.0
+Random,0.5,55,7.0
+Random,0.5,15,3.0
+Random,0.5,71,8.0
+Random,0.5,15,1.0
+Random,0.5,219,41.0
+Random,0.5,222,43.0
+Random,0.5,3,0.0
+Random,0.5,59,4.0
+Random,0.5,243,50.0
+Random,0.5,92,6.0
+Random,0.5,347,80.0
+Random,0.5,239,40.0
+Random,0.5,500,64.0
+Random,0.5,500,67.0
+Random,0.5,500,83.0
+Random,0.5,72,10.0
+Random,0.5,500,83.0
+Random,0.5,22,1.0
+Random,0.5,36,2.0
+Random,0.5,206,40.0
+Random,0.5,125,16.0
+Random,0.5,202,40.0
+Random,0.5,380,50.0
+Random,0.5,330,64.0
+Random,0.5,357,60.0
+Random,0.5,124,12.0
+Random,0.5,163,41.0
+Random,0.5,165,40.0
+Random,0.5,447,81.0
+Random,0.5,163,15.0
+Random,0.5,477,64.0
+Random,0.5,500,120.0
+Random,0.5,46,5.0
+Random,0.5,219,40.0
+Random,0.5,106,9.0
+Random,0.5,424,80.0
+Random,0.5,474,48.0
+Random,0.5,201,44.0
+Random,0.5,425,81.0
+Random,0.5,500,84.0
+Random,0.5,417,69.0
+Random,0.5,37,3.0
+Random,0.5,500,98.0
+Random,0.5,500,88.0
+Random,0.5,500,93.0
+Random,0.5,140,10.0
+Random,0.5,164,40.0
+Random,0.5,500,63.0
+Random,0.5,334,23.0
+Random,0.5,40,3.0
+Random,0.5,388,57.0
+Random,0.5,256,48.0
+Random,0.5,17,2.0
+Random,0.5,144,40.0
+Random,0.5,221,43.0
+Random,0.5,500,57.0
+Random,0.5,25,2.0
+Random,0.5,14,1.0
+Random,0.5,197,40.0
+Random,0.5,413,54.0
+Random,0.5,500,57.0
+Random,0.5,40,2.0
+Random,0.5,416,62.0
+Random,0.5,500,65.0
+Random,0.5,500,93.0
+Random,0.5,454,84.0
+Random,0.5,292,53.0
+Random,0.5,116,12.0
+Random,0.5,359,49.0
+Random,0.5,500,76.0
+Random,0.5,268,55.0
+Random,0.5,500,74.0
+Random,0.5,229,40.0
+Random,0.5,173,18.0
+Random,0.5,265,44.0
+Random,0.5,3,0.0
+Random,0.5,500,64.0
+Random,0.5,196,29.0
+Random,0.5,179,40.0
+Random,0.5,490,73.0
+Random,0.5,500,81.0
+Random,0.5,210,40.0
+Random,0.5,458,87.0
+Random,0.5,122,9.0
+Random,0.5,83,9.0
+Random,0.5,81,5.0
+Random,0.5,267,26.0
+Random,0.5,474,72.0
+Random,0.5,295,52.0
+Random,0.5,50,6.0
+Random,0.5,19,0.0
+Random,0.5,375,80.0
+Random,0.5,86,15.0
+Random,0.5,260,41.0
+Random,0.5,103,12.0
+Random,0.5,223,40.0
+Random (No Terminate),0.5,13,1.0
+Random (No Terminate),0.5,171,40.0
+Random (No Terminate),0.5,308,80.0
+Random (No Terminate),0.5,326,81.0
+Random (No Terminate),0.5,345,82.0
+Random (No Terminate),0.5,41,2.0
+Random (No Terminate),0.5,390,85.0
+Random (No Terminate),0.5,401,80.0
+Random (No Terminate),0.5,500,89.0
+Random (No Terminate),0.5,500,92.0
+Random (No Terminate),0.5,215,40.0
+Random (No Terminate),0.5,284,54.0
+Random (No Terminate),0.5,500,88.0
+Random (No Terminate),0.5,282,48.0
+Random (No Terminate),0.5,500,83.0
+Random (No Terminate),0.5,180,40.0
+Random (No Terminate),0.5,500,87.0
+Random (No Terminate),0.5,500,94.0
+Random (No Terminate),0.5,149,40.0
+Random (No Terminate),0.5,132,41.0
+Random (No Terminate),0.5,500,70.0
+Random (No Terminate),0.5,379,80.0
+Random (No Terminate),0.5,165,40.0
+Random (No Terminate),0.5,258,80.0
+Random (No Terminate),0.5,500,68.0
+Random (No Terminate),0.5,145,40.0
+Random (No Terminate),0.5,148,40.0
+Random (No Terminate),0.5,217,41.0
+Random (No Terminate),0.5,318,80.0
+Random (No Terminate),0.5,408,81.0
+Random (No Terminate),0.5,485,120.0
+Random (No Terminate),0.5,257,40.0
+Random (No Terminate),0.5,112,10.0
+Random (No Terminate),0.5,500,137.0
+Random (No Terminate),0.5,500,76.0
+Random (No Terminate),0.5,175,41.0
+Random (No Terminate),0.5,500,102.0
+Random (No Terminate),0.5,500,91.0
+Random (No Terminate),0.5,500,94.0
+Random (No Terminate),0.5,500,106.0
+Random (No Terminate),0.5,500,67.0
+Random (No Terminate),0.5,500,77.0
+Random (No Terminate),0.5,500,110.0
+Random (No Terminate),0.5,319,57.0
+Random (No Terminate),0.5,500,92.0
+Random (No Terminate),0.5,39,3.0
+Random (No Terminate),0.5,500,104.0
+Random (No Terminate),0.5,341,80.0
+Random (No Terminate),0.5,208,40.0
+Random (No Terminate),0.5,500,97.0
+Random (No Terminate),0.5,500,93.0
+Random (No Terminate),0.5,169,45.0
+Random (No Terminate),0.5,147,19.0
+Random (No Terminate),0.5,491,106.0
+Random (No Terminate),0.5,347,80.0
+Random (No Terminate),0.5,193,40.0
+Random (No Terminate),0.5,22,0.0
+Random (No Terminate),0.5,464,94.0
+Random (No Terminate),0.5,253,40.0
+Random (No Terminate),0.5,447,121.0
+Random (No Terminate),0.5,500,82.0
+Random (No Terminate),0.5,150,40.0
+Random (No Terminate),0.5,500,102.0
+Random (No Terminate),0.5,246,50.0
+Random (No Terminate),0.5,201,41.0
+Random (No Terminate),0.5,349,80.0
+Random (No Terminate),0.5,227,47.0
+Random (No Terminate),0.5,333,80.0
+Random (No Terminate),0.5,150,20.0
+Random (No Terminate),0.5,500,97.0
+Random (No Terminate),0.5,500,88.0
+Random (No Terminate),0.5,447,84.0
+Random (No Terminate),0.5,500,100.0
+Random (No Terminate),0.5,369,86.0
+Random (No Terminate),0.5,486,122.0
+Random (No Terminate),0.5,159,41.0
+Random (No Terminate),0.5,500,129.0
+Random (No Terminate),0.5,138,40.0
+Random (No Terminate),0.5,200,41.0
+Random (No Terminate),0.5,500,105.0
+Random (No Terminate),0.5,228,43.0
+Random (No Terminate),0.5,377,80.0
+Random (No Terminate),0.5,209,45.0
+Random (No Terminate),0.5,206,40.0
+Random (No Terminate),0.5,392,81.0
+Random (No Terminate),0.5,500,109.0
+Random (No Terminate),0.5,169,40.0
+Random (No Terminate),0.5,417,87.0
+Random (No Terminate),0.5,18,2.0
+Random (No Terminate),0.5,361,83.0
+Random (No Terminate),0.5,144,40.0
+Random (No Terminate),0.5,306,83.0
+Random (No Terminate),0.5,500,81.0
+Random (No Terminate),0.5,266,45.0
+Random (No Terminate),0.5,500,102.0
+Random (No Terminate),0.5,18,0.0
+Random (No Terminate),0.5,426,86.0
+Random (No Terminate),0.5,330,82.0
+Random (No Terminate),0.5,500,93.0
+Random (No Terminate),0.5,500,113.0
+Instant Terminate,0.75,26,1.0
+Instant Terminate,0.75,27,4.0
+Instant Terminate,0.75,49,5.0
+Instant Terminate,0.75,94,8.0
+Instant Terminate,0.75,191,27.0
+Instant Terminate,0.75,194,20.0
+Instant Terminate,0.75,147,14.0
+Instant Terminate,0.75,234,40.0
+Instant Terminate,0.75,25,3.0
+Instant Terminate,0.75,78,6.0
+Instant Terminate,0.75,285,19.0
+Instant Terminate,0.75,45,2.0
+Instant Terminate,0.75,303,17.0
+Instant Terminate,0.75,49,5.0
+Instant Terminate,0.75,102,11.0
+Instant Terminate,0.75,150,10.0
+Instant Terminate,0.75,300,40.0
+Instant Terminate,0.75,500,57.0
+Instant Terminate,0.75,272,40.0
+Instant Terminate,0.75,500,86.0
+Instant Terminate,0.75,33,5.0
+Instant Terminate,0.75,170,17.0
+Instant Terminate,0.75,160,16.0
+Instant Terminate,0.75,408,48.0
+Instant Terminate,0.75,276,40.0
+Instant Terminate,0.75,167,20.0
+Instant Terminate,0.75,500,50.0
+Instant Terminate,0.75,500,90.0
+Instant Terminate,0.75,109,7.0
+Instant Terminate,0.75,18,0.0
+Instant Terminate,0.75,26,1.0
+Instant Terminate,0.75,13,2.0
+Instant Terminate,0.75,500,44.0
+Instant Terminate,0.75,40,2.0
+Instant Terminate,0.75,287,35.0
+Instant Terminate,0.75,17,1.0
+Instant Terminate,0.75,12,1.0
+Instant Terminate,0.75,200,20.0
+Instant Terminate,0.75,9,1.0
+Instant Terminate,0.75,22,1.0
+Instant Terminate,0.75,412,53.0
+Instant Terminate,0.75,500,73.0
+Instant Terminate,0.75,361,49.0
+Instant Terminate,0.75,85,8.0
+Instant Terminate,0.75,500,58.0
+Instant Terminate,0.75,36,3.0
+Instant Terminate,0.75,278,47.0
+Instant Terminate,0.75,252,28.0
+Instant Terminate,0.75,252,40.0
+Instant Terminate,0.75,97,7.0
+Instant Terminate,0.75,142,17.0
+Instant Terminate,0.75,126,17.0
+Instant Terminate,0.75,104,7.0
+Instant Terminate,0.75,89,9.0
+Instant Terminate,0.75,495,71.0
+Instant Terminate,0.75,500,62.0
+Instant Terminate,0.75,47,3.0
+Instant Terminate,0.75,37,4.0
+Instant Terminate,0.75,101,3.0
+Instant Terminate,0.75,175,40.0
+Instant Terminate,0.75,72,9.0
+Instant Terminate,0.75,500,68.0
+Instant Terminate,0.75,68,4.0
+Instant Terminate,0.75,500,71.0
+Instant Terminate,0.75,500,91.0
+Instant Terminate,0.75,131,16.0
+Instant Terminate,0.75,102,9.0
+Instant Terminate,0.75,119,10.0
+Instant Terminate,0.75,301,46.0
+Instant Terminate,0.75,178,40.0
+Instant Terminate,0.75,55,4.0
+Instant Terminate,0.75,500,43.0
+Instant Terminate,0.75,500,62.0
+Instant Terminate,0.75,238,40.0
+Instant Terminate,0.75,138,8.0
+Instant Terminate,0.75,111,10.0
+Instant Terminate,0.75,500,62.0
+Instant Terminate,0.75,185,40.0
+Instant Terminate,0.75,244,40.0
+Instant Terminate,0.75,317,54.0
+Instant Terminate,0.75,220,18.0
+Instant Terminate,0.75,471,53.0
+Instant Terminate,0.75,397,51.0
+Instant Terminate,0.75,500,57.0
+Instant Terminate,0.75,264,40.0
+Instant Terminate,0.75,168,14.0
+Instant Terminate,0.75,500,67.0
+Instant Terminate,0.75,138,8.0
+Instant Terminate,0.75,72,7.0
+Instant Terminate,0.75,45,4.0
+Instant Terminate,0.75,422,67.0
+Instant Terminate,0.75,102,5.0
+Instant Terminate,0.75,372,62.0
+Instant Terminate,0.75,397,67.0
+Instant Terminate,0.75,284,42.0
+Instant Terminate,0.75,157,18.0
+Instant Terminate,0.75,373,46.0
+Instant Terminate,0.75,472,46.0
+Instant Terminate,0.75,116,16.0
+Instant Terminate,0.75,367,49.0
+AStar,0.75,134,40.0
+AStar,0.75,138,40.0
+AStar,0.75,199,47.0
+AStar,0.75,285,80.0
+AStar,0.75,158,40.0
+AStar,0.75,32,3.0
+AStar,0.75,188,41.0
+AStar,0.75,436,83.0
+AStar,0.75,500,111.0
+AStar,0.75,500,90.0
+AStar,0.75,500,101.0
+AStar,0.75,119,40.0
+AStar,0.75,9,1.0
+AStar,0.75,500,120.0
+AStar,0.75,138,40.0
+AStar,0.75,317,80.0
+AStar,0.75,179,40.0
+AStar,0.75,167,40.0
+AStar,0.75,117,40.0
+AStar,0.75,500,121.0
+AStar,0.75,166,41.0
+AStar,0.75,160,42.0
+AStar,0.75,381,85.0
+AStar,0.75,345,80.0
+AStar,0.75,162,40.0
+AStar,0.75,179,40.0
+AStar,0.75,146,40.0
+AStar,0.75,202,40.0
+AStar,0.75,161,40.0
+AStar,0.75,204,45.0
+AStar,0.75,168,40.0
+AStar,0.75,125,40.0
+AStar,0.75,166,40.0
+AStar,0.75,305,81.0
+AStar,0.75,46,8.0
+AStar,0.75,179,40.0
+AStar,0.75,16,1.0
+AStar,0.75,150,40.0
+AStar,0.75,285,80.0
+AStar,0.75,160,40.0
+AStar,0.75,500,104.0
+AStar,0.75,500,128.0
+AStar,0.75,29,4.0
+AStar,0.75,328,80.0
+AStar,0.75,406,94.0
+AStar,0.75,500,125.0
+AStar,0.75,212,40.0
+AStar,0.75,48,7.0
+AStar,0.75,255,80.0
+AStar,0.75,5,0.0
+AStar,0.75,206,40.0
+AStar,0.75,359,80.0
+AStar,0.75,178,40.0
+AStar,0.75,203,40.0
+AStar,0.75,306,80.0
+AStar,0.75,500,107.0
+AStar,0.75,310,82.0
+AStar,0.75,129,40.0
+AStar,0.75,59,4.0
+AStar,0.75,133,19.0
+AStar,0.75,163,40.0
+AStar,0.75,474,120.0
+AStar,0.75,474,121.0
+AStar,0.75,195,43.0
+AStar,0.75,500,124.0
+AStar,0.75,275,61.0
+AStar,0.75,165,40.0
+AStar,0.75,110,40.0
+AStar,0.75,124,40.0
+AStar,0.75,350,80.0
+AStar,0.75,344,86.0
+AStar,0.75,14,0.0
+AStar,0.75,287,80.0
+AStar,0.75,500,102.0
+AStar,0.75,336,83.0
+AStar,0.75,31,3.0
+AStar,0.75,184,41.0
+AStar,0.75,495,120.0
+AStar,0.75,14,2.0
+AStar,0.75,371,84.0
+AStar,0.75,130,40.0
+AStar,0.75,500,97.0
+AStar,0.75,3,1.0
+AStar,0.75,432,120.0
+AStar,0.75,302,81.0
+AStar,0.75,161,40.0
+AStar,0.75,375,83.0
+AStar,0.75,162,40.0
+AStar,0.75,17,1.0
+AStar,0.75,500,101.0
+AStar,0.75,185,40.0
+AStar,0.75,359,88.0
+AStar,0.75,5,1.0
+AStar,0.75,12,0.0
+AStar,0.75,23,3.0
+AStar,0.75,500,103.0
+AStar,0.75,271,80.0
+AStar,0.75,235,40.0
+AStar,0.75,165,40.0
+AStar,0.75,26,2.0
+Random,0.75,5,0.0
+Random,0.75,23,1.0
+Random,0.75,43,4.0
+Random,0.75,43,3.0
+Random,0.75,11,0.0
+Random,0.75,43,2.0
+Random,0.75,124,9.0
+Random,0.75,215,42.0
+Random,0.75,276,33.0
+Random,0.75,313,64.0
+Random,0.75,371,67.0
+Random,0.75,12,0.0
+Random,0.75,152,11.0
+Random,0.75,463,120.0
+Random,0.75,500,89.0
+Random,0.75,161,40.0
+Random,0.75,500,73.0
+Random,0.75,0,0.0
+Random,0.75,500,56.0
+Random,0.75,437,80.0
+Random,0.75,395,80.0
+Random,0.75,7,0.0
+Random,0.75,189,40.0
+Random,0.75,167,17.0
+Random,0.75,133,14.0
+Random,0.75,468,78.0
+Random,0.75,191,40.0
+Random,0.75,440,82.0
+Random,0.75,500,99.0
+Random,0.75,500,85.0
+Random,0.75,216,43.0
+Random,0.75,206,40.0
+Random,0.75,500,100.0
+Random,0.75,304,47.0
+Random,0.75,133,11.0
+Random,0.75,226,42.0
+Random,0.75,469,88.0
+Random,0.75,500,84.0
+Random,0.75,122,13.0
+Random,0.75,60,4.0
+Random,0.75,184,40.0
+Random,0.75,337,53.0
+Random,0.75,425,85.0
+Random,0.75,210,40.0
+Random,0.75,34,4.0
+Random,0.75,500,75.0
+Random,0.75,20,2.0
+Random,0.75,14,0.0
+Random,0.75,465,51.0
+Random,0.75,169,40.0
+Random,0.75,474,81.0
+Random,0.75,254,47.0
+Random,0.75,215,24.0
+Random,0.75,500,82.0
+Random,0.75,500,95.0
+Random,0.75,500,108.0
+Random,0.75,500,88.0
+Random,0.75,168,22.0
+Random,0.75,35,4.0
+Random,0.75,414,42.0
+Random,0.75,16,0.0
+Random,0.75,27,2.0
+Random,0.75,275,43.0
+Random,0.75,436,80.0
+Random,0.75,500,101.0
+Random,0.75,76,5.0
+Random,0.75,362,61.0
+Random,0.75,171,31.0
+Random,0.75,133,40.0
+Random,0.75,374,53.0
+Random,0.75,318,51.0
+Random,0.75,500,108.0
+Random,0.75,168,42.0
+Random,0.75,500,92.0
+Random,0.75,309,46.0
+Random,0.75,181,41.0
+Random,0.75,152,40.0
+Random,0.75,309,57.0
+Random,0.75,194,40.0
+Random,0.75,17,2.0
+Random,0.75,74,6.0
+Random,0.75,28,3.0
+Random,0.75,494,90.0
+Random,0.75,325,48.0
+Random,0.75,419,84.0
+Random,0.75,368,56.0
+Random,0.75,122,15.0
+Random,0.75,193,40.0
+Random,0.75,187,40.0
+Random,0.75,500,93.0
+Random,0.75,69,8.0
+Random,0.75,159,44.0
+Random,0.75,500,52.0
+Random,0.75,186,19.0
+Random,0.75,238,31.0
+Random,0.75,500,92.0
+Random,0.75,192,40.0
+Random,0.75,13,2.0
+Random,0.75,39,1.0
+Random,0.75,340,45.0
+Random (No Terminate),0.75,4,0.0
+Random (No Terminate),0.75,152,40.0
+Random (No Terminate),0.75,164,40.0
+Random (No Terminate),0.75,170,45.0
+Random (No Terminate),0.75,296,66.0
+Random (No Terminate),0.75,200,43.0
+Random (No Terminate),0.75,421,120.0
+Random (No Terminate),0.75,498,97.0
+Random (No Terminate),0.75,500,128.0
+Random (No Terminate),0.75,500,96.0
+Random (No Terminate),0.75,375,80.0
+Random (No Terminate),0.75,385,81.0
+Random (No Terminate),0.75,236,41.0
+Random (No Terminate),0.75,158,40.0
+Random (No Terminate),0.75,242,40.0
+Random (No Terminate),0.75,22,4.0
+Random (No Terminate),0.75,386,85.0
+Random (No Terminate),0.75,166,40.0
+Random (No Terminate),0.75,228,42.0
+Random (No Terminate),0.75,167,41.0
+Random (No Terminate),0.75,180,40.0
+Random (No Terminate),0.75,500,86.0
+Random (No Terminate),0.75,166,40.0
+Random (No Terminate),0.75,500,109.0
+Random (No Terminate),0.75,288,80.0
+Random (No Terminate),0.75,188,41.0
+Random (No Terminate),0.75,500,100.0
+Random (No Terminate),0.75,432,82.0
+Random (No Terminate),0.75,157,40.0
+Random (No Terminate),0.75,66,3.0
+Random (No Terminate),0.75,500,96.0
+Random (No Terminate),0.75,321,80.0
+Random (No Terminate),0.75,388,85.0
+Random (No Terminate),0.75,276,80.0
+Random (No Terminate),0.75,348,80.0
+Random (No Terminate),0.75,121,40.0
+Random (No Terminate),0.75,500,128.0
+Random (No Terminate),0.75,119,40.0
+Random (No Terminate),0.75,171,40.0
+Random (No Terminate),0.75,500,95.0
+Random (No Terminate),0.75,373,86.0
+Random (No Terminate),0.75,238,40.0
+Random (No Terminate),0.75,48,4.0
+Random (No Terminate),0.75,341,80.0
+Random (No Terminate),0.75,77,13.0
+Random (No Terminate),0.75,147,40.0
+Random (No Terminate),0.75,33,3.0
+Random (No Terminate),0.75,133,21.0
+Random (No Terminate),0.75,442,120.0
+Random (No Terminate),0.75,235,49.0
+Random (No Terminate),0.75,129,15.0
+Random (No Terminate),0.75,223,42.0
+Random (No Terminate),0.75,344,84.0
+Random (No Terminate),0.75,500,104.0
+Random (No Terminate),0.75,500,91.0
+Random (No Terminate),0.75,191,40.0
+Random (No Terminate),0.75,141,40.0
+Random (No Terminate),0.75,128,40.0
+Random (No Terminate),0.75,500,105.0
+Random (No Terminate),0.75,16,3.0
+Random (No Terminate),0.75,190,40.0
+Random (No Terminate),0.75,277,52.0
+Random (No Terminate),0.75,153,45.0
+Random (No Terminate),0.75,333,85.0
+Random (No Terminate),0.75,500,114.0
+Random (No Terminate),0.75,406,80.0
+Random (No Terminate),0.75,394,89.0
+Random (No Terminate),0.75,223,59.0
+Random (No Terminate),0.75,58,6.0
+Random (No Terminate),0.75,383,82.0
+Random (No Terminate),0.75,187,40.0
+Random (No Terminate),0.75,187,41.0
+Random (No Terminate),0.75,278,52.0
+Random (No Terminate),0.75,359,84.0
+Random (No Terminate),0.75,177,24.0
+Random (No Terminate),0.75,500,125.0
+Random (No Terminate),0.75,304,80.0
+Random (No Terminate),0.75,174,40.0
+Random (No Terminate),0.75,280,42.0
+Random (No Terminate),0.75,144,22.0
+Random (No Terminate),0.75,477,120.0
+Random (No Terminate),0.75,14,1.0
+Random (No Terminate),0.75,177,41.0
+Random (No Terminate),0.75,467,120.0
+Random (No Terminate),0.75,112,40.0
+Random (No Terminate),0.75,500,125.0
+Random (No Terminate),0.75,27,2.0
+Random (No Terminate),0.75,500,130.0
+Random (No Terminate),0.75,500,107.0
+Random (No Terminate),0.75,299,80.0
+Random (No Terminate),0.75,99,17.0
+Random (No Terminate),0.75,179,44.0
+Random (No Terminate),0.75,500,126.0
+Random (No Terminate),0.75,165,40.0
+Random (No Terminate),0.75,56,1.0
+Random (No Terminate),0.75,195,41.0
+Random (No Terminate),0.75,186,41.0
+Random (No Terminate),0.75,500,107.0
+Random (No Terminate),0.75,500,116.0
+Random (No Terminate),0.75,165,40.0
+Instant Terminate,0.9,16,2.0
+Instant Terminate,0.9,55,1.0
+Instant Terminate,0.9,177,40.0
+Instant Terminate,0.9,187,40.0
+Instant Terminate,0.9,57,6.0
+Instant Terminate,0.9,34,1.0
+Instant Terminate,0.9,103,15.0
+Instant Terminate,0.9,293,49.0
+Instant Terminate,0.9,43,1.0
+Instant Terminate,0.9,106,6.0
+Instant Terminate,0.9,201,40.0
+Instant Terminate,0.9,500,67.0
+Instant Terminate,0.9,500,83.0
+Instant Terminate,0.9,500,91.0
+Instant Terminate,0.9,500,88.0
+Instant Terminate,0.9,28,4.0
+Instant Terminate,0.9,500,57.0
+Instant Terminate,0.9,77,4.0
+Instant Terminate,0.9,86,12.0
+Instant Terminate,0.9,158,40.0
+Instant Terminate,0.9,25,4.0
+Instant Terminate,0.9,328,48.0
+Instant Terminate,0.9,43,2.0
+Instant Terminate,0.9,57,8.0
+Instant Terminate,0.9,173,28.0
+Instant Terminate,0.9,221,40.0
+Instant Terminate,0.9,112,15.0
+Instant Terminate,0.9,185,16.0
+Instant Terminate,0.9,17,1.0
+Instant Terminate,0.9,298,46.0
+Instant Terminate,0.9,81,12.0
+Instant Terminate,0.9,317,47.0
+Instant Terminate,0.9,11,1.0
+Instant Terminate,0.9,271,58.0
+Instant Terminate,0.9,392,84.0
+Instant Terminate,0.9,427,46.0
+Instant Terminate,0.9,116,20.0
+Instant Terminate,0.9,86,8.0
+Instant Terminate,0.9,134,18.0
+Instant Terminate,0.9,334,48.0
+Instant Terminate,0.9,20,2.0
+Instant Terminate,0.9,27,0.0
+Instant Terminate,0.9,149,40.0
+Instant Terminate,0.9,21,2.0
+Instant Terminate,0.9,500,78.0
+Instant Terminate,0.9,214,40.0
+Instant Terminate,0.9,470,92.0
+Instant Terminate,0.9,180,48.0
+Instant Terminate,0.9,154,40.0
+Instant Terminate,0.9,30,2.0
+Instant Terminate,0.9,162,13.0
+Instant Terminate,0.9,232,26.0
+Instant Terminate,0.9,231,47.0
+Instant Terminate,0.9,96,10.0
+Instant Terminate,0.9,500,81.0
+Instant Terminate,0.9,278,39.0
+Instant Terminate,0.9,500,78.0
+Instant Terminate,0.9,123,22.0
+Instant Terminate,0.9,152,40.0
+Instant Terminate,0.9,294,43.0
+Instant Terminate,0.9,44,0.0
+Instant Terminate,0.9,500,84.0
+Instant Terminate,0.9,328,50.0
+Instant Terminate,0.9,500,64.0
+Instant Terminate,0.9,500,70.0
+Instant Terminate,0.9,64,3.0
+Instant Terminate,0.9,84,3.0
+Instant Terminate,0.9,139,40.0
+Instant Terminate,0.9,219,29.0
+Instant Terminate,0.9,500,78.0
+Instant Terminate,0.9,220,25.0
+Instant Terminate,0.9,500,89.0
+Instant Terminate,0.9,438,62.0
+Instant Terminate,0.9,104,5.0
+Instant Terminate,0.9,70,6.0
+Instant Terminate,0.9,500,68.0
+Instant Terminate,0.9,500,57.0
+Instant Terminate,0.9,177,40.0
+Instant Terminate,0.9,481,71.0
+Instant Terminate,0.9,176,22.0
+Instant Terminate,0.9,50,6.0
+Instant Terminate,0.9,50,4.0
+Instant Terminate,0.9,81,6.0
+Instant Terminate,0.9,274,47.0
+Instant Terminate,0.9,431,82.0
+Instant Terminate,0.9,216,40.0
+Instant Terminate,0.9,291,41.0
+Instant Terminate,0.9,374,48.0
+Instant Terminate,0.9,500,69.0
+Instant Terminate,0.9,309,21.0
+Instant Terminate,0.9,57,5.0
+Instant Terminate,0.9,173,40.0
+Instant Terminate,0.9,146,28.0
+Instant Terminate,0.9,318,59.0
+Instant Terminate,0.9,416,67.0
+Instant Terminate,0.9,56,3.0
+Instant Terminate,0.9,500,109.0
+Instant Terminate,0.9,62,10.0
+Instant Terminate,0.9,206,23.0
+Instant Terminate,0.9,404,84.0
+AStar,0.9,126,40.0
+AStar,0.9,130,40.0
+AStar,0.9,139,40.0
+AStar,0.9,168,40.0
+AStar,0.9,180,40.0
+AStar,0.9,91,40.0
+AStar,0.9,222,44.0
+AStar,0.9,56,4.0
+AStar,0.9,23,3.0
+AStar,0.9,263,43.0
+AStar,0.9,24,7.0
+AStar,0.9,30,2.0
+AStar,0.9,176,41.0
+AStar,0.9,3,0.0
+AStar,0.9,205,43.0
+AStar,0.9,132,42.0
+AStar,0.9,142,40.0
+AStar,0.9,10,3.0
+AStar,0.9,108,40.0
+AStar,0.9,500,121.0
+AStar,0.9,57,4.0
+AStar,0.9,342,86.0
+AStar,0.9,6,0.0
+AStar,0.9,298,81.0
+AStar,0.9,283,81.0
+AStar,0.9,258,44.0
+AStar,0.9,299,55.0
+AStar,0.9,99,40.0
+AStar,0.9,168,40.0
+AStar,0.9,40,5.0
+AStar,0.9,163,41.0
+AStar,0.9,115,40.0
+AStar,0.9,295,85.0
+AStar,0.9,272,45.0
+AStar,0.9,500,108.0
+AStar,0.9,212,41.0
+AStar,0.9,185,40.0
+AStar,0.9,358,62.0
+AStar,0.9,269,80.0
+AStar,0.9,117,40.0
+AStar,0.9,314,80.0
+AStar,0.9,11,1.0
+AStar,0.9,199,40.0
+AStar,0.9,500,133.0
+AStar,0.9,75,8.0
+AStar,0.9,151,40.0
+AStar,0.9,484,120.0
+AStar,0.9,129,40.0
+AStar,0.9,500,107.0
+AStar,0.9,153,40.0
+AStar,0.9,139,40.0
+AStar,0.9,194,40.0
+AStar,0.9,10,2.0
+AStar,0.9,166,40.0
+AStar,0.9,454,107.0
+AStar,0.9,4,0.0
+AStar,0.9,185,48.0
+AStar,0.9,301,63.0
+AStar,0.9,345,80.0
+AStar,0.9,182,43.0
+AStar,0.9,29,1.0
+AStar,0.9,184,40.0
+AStar,0.9,267,80.0
+AStar,0.9,341,85.0
+AStar,0.9,500,128.0
+AStar,0.9,176,40.0
+AStar,0.9,227,80.0
+AStar,0.9,32,3.0
+AStar,0.9,174,40.0
+AStar,0.9,64,6.0
+AStar,0.9,169,40.0
+AStar,0.9,62,8.0
+AStar,0.9,481,120.0
+AStar,0.9,3,1.0
+AStar,0.9,7,0.0
+AStar,0.9,500,130.0
+AStar,0.9,168,40.0
+AStar,0.9,397,83.0
+AStar,0.9,31,3.0
+AStar,0.9,235,46.0
+AStar,0.9,139,40.0
+AStar,0.9,466,86.0
+AStar,0.9,176,40.0
+AStar,0.9,459,120.0
+AStar,0.9,22,5.0
+AStar,0.9,137,40.0
+AStar,0.9,1,0.0
+AStar,0.9,263,32.0
+AStar,0.9,500,131.0
+AStar,0.9,173,42.0
+AStar,0.9,158,40.0
+AStar,0.9,421,91.0
+AStar,0.9,169,40.0
+AStar,0.9,150,41.0
+AStar,0.9,61,8.0
+AStar,0.9,32,2.0
+AStar,0.9,424,120.0
+AStar,0.9,310,80.0
+AStar,0.9,344,84.0
+AStar,0.9,203,40.0
+Random,0.9,78,7.0
+Random,0.9,78,7.0
+Random,0.9,131,18.0
+Random,0.9,166,20.0
+Random,0.9,158,40.0
+Random,0.9,225,51.0
+Random,0.9,95,6.0
+Random,0.9,116,19.0
+Random,0.9,127,21.0
+Random,0.9,341,60.0
+Random,0.9,266,48.0
+Random,0.9,173,23.0
+Random,0.9,193,48.0
+Random,0.9,47,3.0
+Random,0.9,24,1.0
+Random,0.9,500,92.0
+Random,0.9,55,6.0
+Random,0.9,494,79.0
+Random,0.9,22,1.0
+Random,0.9,324,60.0
+Random,0.9,500,100.0
+Random,0.9,205,28.0
+Random,0.9,249,46.0
+Random,0.9,313,83.0
+Random,0.9,248,46.0
+Random,0.9,13,1.0
+Random,0.9,373,56.0
+Random,0.9,470,58.0
+Random,0.9,16,0.0
+Random,0.9,158,40.0
+Random,0.9,165,40.0
+Random,0.9,226,44.0
+Random,0.9,48,1.0
+Random,0.9,112,11.0
+Random,0.9,458,70.0
+Random,0.9,311,34.0
+Random,0.9,131,11.0
+Random,0.9,500,93.0
+Random,0.9,165,43.0
+Random,0.9,214,40.0
+Random,0.9,190,40.0
+Random,0.9,500,109.0
+Random,0.9,500,120.0
+Random,0.9,50,5.0
+Random,0.9,164,40.0
+Random,0.9,52,1.0
+Random,0.9,51,3.0
+Random,0.9,153,20.0
+Random,0.9,152,42.0
+Random,0.9,156,40.0
+Random,0.9,36,3.0
+Random,0.9,322,61.0
+Random,0.9,331,40.0
+Random,0.9,302,51.0
+Random,0.9,254,52.0
+Random,0.9,294,51.0
+Random,0.9,170,40.0
+Random,0.9,42,1.0
+Random,0.9,500,89.0
+Random,0.9,500,90.0
+Random,0.9,120,27.0
+Random,0.9,386,57.0
+Random,0.9,381,55.0
+Random,0.9,374,95.0
+Random,0.9,348,62.0
+Random,0.9,12,1.0
+Random,0.9,356,36.0
+Random,0.9,81,7.0
+Random,0.9,213,37.0
+Random,0.9,268,52.0
+Random,0.9,208,40.0
+Random,0.9,36,3.0
+Random,0.9,485,103.0
+Random,0.9,62,6.0
+Random,0.9,340,81.0
+Random,0.9,290,61.0
+Random,0.9,155,40.0
+Random,0.9,201,22.0
+Random,0.9,246,43.0
+Random,0.9,500,106.0
+Random,0.9,234,49.0
+Random,0.9,246,48.0
+Random,0.9,354,81.0
+Random,0.9,251,16.0
+Random,0.9,24,3.0
+Random,0.9,483,78.0
+Random,0.9,124,40.0
+Random,0.9,175,41.0
+Random,0.9,62,9.0
+Random,0.9,96,6.0
+Random,0.9,496,110.0
+Random,0.9,500,106.0
+Random,0.9,313,57.0
+Random,0.9,366,80.0
+Random,0.9,162,41.0
+Random,0.9,171,40.0
+Random,0.9,213,40.0
+Random,0.9,322,80.0
+Random,0.9,211,44.0
+Random,0.9,320,66.0
+Random (No Terminate),0.9,41,4.0
+Random (No Terminate),0.9,153,40.0
+Random (No Terminate),0.9,295,80.0
+Random (No Terminate),0.9,306,82.0
+Random (No Terminate),0.9,324,83.0
+Random (No Terminate),0.9,40,1.0
+Random (No Terminate),0.9,367,80.0
+Random (No Terminate),0.9,304,80.0
+Random (No Terminate),0.9,144,40.0
+Random (No Terminate),0.9,500,122.0
+Random (No Terminate),0.9,500,79.0
+Random (No Terminate),0.9,500,96.0
+Random (No Terminate),0.9,146,40.0
+Random (No Terminate),0.9,343,87.0
+Random (No Terminate),0.9,185,47.0
+Random (No Terminate),0.9,453,120.0
+Random (No Terminate),0.9,500,85.0
+Random (No Terminate),0.9,104,40.0
+Random (No Terminate),0.9,164,40.0
+Random (No Terminate),0.9,500,123.0
+Random (No Terminate),0.9,500,119.0
+Random (No Terminate),0.9,500,96.0
+Random (No Terminate),0.9,176,42.0
+Random (No Terminate),0.9,16,0.0
+Random (No Terminate),0.9,110,40.0
+Random (No Terminate),0.9,500,133.0
+Random (No Terminate),0.9,500,111.0
+Random (No Terminate),0.9,119,40.0
+Random (No Terminate),0.9,343,80.0
+Random (No Terminate),0.9,500,103.0
+Random (No Terminate),0.9,426,86.0
+Random (No Terminate),0.9,500,109.0
+Random (No Terminate),0.9,500,95.0
+Random (No Terminate),0.9,383,80.0
+Random (No Terminate),0.9,500,105.0
+Random (No Terminate),0.9,11,1.0
+Random (No Terminate),0.9,309,80.0
+Random (No Terminate),0.9,40,6.0
+Random (No Terminate),0.9,284,80.0
+Random (No Terminate),0.9,500,107.0
+Random (No Terminate),0.9,469,120.0
+Random (No Terminate),0.9,500,108.0
+Random (No Terminate),0.9,210,40.0
+Random (No Terminate),0.9,355,90.0
+Random (No Terminate),0.9,161,40.0
+Random (No Terminate),0.9,224,40.0
+Random (No Terminate),0.9,21,5.0
+Random (No Terminate),0.9,13,1.0
+Random (No Terminate),0.9,137,40.0
+Random (No Terminate),0.9,491,86.0
+Random (No Terminate),0.9,433,97.0
+Random (No Terminate),0.9,214,45.0
+Random (No Terminate),0.9,38,5.0
+Random (No Terminate),0.9,326,57.0
+Random (No Terminate),0.9,471,130.0
+Random (No Terminate),0.9,306,80.0
+Random (No Terminate),0.9,377,81.0
+Random (No Terminate),0.9,102,40.0
+Random (No Terminate),0.9,500,143.0
+Random (No Terminate),0.9,500,109.0
+Random (No Terminate),0.9,322,60.0
+Random (No Terminate),0.9,471,125.0
+Random (No Terminate),0.9,469,112.0
+Random (No Terminate),0.9,500,102.0
+Random (No Terminate),0.9,11,1.0
+Random (No Terminate),0.9,302,80.0
+Random (No Terminate),0.9,345,82.0
+Random (No Terminate),0.9,134,40.0
+Random (No Terminate),0.9,500,111.0
+Random (No Terminate),0.9,23,4.0
+Random (No Terminate),0.9,500,102.0
+Random (No Terminate),0.9,414,84.0
+Random (No Terminate),0.9,177,41.0
+Random (No Terminate),0.9,19,2.0
+Random (No Terminate),0.9,151,40.0
+Random (No Terminate),0.9,13,1.0
+Random (No Terminate),0.9,146,43.0
+Random (No Terminate),0.9,500,100.0
+Random (No Terminate),0.9,98,40.0
+Random (No Terminate),0.9,143,40.0
+Random (No Terminate),0.9,303,80.0
+Random (No Terminate),0.9,49,3.0
+Random (No Terminate),0.9,500,103.0
+Random (No Terminate),0.9,3,0.0
+Random (No Terminate),0.9,187,40.0
+Random (No Terminate),0.9,313,80.0
+Random (No Terminate),0.9,408,97.0
+Random (No Terminate),0.9,500,96.0
+Random (No Terminate),0.9,0,0.0
+Random (No Terminate),0.9,285,60.0
+Random (No Terminate),0.9,341,80.0
+Random (No Terminate),0.9,187,41.0
+Random (No Terminate),0.9,493,96.0
+Random (No Terminate),0.9,239,51.0
+Random (No Terminate),0.9,432,82.0
+Random (No Terminate),0.9,500,111.0
+Random (No Terminate),0.9,329,80.0
+Random (No Terminate),0.9,500,106.0
+Random (No Terminate),0.9,176,41.0
+Random (No Terminate),0.9,161,40.0

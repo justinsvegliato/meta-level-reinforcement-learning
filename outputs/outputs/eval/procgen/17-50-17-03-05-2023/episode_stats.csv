@@ -1,0 +1,21 @@
+Meta-level Policy,Pretrained Percentile,Number of Steps,Return
+Learned Meta-Policy,0.9,111,4.0
+Learned Meta-Policy,0.9,229,80.0
+Learned Meta-Policy,0.9,279,49.0
+Learned Meta-Policy,0.9,319,80.0
+Learned Meta-Policy,0.9,191,41.0
+Learned Meta-Policy,0.9,500,125.0
+Learned Meta-Policy,0.9,153,40.0
+Learned Meta-Policy,0.9,169,40.0
+Learned Meta-Policy,0.9,415,120.0
+Learned Meta-Policy,0.9,208,41.0
+Learned Meta-Policy,0.9,285,80.0
+Learned Meta-Policy,0.9,31,1.0
+Learned Meta-Policy,0.9,477,125.0
+Learned Meta-Policy,0.9,418,95.0
+Learned Meta-Policy,0.9,141,41.0
+Learned Meta-Policy,0.9,22,1.0
+Learned Meta-Policy,0.9,49,4.0
+Learned Meta-Policy,0.9,68,9.0
+Learned Meta-Policy,0.9,223,81.0
+Learned Meta-Policy,0.9,500,122.0

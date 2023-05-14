@@ -33,11 +33,11 @@ gym.envs.register(
 
 class ObjectLevelMetrics:
 
-    def __init__(self, episode_complete_callback: Optional[Callable[[dict], None]] = None):
+    def __init__(self):
         self.return_val = 0
         self.n_steps = 0
         self.episode_stats = []
-        self.episode_complete_callback = episode_complete_callback
+        self.episode_complete_callbacks = []
 
     def reset(self):
         self.return_val = 0
@@ -49,32 +49,19 @@ class ObjectLevelMetrics:
 
     def __call__(self, obs, reward, done, info):
         self.return_val += np.sum(reward)
+        self.n_steps += np.size(reward)
+    
         if done:
             stats = {
                 'return': self.return_val,
                 'steps': self.n_steps
             }
             self.episode_stats.append(stats)
-            if self.episode_complete_callback is not None:
-                self.episode_complete_callback(stats)
+            for callback in self.episode_complete_callbacks:
+                callback(stats)
 
             self.return_val = 0
             self.n_steps = 0
-        else:
-            self.n_steps += np.size(reward)
-
-    def get_live_results(self):
-        sum_of_returns = self.return_val + sum([stat['return'] for stat in self.episode_stats])
-        total_steps = self.n_steps + sum([stat['steps'] for stat in self.episode_stats])
-        n_episodes = len(self.episode_stats) + int(self.n_steps > 0)
-
-        return {
-            'ObjectLevelMeanReward': sum_of_returns / max(1, n_episodes),
-            'ObjectLevelMeanStepsPerEpisode': total_steps / max(1, n_episodes),
-            'ObjectLevelEpisodes': n_episodes,
-            'ObjectLevelCurrentEpisodeReturn': self.return_val,
-            'ObjectLevelCurrentEpisodeSteps': self.n_steps
-        }
 
     def get_results(self):
         sum_of_returns = sum([stat['return'] for stat in self.episode_stats])
@@ -152,6 +139,7 @@ class MetaEnv(gym.Env):
                  split_mask_and_tokens: bool = True,
                  random_cost_of_computation: bool = True,
                  cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
+                 compute_meta_rewards: bool = True,
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  object_level_transition_observers: Optional[List[TransitionObserver]] = None,
@@ -181,6 +169,7 @@ class MetaEnv(gym.Env):
         self.computational_rewards = computational_rewards
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
+        self.compute_meta_rewards = compute_meta_rewards
         self.min_computation_steps = min_computation_steps
         self.object_level_metrics = ObjectLevelMetrics()
         self.object_level_transition_observers = [self.object_level_metrics] + (object_level_transition_observers or [])
@@ -411,8 +400,11 @@ class MetaEnv(gym.Env):
     #     return root_state.get_actions()[action_idx]
 
     def root_q_distribution(self) -> Dict[int, float]:
-        self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
-        root_node = self.tree.get_root()
+        if self.search_tree_policy is None:
+            self.optimal_q_estimator.estimate_and_cache_optimal_q_values(self.tree)
+            root_node = self.tree.get_root()
+        else:
+            root_node = self.search_tree_policy.tree.get_root()
         return {a: root_node.get_q_value(a) for a in root_node.state.get_actions()}
 
     def get_computational_reward(self) -> float:
@@ -533,7 +525,8 @@ class MetaEnv(gym.Env):
             for observer in self.object_level_transition_observers:
                 observer(object_obs, object_r, done, info)
 
-        if not self.finish_on_terminate and self.keep_subtree_on_terminate and self.tree.get_root().has_action_children(action):
+        if not self.finish_on_terminate and self.keep_subtree_on_terminate \
+                and self.tree.get_root().has_action_children(action):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
@@ -594,21 +587,12 @@ class MetaEnv(gym.Env):
         except Exception as e:
             return self._handle_exception(e, computational_action)
 
-    def act_in_object_level_environment(self):
+    def terminate(self):
         action = self.get_best_object_action()
 
         self.set_environment_to_root_state()
         object_obs, object_r, object_done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
-
-        for observer in self.object_level_transition_observers:
-            observer(object_obs, object_r, object_done, info)
-
-        return object_obs, object_r, object_done, info
-
-    def terminate(self):
-
-        self.act_in_object_level_environment()
 
         if not self.finish_on_terminate and \
                 self.keep_subtree_on_terminate and \
@@ -616,6 +600,9 @@ class MetaEnv(gym.Env):
             self.tree = self.tree.get_root_subtree(action)
         else:
             self.tree = self.get_root_tree()
+
+        for observer in self.object_level_transition_observers:
+            observer(object_obs, object_r, object_done, info)
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
 
@@ -626,15 +613,19 @@ class MetaEnv(gym.Env):
             if self.done:
                 return self.observe_terminate()
 
-            self.search_tree_policy = self.make_tree_policy(self.tree)
+            if self.compute_meta_rewards:
+                self.search_tree_policy = self.make_tree_policy(self.tree)
 
-            meta_reward = -self.cost_of_computation
-            if self.computational_rewards:
-                meta_reward += self.get_computational_reward()
+                meta_reward = -self.cost_of_computation
+                if self.computational_rewards:
+                    meta_reward += self.get_computational_reward()
+            else:
+                meta_reward = 0.0
+            self.last_meta_reward = meta_reward
+
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
-            self.last_meta_reward = meta_reward
 
             info = {
                 'computational_reward': self.last_computational_reward,
@@ -819,8 +810,10 @@ class MetaEnv(gym.Env):
         return f'{meta_info}\n{object_info}'
 
     def get_object_level_info_string(self) -> str:
-        return f'Object-level Reward: {self.last_object_level_reward:.2f} | ' + \
-            ' | '.join(f'{k}: {v:.2f}' for k, v in self.get_object_level_metrics().items())
+        return_val = self.object_level_metrics.return_val
+        n_steps = self.object_level_metrics.n_steps
+        return f'Last Object-level Reward: {self.last_object_level_reward:.2f} | ' + \
+            f'Object-level Return: {return_val:.2f} | Object-level Steps: {n_steps}'
 
     def render(self,
                mode: str = 'rgb_array',
@@ -876,7 +869,8 @@ class MetaEnv(gym.Env):
             object_env_ax.set_title('Object-level Environment')
 
         # Render the search tree in the middle subplot
-        plot_tree(self.tree, ax=tree_ax, show=False,
+        tree = self.search_tree_policy.tree if self.search_tree_policy is not None else self.tree
+        plot_tree(tree, self.search_tree_policy, ax=tree_ax, show=False,
                   remove_duplicate_states=remove_duplicate_tree_states)
 
         # Render the Q-distribution in the right subplot

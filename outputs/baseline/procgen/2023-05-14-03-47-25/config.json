@@ -1,0 +1,1 @@
+{"gpus": null, "pretrained_runs_folder": "runs", "pretrained_run": "outputs/runs/ppo_run_52-06-02-13-05-2023/", "max_tree_size": 64, "n_envs": 20, "n_episodes": 20, "max_steps": 500, "percentiles": [1.0], "create_videos": false, "video_fps": 1, "video_steps": 120}

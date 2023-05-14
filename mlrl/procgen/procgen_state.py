@@ -25,6 +25,10 @@ class ProcgenProcessing:
         ProcgenProcessing.__instance = ProcgenProcessing(agent)
 
     @staticmethod
+    def get_agent():
+        return ProcgenProcessing.__instance.agent
+
+    @staticmethod
     def call(observation) -> np.ndarray:
         processor = ProcgenProcessing.__instance
         categorical_q_net = processor.categorical_q_net

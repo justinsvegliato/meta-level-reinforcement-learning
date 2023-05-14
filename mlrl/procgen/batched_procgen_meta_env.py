@@ -48,6 +48,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
         self.meta_envs = meta_envs
         self.n_meta_envs = len(meta_envs)
+        self.max_expansions = max_expansions
         self.n_object_envs = max_expansions * len(meta_envs)
         self.object_config = object_config
         self.object_envs = make_vectorised_procgen(object_config,
@@ -72,6 +73,23 @@ class BatchedProcgenMetaEnv(PyEnvironment):
         self.multithreading = multithreading
 
         if multithreading:
+            self._pool = mp_threads.Pool(self.n_meta_envs)
+
+    def remove_env(self, env: MetaEnv):
+        if env not in self.meta_envs:
+            return
+
+        if self.n_meta_envs == 1:
+            print("Cannot remove last environment")
+            return
+
+        self.meta_envs.remove(env)
+        self.n_meta_envs = len(self.meta_envs)
+        self.n_object_envs = max(1, self.max_expansions * len(self.meta_envs))
+        self.object_envs = make_vectorised_procgen(self.object_config,
+                                                   n_envs=self.n_object_envs)
+
+        if self.multithreading and self.n_meta_envs > 0:
             self._pool = mp_threads.Pool(self.n_meta_envs)
 
     @property
@@ -163,11 +181,15 @@ class BatchedProcgenMetaEnv(PyEnvironment):
             self._pool.starmap(self.collect_expansion_requests,
                                zip(self.meta_envs, meta_actions))
         else:
-            for i, action in enumerate(meta_actions):
-                self.get_expansion_requests(i, action)
+            for meta_env, action in zip(self.meta_envs, meta_actions):
+                self.collect_expansion_requests(meta_env, action)
 
         if self.expansion_requests:
             self.handle_requests()
+
+        return self.create_time_step()
+
+    def create_time_step(self):
 
         if self.multithreading:
             time_steps = self._pool.map(self._create_time_step, self.meta_envs)

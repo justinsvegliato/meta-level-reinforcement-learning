@@ -26,9 +26,11 @@ def patch_action_repeats(gym_env, config: dict):
     def repeated_step(*args, **kwargs):
         reward = 0
         for _ in range(config.get('action_repeats')):
-            observation, r, *info = original_step(*args, **kwargs)
+            observation, r, done, info = original_step(*args, **kwargs)
             reward += r
-        return observation, reward, *info
+            if done:
+                break
+        return observation, reward, done, info
 
     gym_env.step = repeated_step
 
@@ -42,6 +44,8 @@ def patch_normalise(gym_env):
 
     gym_env.step = normalised_step
 
+    # procgen envs cannot be reset and print an annoying warning if you try to do so
+    gym_env.reset = lambda *_: gym_env.env.observe()[1][0] / 255.
 
 def patch_render(gym_env):
 
@@ -60,9 +64,6 @@ def make_gym_procgen(config: dict):
 
     patch_render(gym_env)
     patch_normalise(gym_env)
-
-    # procgen envs cannot be reset and print an annoying warning if you try to do so
-    gym_env.reset = lambda *_: None
 
     if config.get('action_repeats', 0) > 1:
         patch_action_repeats(gym_env, config)
@@ -165,6 +166,13 @@ def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], pe
     return sorted_paths[max(0, min(len(sorted_paths) - 1, index))]
 
 
+def get_model_at_epoch(model_paths: List[Tuple[str, int, float]], epoch: float) -> Tuple[str, int, float]:
+    for path, e, ret_val in model_paths:
+        if e == epoch:
+            return path, ret_val
+    raise ValueError(f'No model found for epoch {epoch}')
+
+
 def load_pretrained_q_network(folder: str,
                               run: str,
                               percentile: float = 1.0,
@@ -196,7 +204,11 @@ def load_pretrained_q_network(folder: str,
     if verbose:
         print('\n'.join(map(str, model_paths)))
 
-    path, epoch, ret_val = get_model_at_return_percentile(model_paths, percentile)
+    if epoch is not None:
+        path, ret_val = get_model_at_epoch(model_paths, epoch)
+    else:
+        path, epoch, ret_val = get_model_at_return_percentile(model_paths, percentile)
+
     object_config['pretrained_epoch'] = epoch
     object_config['pretrained_return'] = ret_val
     object_config['pretrained_run'] = run

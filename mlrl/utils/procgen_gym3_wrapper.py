@@ -114,8 +114,10 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
             reward = 0
             for _ in range(self._action_repeats):
                 self._gym_env.act(action)
-                r, *_ = self._gym_env.observe()
+                r, _, done = self._gym_env.observe()
                 reward += r
+                if any(done):
+                    break
 
             self._current_time_step = self._create_time_step(reward=reward)
 
