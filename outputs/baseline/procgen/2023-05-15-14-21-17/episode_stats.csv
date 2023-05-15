@@ -194,3 +194,83 @@ Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
 ,AStar,0.5,284,14.0
 ,AStar,0.5,302,15.0
 ,AStar,0.5,415,14.0
+,AStar,0.5,115,2.0
+,AStar,0.5,6,0.0
+,AStar,0.5,78,11.0
+,AStar,0.5,43,11.0
+,AStar,0.5,305,13.0
+,AStar,0.5,500,4.0
+,AStar,0.5,11,11.0
+,AStar,0.5,162,1.0
+,AStar,0.5,188,14.0
+,AStar,0.5,219,14.0
+,AStar,0.5,25,0.0
+,AStar,0.5,260,13.0
+,AStar,0.5,60,1.0
+,AStar,0.5,23,12.0
+,AStar,0.5,1,0.0
+,AStar,0.5,355,3.0
+,AStar,0.5,259,14.0
+,AStar,0.5,150,12.0
+,AStar,0.5,122,2.0
+,AStar,0.5,25,0.0
+,AStar,0.5,280,15.0
+,AStar,0.5,6,0.0
+,AStar,0.5,1,0.0
+,AStar,0.5,253,13.0
+,AStar,0.5,162,12.0
+,AStar,0.5,129,12.0
+,AStar,0.5,296,14.0
+,AStar,0.5,266,15.0
+,AStar,0.5,21,1.0
+,AStar,0.5,277,14.0
+,AStar,0.5,87,12.0
+,AStar,0.5,364,14.0
+,AStar,0.5,324,14.0
+,AStar,0.5,3,0.0
+,AStar,0.5,3,0.0
+,AStar,0.5,98,12.0
+,AStar,0.5,319,13.0
+,AStar,0.5,6,0.0
+,AStar,0.5,297,13.0
+,AStar,0.5,464,13.0
+,AStar,0.5,61,11.0
+,AStar,0.5,73,1.0
+,AStar,0.5,100,12.0
+,AStar,0.5,351,13.0
+,AStar,0.5,15,0.0
+,AStar,0.5,39,11.0
+,AStar,0.5,331,15.0
+,Instant Terminate,0.5,1,0.0
+,Instant Terminate,0.5,1,0.0
+,Instant Terminate,0.5,2,0.0
+,Instant Terminate,0.5,2,0.0
+,Instant Terminate,0.5,4,0.0
+,Instant Terminate,0.5,5,0.0
+,Instant Terminate,0.5,4,0.0
+,Instant Terminate,0.5,3,0.0
+,Instant Terminate,0.5,2,0.0
+,Instant Terminate,0.5,14,0.0
+,Instant Terminate,0.5,14,0.0
+,Instant Terminate,0.5,1,0.0
+,Instant Terminate,0.5,17,0.0
+,Instant Terminate,0.5,14,0.0
+,Instant Terminate,0.5,5,0.0
+,Instant Terminate,0.5,2,0.0
+,Instant Terminate,0.5,1,0.0
+,Instant Terminate,0.5,55,11.0
+,Instant Terminate,0.5,62,1.0
+,Instant Terminate,0.5,5,0.0
+,Instant Terminate,0.5,66,12.0
+,Instant Terminate,0.5,49,1.0
+,Instant Terminate,0.5,32,0.0
+,Instant Terminate,0.5,25,0.0
+,Instant Terminate,0.5,85,1.0
+,Instant Terminate,0.5,13,0.0
+,Instant Terminate,0.5,21,0.0
+,Instant Terminate,0.5,35,1.0
+,Instant Terminate,0.5,163,2.0
+,Instant Terminate,0.5,31,11.0
+,Instant Terminate,0.5,324,13.0
+,Instant Terminate,0.5,73,1.0
+,Random (No Terminate),1.0,5,0.0
