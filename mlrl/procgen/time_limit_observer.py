@@ -9,7 +9,7 @@ class TimeLimitObserver:
         self.metrics = env.object_level_metrics
         self.max_steps = max_steps
 
-    def __call__(self, obs, r, done, info):
+    def __call__(self, obs, a, r, done, info):
         if not done and self.metrics.n_steps >= self.max_steps:
             # -1 action forces termination
             # https://github.com/openai/procgen/blob/5e1dbf341d291eff40d1f9e0c0a0d5003643aebf/procgen/src/game.cpp#L124

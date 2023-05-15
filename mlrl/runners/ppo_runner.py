@@ -256,7 +256,6 @@ class PPORunner:
         for metric in self.collect_metrics:
             metric.reset()
 
-
         logs = {}
 
         start_time = time.time()

@@ -79,6 +79,7 @@ def make_gym_procgen(config: dict):
 
 def create_procgen_meta_env(object_config: dict,
                             min_computation_steps: int = 0,
+                            render_plans: bool = True,
                             **meta_config) -> MetaEnv:
 
     object_env = make_gym_procgen(object_config)
@@ -89,7 +90,7 @@ def create_procgen_meta_env(object_config: dict,
     return create_meta_env(
         object_env, ProcgenState.extract_state(object_env),
         q_hat, meta_config,
-        tree_policy_renderer=render_tree_policy,
+        tree_policy_renderer=render_tree_policy if render_plans else None,
         min_computation_steps=min_computation_steps
     )
 

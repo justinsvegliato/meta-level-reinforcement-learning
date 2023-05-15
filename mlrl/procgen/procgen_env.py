@@ -15,7 +15,7 @@ def make_vectorised_procgen(
 
     env_name = procgen_env_name or config.get('env', 'coinrun')
     action_repeats = config.get('action_repeats', 4)
-    frame_stack = config.get('frame_stack', 4)
+    frame_stack = config.get('frame_stack', 0)
     grayscale = config.get('grayscale', True)
 
     procgen_gym3 = ExtractDictObWrapper(ProcgenGym3Env(

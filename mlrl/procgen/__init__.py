@@ -35,6 +35,8 @@ ALL_COMBOS = [
     ("E",),
 ]
 
+COMBO_STRINGS = ['+'.join(combo) for combo in ALL_COMBOS]
+
 META_ALLOWED_COMBOS = {
     'bigfish': ['LEFT+DOWN', 'LEFT', 'LEFT+UP', 'DOWN',
                 'UP', 'RIGHT+DOWN', 'RIGHT', 'RIGHT+UP'],

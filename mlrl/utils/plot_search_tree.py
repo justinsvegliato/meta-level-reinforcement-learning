@@ -3,11 +3,13 @@ from mlrl.meta.search_tree import SearchTree, SearchTreeNode
 from mlrl.meta.tree_policy import SearchTreePolicy
 
 from typing import Optional
+import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
 
 def construct_tree(tree: nx.DiGraph,
+                   policy: SearchTreePolicy,
                    node: SearchTreeNode,
                    remove_duplicate_states=True):
 
@@ -21,9 +23,19 @@ def construct_tree(tree: nx.DiGraph,
         for child in children:
             if remove_duplicate_states and child.duplicate_state_ancestor is not None:
                 continue
-            construct_tree(tree, child, remove_duplicate_states=remove_duplicate_states)
+            construct_tree(tree, policy, child, remove_duplicate_states=remove_duplicate_states)
+
+            if policy is not None:
+                base_edge_colour = np.array([255., 164., 36.]) / 255.
+                state = node.get_state()
+                prob = policy.get_action_probabilities(state)[action]
+                colour = base_edge_colour * (0.25 + 0.75 * prob if prob > 0 else 0.)
+            else:
+                colour = np.array([0., 0., 0.])
+
             tree.add_edge(node.node_id, child.node_id,
                           parent=node, child=child,
+                          colour=colour,
                           action=node.state.get_action_label(action),
                           reward=child.get_reward_received(),
                           id=child.get_id()),
@@ -34,7 +46,6 @@ def plot_tree(search_tree: SearchTree,
               figsize=(20, 20),
               show_reward=False,
               show_id=False, ax=None,
-              trajectory_colour='tab:orange',
               can_expand_colour='tab:green',
               remove_duplicate_states=True,
               node_label_threshold=20,
@@ -48,7 +59,7 @@ def plot_tree(search_tree: SearchTree,
               **draw_kwargs):
 
     nx_tree = nx.DiGraph()
-    construct_tree(nx_tree, search_tree.get_root(), remove_duplicate_states=remove_duplicate_states)
+    construct_tree(nx_tree, policy, search_tree.get_root(), remove_duplicate_states=remove_duplicate_states)
 
     pos = hierarchy_pos_large_tree(nx_tree, search_tree.get_root().node_id, width=250, height=250)
 
@@ -62,13 +73,9 @@ def plot_tree(search_tree: SearchTree,
             (n1, n2): '' for n1, n2, _ in nx_tree.edges(data=True)
         }
 
-    edge_colours = None
-    if policy is not None:
-        traj = policy.get_trajectory()
-        edge_colours = [
-            trajectory_colour if data['parent'] in traj and data['child'] in traj else 'black'
-            for *_, data in nx_tree.edges(data=True)
-        ]
+    edge_colours = [
+        data['colour'] for *_, data in nx_tree.edges(data=True)
+    ]
 
     node_labels = {
         node: data['state'] if len(data['state']) < min_state_string_length else ''

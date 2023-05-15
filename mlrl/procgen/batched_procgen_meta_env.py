@@ -147,11 +147,9 @@ class BatchedProcgenMetaEnv(PyEnvironment):
     def handle_requests(self):
 
         states = self.object_envs.env.get_state()
-        for i, request in enumerate(self.expansion_requests):
-            states[i] = request.get_state()
-
         object_action = np.array([0] * self.n_object_envs)
         for i, request in enumerate(self.expansion_requests):
+            states[i] = request.get_state()
             object_action[i] = request.action
 
         self.object_envs.env.set_state(states)

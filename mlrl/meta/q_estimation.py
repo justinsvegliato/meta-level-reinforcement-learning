@@ -32,9 +32,8 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
     Assumes a deterministic environment and only uses child nodes to compute Q-values
     """
 
-    def __init__(self, discount: float = 0.99, use_q_caches=False):
+    def __init__(self, discount: float = 0.99):
         super().__init__(discount)
-        self.use_q_caches = use_q_caches
 
     def estimate_optimal_q_value(
             self, tree: SearchTree, state: ObjectState, action: int,
@@ -43,11 +42,6 @@ class DeterministicOptimalQEstimator(SearchOptimalQEstimator):
         trajectory = trajectory or []
 
         state_nodes = tree.get_state_nodes(state)
-
-        if self.use_q_caches:
-            for node in state_nodes:
-                if node.q_vals_computed:
-                    return node.get_q_value(action)
 
         children = sum([node.get_children(action) for node in state_nodes], [])
         if any(node.is_terminal_state for node in state_nodes):

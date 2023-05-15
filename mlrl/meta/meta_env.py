@@ -47,7 +47,7 @@ class ObjectLevelMetrics:
     def get_num_episodes(self):
         return len(self.episode_stats)
 
-    def __call__(self, obs, reward, done, info):
+    def __call__(self, obs, action, reward, done, info):
         self.return_val += np.sum(reward)
         self.n_steps += np.size(reward)
     
@@ -140,6 +140,7 @@ class MetaEnv(gym.Env):
                  random_cost_of_computation: bool = True,
                  cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
                  compute_meta_rewards: bool = True,
+                 break_q_value_ties_randomly: bool = False,
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  object_level_transition_observers: Optional[List[TransitionObserver]] = None,
@@ -186,7 +187,9 @@ class MetaEnv(gym.Env):
             DeterministicOptimalQEstimator(object_env_discount)
 
         self.make_tree_policy = make_tree_policy or \
-            (lambda tree: GreedySearchTreePolicy(tree, object_env_discount))
+            (lambda tree: GreedySearchTreePolicy(tree,
+                                                 object_discount=object_env_discount,
+                                                 break_ties_randomly=break_q_value_ties_randomly))
         self.search_tree_policy = self.make_tree_policy(initial_tree)
         self.prev_search_policy = None
 
@@ -513,9 +516,13 @@ class MetaEnv(gym.Env):
 
     def terminate_step(self):
 
+        # search policy will not be up to date if rewards have not been
+        # computed in the act step
+        if not self.compute_meta_rewards:
+            self.search_tree_policy = self.make_tree_policy(self.tree)
+
         # Perform a step in the underlying environment
         action = self.get_best_object_action()
-
         self.set_environment_to_root_state()
         object_obs, object_r, done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
@@ -588,12 +595,13 @@ class MetaEnv(gym.Env):
             return self._handle_exception(e, computational_action)
 
     def terminate(self):
+        # Perform a step in the underlying environment
         action = self.get_best_object_action()
-
         self.set_environment_to_root_state()
         object_obs, object_r, object_done, info = self.object_env.step(action)
         self.last_object_level_reward = object_r
 
+        # Update tree with new state
         if not self.finish_on_terminate and \
                 self.keep_subtree_on_terminate and \
                 self.tree.get_root().has_action_children(action):
@@ -601,8 +609,9 @@ class MetaEnv(gym.Env):
         else:
             self.tree = self.get_root_tree()
 
+        # Notify observers and update variables
         for observer in self.object_level_transition_observers:
-            observer(object_obs, object_r, object_done, info)
+            observer(object_obs, action, object_r, object_done, info)
 
         self.search_tree_policy = self.make_tree_policy(self.tree)
 
@@ -613,16 +622,12 @@ class MetaEnv(gym.Env):
             if self.done:
                 return self.observe_terminate()
 
-            if self.compute_meta_rewards:
-                self.search_tree_policy = self.make_tree_policy(self.tree)
+            self.search_tree_policy = self.make_tree_policy(self.tree)
 
-                meta_reward = -self.cost_of_computation
-                if self.computational_rewards:
-                    meta_reward += self.get_computational_reward()
-            else:
-                meta_reward = 0.0
+            meta_reward = -self.cost_of_computation
+            if self.computational_rewards:
+                meta_reward += self.get_computational_reward()
             self.last_meta_reward = meta_reward
-
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()

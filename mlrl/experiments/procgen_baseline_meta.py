@@ -1,16 +1,14 @@
-from numpy import format_parser
-from mlrl.procgen.batched_procgen_meta_env import BatchedProcgenMetaEnv
-from mlrl.runners.eval_runner import EvalRunner
 from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.meta.meta_policies.a_star_policy import AStarPolicy
-from mlrl.meta.meta_policies.random_policy import create_random_search_policy, create_random_search_policy_no_terminate
+from mlrl.meta.meta_policies.random_policy import create_random_search_policy_no_terminate
 from mlrl.meta.meta_policies.terminator_policy import TerminatorPolicy
 from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
-from mlrl.experiments.procgen_meta import reset_object_level_metrics, get_object_level_metrics
+from mlrl.experiments.procgen_meta import reset_object_level_metrics
 from mlrl.procgen.time_limit_observer import TimeLimitObserver
 from mlrl.utils.render_utils import save_video
-from mlrl.utils import time_id
+from mlrl.utils import time_id, clean_for_json
 from mlrl.utils.system import restrict_gpus
+from tf_agents.policies.py_tf_eager_policy import PyTFEagerPolicy
 
 from tensorflow.keras.utils import Progbar
 
@@ -34,6 +32,7 @@ def evaluate_meta_policy(create_policy: callable,
                          args: dict,
                          max_object_level_steps: int = 500,
                          episode_complete_cb: Callable[[dict], None] = None,
+                         remove_envs_on_completion: bool = True,
                          create_video: bool = False):
     if create_video:
         args['env_multithreading'] = False
@@ -43,6 +42,12 @@ def evaluate_meta_policy(create_policy: callable,
         object_config=object_config,
         **args
     )
+
+    policy = create_policy(batched_meta_env)
+    
+    if isinstance(policy, AStarPolicy) and remove_envs_on_completion:
+        print('AStarPolicy does not support remove_envs_on_completion. Setting to False')
+        remove_envs_on_completion = False
 
     meta_envs = [env for env in batched_meta_env.envs]
 
@@ -78,9 +83,10 @@ def evaluate_meta_policy(create_policy: callable,
         env.object_level_transition_observers.append(time_limit)
         if episode_complete_cb is not None:
             env.object_level_metrics.episode_complete_callbacks.append(episode_complete_cb)
-        
+
         if create_video:
-            video_maker = MetaPolicyObjectlevelVideoMaker(outputs_dir / 'videos', env, f'object-level-video-{i}')
+            video_maker = MetaPolicyObjectlevelVideoMaker(outputs_dir / 'videos',
+                                                          env, f'object-level-video-{i}')
             env.object_level_transition_observers.append(video_maker)
             env.object_level_metrics.episode_complete_callbacks.append(video_maker.save_video)
 
@@ -88,7 +94,8 @@ def evaluate_meta_policy(create_policy: callable,
             if allocations[i] == env.object_level_metrics.get_num_episodes():
                 envs_to_remove.append(env)
 
-        env.object_level_metrics.episode_complete_callbacks.append(remove_if_allocations_complete)
+        if remove_envs_on_completion:
+            env.object_level_metrics.episode_complete_callbacks.append(remove_if_allocations_complete)
 
     for i, env in enumerate(meta_envs):
         register_callbacks(i, env)
@@ -104,9 +111,6 @@ def evaluate_meta_policy(create_policy: callable,
 
         return n_complete == n_object_level_episodes
 
-    policy = create_policy(batched_meta_env)
-
-    from tf_agents.policies.py_tf_eager_policy import PyTFEagerPolicy
     policy = PyTFEagerPolicy(policy, use_tf_function=False, batch_time_steps=False)
     # eval_runner = EvalRunner(
     #     eval_env=batched_meta_env,
@@ -128,9 +132,10 @@ def evaluate_meta_policy(create_policy: callable,
         action_step = policy.action(time_step)
         batched_meta_env.step(action_step.action)
 
-        for env in envs_to_remove:
-            batched_meta_env.remove_env(env)
-        envs_to_remove.clear()
+        if remove_envs_on_completion:
+            for env in envs_to_remove:
+                batched_meta_env.remove_env(env)
+            envs_to_remove.clear()
 
     object_level_results = get_metrics()
 
@@ -172,16 +177,19 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         verbose=False
     )
 
-    print(object_config)
+    with open(outputs_dir / f'object_level_config_{percentile=}.json', 'w') as f:
+        json.dump(clean_for_json(object_config), f)
 
     results = []
     for policy_name, create_policy in policy_creators.items():
         print(f'Evaluating {policy_name}')
+        policy_outputs_dir = outputs_dir / policy_name
+        policy_outputs_dir.mkdir(parents=True, exist_ok=True)
         evaluations = evaluate_meta_policy(
             create_policy=create_policy,
             n_envs=n_envs,
             n_object_level_episodes=n_object_level_episodes,
-            outputs_dir=outputs_dir,
+            outputs_dir=policy_outputs_dir,
             object_config=object_config,
             args=args,
             max_object_level_steps=max_object_level_steps,
@@ -234,7 +242,8 @@ class ResultsAccumulator:
             self.results_df = pd.DataFrame(self.results)
             self.plot_rewritten_returns()
             self.plot_object_level_returns()
-        except Exception as ignored:
+
+        except Exception:
             pass
 
     def plot_rewritten_returns(self):
@@ -286,10 +295,11 @@ class MetaPolicyObjectlevelVideoMaker:
         self.frames.append(self.meta_env.render())
     
     def save_video(self, *_):
-        path = str(self.output_dir / f'{self.video_name}-{self.videos_created}')
-        save_video(self.frames, path, fps=self.fps)
-        self.videos_created += 1
-        self.frames = []
+        if self.frames:
+            path = str(self.output_dir / f'{self.video_name}-{self.videos_created}')
+            save_video(self.frames, path, fps=self.fps)
+            self.videos_created += 1
+            self.frames = []
 
 
 def create_parser():
@@ -309,11 +319,16 @@ def create_parser():
     parser.add_argument('--percentiles', type=float, nargs='+',
                         default=[0.1, 0.25, 0.5, 0.75, 0.9, 1.0])
     parser.add_argument('--compute_meta_rewards', action='store_true', default=False)
+    parser.add_argument('--baselines', type=str, nargs='+',
+                        default=['random', 'a_star', 'instant_terminate'],
+                        help='Baselines to run evaluations for. Options are: '
+                             'random, a_star, instant_terminate')
 
     # Video parameters
     parser.add_argument('--create_videos', action='store_true', default=False)
     parser.add_argument('--video_fps', type=int, default=1)
     parser.add_argument('--video_steps', type=int, default=120)
+    parser.add_argument('--render_plans', action='store_true', default=False)
 
     return parser
 
@@ -343,12 +358,14 @@ def main():
     else:
         video_args = None
 
-    policy_creators = {
-        'Instant Terminate': TerminatorPolicy,
-        'AStar': AStarPolicy,
-        # 'Random': create_random_search_policy,
-        'Random (No Terminate)': create_random_search_policy_no_terminate
-    }
+    policy_creators = dict()
+    if 'random' in eval_args.get('baselines'):
+        policy_creators['Random (No Terminate)'] = create_random_search_policy_no_terminate
+    if 'a_star' in eval_args.get('baselines'):
+        policy_creators['AStar'] = AStarPolicy
+    if 'instant_terminate' in eval_args.get('baselines'):
+        policy_creators['Instant Terminate'] = TerminatorPolicy
+
     output_dir = Path('outputs/baseline/procgen') / time_id()
     print(f'Writing results to {output_dir}')
 
