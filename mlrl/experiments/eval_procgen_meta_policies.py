@@ -131,7 +131,8 @@ def main():
     meta_policy_model_paths = {
         'bigfish': {0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/')},
         'fruitbot': {1.0: Path('outputs/runs/ppo_run_15-48-02-12-05-2023/')},
-        'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')}
+        'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')},
+        'bossfight': {1.0: Path('outputs/runs/ppo_run_2023-05-15-07-39-48/')}
     }
 
     runs = {
@@ -151,9 +152,10 @@ def main():
 
     for run in runs.values():
         run_name = run['run'].name
+        print(f'Loading best meta policy for run {run_name}')
         output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
         load_best_meta_policy(run, output_path, eval_args['model_selection'],
-                         eval_args['smoothing_radius'])
+                              eval_args['smoothing_radius'])
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)

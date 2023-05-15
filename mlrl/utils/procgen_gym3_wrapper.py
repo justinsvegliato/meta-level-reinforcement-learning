@@ -111,15 +111,18 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
             action = action.numpy()
 
         if self._action_repeats > 1:
-            reward = 0
+            reward = np.zeros(self._n_envs)
+            not_done = np.array([True] * self._n_envs)
+            _, obs, _ = self._gym_env.observe()
             for _ in range(self._action_repeats):
                 self._gym_env.act(action)
-                r, _, done = self._gym_env.observe()
-                reward += r
-                if any(done):
-                    break
+                r, o, done = self._gym_env.observe()
+                reward[not_done] += r[not_done]
+                obs[not_done] = o[not_done]
+                not_done = np.logical_and(not_done, ~done)
 
-            self._current_time_step = self._create_time_step(reward=reward)
+            step = (reward, obs, ~not_done)
+            self._current_time_step = self._create_time_step(step=step)
 
         else:
             self._gym_env.act(action)
@@ -127,10 +130,11 @@ class ProcgenGym3Wrapper(py_environment.PyEnvironment):
 
         return self._current_time_step
 
-    def _create_time_step(self, reward=None):
-        r, observation, self._done = self._gym_env.observe()
-        if reward is None:
-            reward = r
+    def _create_time_step(self, step=None):
+        if step is None:
+            reward, observation, self._done = self._gym_env.observe()
+        else:
+            reward, observation, self._done = step
 
         step_type = [ts.StepType.MID] * self._n_envs
 

@@ -83,6 +83,7 @@ def create_procgen_meta_env(object_config: dict,
                             **meta_config) -> MetaEnv:
 
     object_env = make_gym_procgen(object_config)
+    meta_config['object_discount'] = object_config.get('discount', 0.99)
 
     def q_hat(s, a):
         return s.q_values[a]
