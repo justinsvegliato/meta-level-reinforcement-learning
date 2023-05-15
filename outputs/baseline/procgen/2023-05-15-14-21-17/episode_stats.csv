@@ -274,3 +274,39 @@ Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
 ,Instant Terminate,0.5,324,13.0
 ,Instant Terminate,0.5,73,1.0
 ,Random (No Terminate),1.0,5,0.0
+,Random (No Terminate),1.0,25,11.0
+,Random (No Terminate),1.0,29,1.0
+,Random (No Terminate),1.0,94,13.0
+,Random (No Terminate),1.0,98,12.0
+,Random (No Terminate),1.0,103,3.0
+,Random (No Terminate),1.0,46,11.0
+,Random (No Terminate),1.0,149,13.0
+,Random (No Terminate),1.0,138,3.0
+,Random (No Terminate),1.0,177,15.0
+,Random (No Terminate),1.0,173,15.0
+,Random (No Terminate),1.0,153,4.0
+,Random (No Terminate),1.0,92,2.0
+,Random (No Terminate),1.0,86,12.0
+,Random (No Terminate),1.0,60,1.0
+,Random (No Terminate),1.0,37,11.0
+,Random (No Terminate),1.0,47,1.0
+,Random (No Terminate),1.0,27,11.0
+,Random (No Terminate),1.0,101,12.0
+,Random (No Terminate),1.0,60,12.0
+,Random (No Terminate),1.0,118,13.0
+,Random (No Terminate),1.0,154,14.0
+,Random (No Terminate),1.0,111,12.0
+,Random (No Terminate),1.0,114,13.0
+,Random (No Terminate),1.0,208,15.0
+,Random (No Terminate),1.0,180,15.0
+,Random (No Terminate),1.0,76,12.0
+,Random (No Terminate),1.0,95,2.0
+,Random (No Terminate),1.0,184,15.0
+,Random (No Terminate),1.0,201,15.0
+,Random (No Terminate),1.0,168,13.0
+,Random (No Terminate),1.0,123,13.0
+,AStar,1.0,3,0.0
+,AStar,1.0,29,1.0
+,AStar,1.0,34,1.0
+,AStar,1.0,35,11.0
+,AStar,1.0,73,12.0
