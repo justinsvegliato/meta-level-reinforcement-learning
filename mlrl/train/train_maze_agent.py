@@ -1,4 +1,4 @@
-from mlrl.experiments.experiment_utils import (
+from mlrl.train.experiment_utils import (
     parse_args, create_agent, create_training_run,
     create_batched_tf_meta_env, create_meta_env
 )

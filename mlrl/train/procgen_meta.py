@@ -1,4 +1,4 @@
-from mlrl.experiments.experiment_utils import create_parser, create_meta_env
+from mlrl.train.experiment_utils import create_parser, create_meta_env
 from mlrl.runners.ppo_runner import PPORunner
 from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.procgen import META_ALLOWED_COMBOS
@@ -7,7 +7,7 @@ from mlrl.procgen.procgen_env import make_vectorised_procgen
 from mlrl.procgen.batched_procgen_meta_env import BatchedProcgenMetaEnv
 from mlrl.procgen.meta_renderer import render_tree_policy
 from mlrl.procgen.time_limit_observer import TimeLimitObserver
-from mlrl.experiments.procgen_dqn import create_rainbow_agent
+from mlrl.train.procgen_dqn import create_rainbow_agent
 from mlrl.utils.system import restrict_gpus
 
 import json

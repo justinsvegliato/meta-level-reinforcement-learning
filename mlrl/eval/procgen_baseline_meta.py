@@ -2,8 +2,8 @@ from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
 from mlrl.meta.meta_policies.a_star_policy import AStarPolicy
 from mlrl.meta.meta_policies.random_policy import create_random_search_policy_no_terminate
 from mlrl.meta.meta_policies.terminator_policy import TerminatorPolicy
-from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
-from mlrl.experiments.procgen_meta import reset_object_level_metrics
+from mlrl.train.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
+from mlrl.train.procgen_meta import reset_object_level_metrics
 from mlrl.procgen.time_limit_observer import TimeLimitObserver
 from mlrl.utils.render_utils import save_video
 from mlrl.utils import time_id, clean_for_json

@@ -1,4 +1,4 @@
-from mlrl.experiments.experiment_utils import create_agent, create_training_run
+from mlrl.train.experiment_utils import create_agent, create_training_run
 from mlrl.meta.search_tree import SearchTree
 from mlrl.meta.meta_env import MetaEnv
 from mlrl.meta.meta_policies.search_networks import SearchQNetwork

@@ -6,8 +6,8 @@ from typing import List
 import json
 
 from mlrl.meta.meta_policies.search_ppo_agent import load_ppo_agent
-from mlrl.experiments.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
-from mlrl.experiments.procgen_baseline_meta import test_policies_with_pretrained_model, ResultsAccumulator, create_parser
+from mlrl.train.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
+from mlrl.eval.procgen_baseline_meta import test_policies_with_pretrained_model, ResultsAccumulator, create_parser
 from mlrl.utils.system import restrict_gpus
 from mlrl.utils.wandb_utils import get_wandb_info_from_run_dir
 from mlrl.utils import time_id
