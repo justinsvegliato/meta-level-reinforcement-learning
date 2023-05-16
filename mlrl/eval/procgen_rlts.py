@@ -15,7 +15,7 @@ from mlrl.utils import time_id
 sns.set()
 
 
-def load_meta_policy_from_checkpoint(run: dict, epoch: int):
+def load_meta_policy_from_checkpoint(run: dict, epoch: int, override_run_args: dict = None):
 
     ckpt_dir = run['root_dir'] / f'network_checkpoints/step_{epoch}'
 
@@ -24,7 +24,7 @@ def load_meta_policy_from_checkpoint(run: dict, epoch: int):
         k: v for k, v in run['config'].items()
         if k not in exclude_keys
     }
-
+    run_args.update(override_run_args or {})
     run['run_args'] = run_args
 
     load_pretrained_q_network(
@@ -46,6 +46,7 @@ def load_meta_policy_from_checkpoint(run: dict, epoch: int):
 def load_best_meta_policy(run: List[dict],
                           output_path: Path = None,
                           selection_method: str = 'best',
+                          override_run_args: dict = None,
                           smoothing_radius: int = 1):
 
     _, ax = plt.subplots()
@@ -76,7 +77,7 @@ def load_best_meta_policy(run: List[dict],
 
     run['model_epoch'] = model_epoch
 
-    run['best_policy'] = load_meta_policy_from_checkpoint(run, model_epoch)
+    run['best_policy'] = load_meta_policy_from_checkpoint(run, model_epoch, override_run_args)
 
     line, *_ = ax.plot(x, y, alpha=0.25)
     df.sort_values(by='TrainStep', inplace=True)
@@ -98,9 +99,9 @@ def parse_args():
     parser = create_parser()
     parser.add_argument('--model_selection', type=str, default='best',
                         help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
+    parser.add_argument('--smoothing_radius', type=int, default=1)
     parser.add_argument('--env', type=str, default='bigfish',
                         help='Environment to evaluate on, one of: "bigfish", "coinrun"')
-    parser.add_argument('--smoothing_radius', type=int, default=1)
     parser.add_argument('--min_computation_steps', type=int, default=30)
     return vars(parser.parse_args())
 
@@ -115,18 +116,6 @@ def main():
 
     if eval_args.get('gpus'):
         restrict_gpus(eval_args['gpus'])
-
-    # meta_policy_model_paths = [
-    #     # Path('outputs/runs/ppo_run_51-48-04-01-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_01-51-04-01-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_39-44-04-01-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_29-19-06-02-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_38-34-06-02-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_37-21-09-02-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_36-37-06-02-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_48-08-23-02-05-2023/'),
-    #     # Path('outputs/runs/ppo_run_44-49-22-02-05-2023/'),
-    # ]
 
     meta_policy_model_paths = {
         'bigfish': {0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/')},

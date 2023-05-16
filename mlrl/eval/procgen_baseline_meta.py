@@ -21,9 +21,9 @@ from tensorflow.keras.utils import Progbar
 def evaluate_meta_policy(create_policy: callable,
                          n_envs: int,
                          n_object_level_episodes: int,
-                         outputs_dir: Path,
                          object_config: dict,
                          args: dict,
+                         outputs_dir: Path = '.',
                          max_object_level_steps: int = 500,
                          episode_complete_cb: Callable[[dict], None] = None,
                          remove_envs_on_completion: bool = True,
@@ -38,7 +38,7 @@ def evaluate_meta_policy(create_policy: callable,
     )
 
     policy = create_policy(batched_meta_env)
-    
+
     if isinstance(policy, AStarPolicy) and remove_envs_on_completion:
         print('AStarPolicy does not support remove_envs_on_completion. Setting to False')
         remove_envs_on_completion = False
@@ -106,17 +106,8 @@ def evaluate_meta_policy(create_policy: callable,
         return n_complete == n_object_level_episodes
 
     policy = PyTFEagerPolicy(policy, use_tf_function=False, batch_time_steps=False)
-    # eval_runner = EvalRunner(
-    #     eval_env=batched_meta_env,
-    #     policy=create_policy(batched_meta_env),
-    #     rewrite_rewards=True,
-    #     use_tf_function=False,
-    #     convert_to_eager=False,
-    #     stop_eval_condition=completed_n_object_level_episodes
-    # )
 
     reset_object_level_metrics(batched_meta_env)
-    # eval_results = eval_runner.run()
 
     eval_results = dict()
     batched_meta_env.reset()
@@ -144,8 +135,8 @@ def evaluate_meta_policy(create_policy: callable,
 
 def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         args: dict,
-                                        outputs_dir: Path,
-                                        percentile=0.75,
+                                        outputs_dir: Path = None,
+                                        percentile=None,
                                         n_object_level_episodes=10,
                                         video_args: dict = None,
                                         max_object_level_steps=50,
@@ -154,12 +145,17 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
                                         results_observer: Callable[[dict], None] = None):
     create_video = video_args is not None
     n_envs = min(n_envs, n_object_level_episodes)
+    results_observer = results_observer or ResultsAccumulator()
 
     args.update({
-        'pretrained_percentile': percentile,
         'expand_all_actions': True,
         'finish_on_terminate': True,
     })
+
+    if percentile is not None:
+        args['pretrained_percentile'] = percentile
+    else:
+        percentile = args['pretrained_percentile']
 
     if 'n_envs' in args:
         args.pop('n_envs')
@@ -167,12 +163,14 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
     object_config = load_pretrained_q_network(
         folder=args['pretrained_runs_folder'],
         run=args['pretrained_run'],
-        percentile=args.get('pretrained_percentile', 0.75),
+        percentile=args['pretrained_percentile'],
         verbose=False
     )
 
-    with open(outputs_dir / f'object_level_config_{percentile=}.json', 'w') as f:
-        json.dump(clean_for_json(object_config), f)
+    if outputs_dir is not None:
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        with open(outputs_dir / f'object_level_config_{percentile=}.json', 'w') as f:
+            json.dump(clean_for_json(object_config), f)
 
     results = []
     for policy_name, create_policy in policy_creators.items():
@@ -181,14 +179,18 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             stats = {
                 **args,
                 **object_config,
-                **epsiode_stats,
+                **epsiode_stats
             }
             results_observer.add_episode_stats(
                 run_id, policy_name, percentile, stats)
 
         print(f'Evaluating {policy_name}')
-        policy_outputs_dir = outputs_dir / policy_name
-        policy_outputs_dir.mkdir(parents=True, exist_ok=True)
+        if outputs_dir is not None:
+            policy_outputs_dir = outputs_dir / policy_name
+            policy_outputs_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            policy_outputs_dir = None
+
         evaluations = evaluate_meta_policy(
             create_policy=create_policy,
             n_envs=n_envs,
@@ -204,7 +206,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         evaluations['Run ID'] = run_id
         results.append(evaluations)
 
-    return results
+    return results_observer, results
 
 
 def create_parser():

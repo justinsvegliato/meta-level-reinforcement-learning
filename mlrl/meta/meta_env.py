@@ -33,15 +33,20 @@ gym.envs.register(
 
 class ObjectLevelMetrics:
 
-    def __init__(self):
+    def __init__(self, meta_env: 'MetaEnv'):
+        self.meta_env = meta_env
         self.return_val = 0
         self.n_steps = 0
+        self.n_computations = 0
+        self.total_computational_cost = 0
         self.episode_stats = []
         self.episode_complete_callbacks = []
 
     def reset(self):
         self.return_val = 0
         self.n_steps = 0
+        self.n_computations = 0
+        self.total_computational_cost = 0
         self.episode_stats = []
 
     def get_num_episodes(self):
@@ -50,11 +55,15 @@ class ObjectLevelMetrics:
     def __call__(self, obs, action, reward, done, info):
         self.return_val += np.sum(reward)
         self.n_steps += np.size(reward)
+        self.n_computations += self.meta_env.n_computations
+        self.total_computational_cost += self.meta_env.cost_of_computation
     
         if done:
             stats = {
                 'return': self.return_val,
-                'steps': self.n_steps
+                'steps': self.n_steps,
+                'n_computations': self.n_computations,
+                'total_computational_cost': self.total_computational_cost
             }
             self.episode_stats.append(stats)
             for callback in self.episode_complete_callbacks:
@@ -62,10 +71,14 @@ class ObjectLevelMetrics:
 
             self.return_val = 0
             self.n_steps = 0
+            self.n_computations = 0
+            self.total_computational_cost = 0
 
     def get_results(self):
         sum_of_returns = sum([stat['return'] for stat in self.episode_stats])
         total_steps = sum([stat['steps'] for stat in self.episode_stats])
+        total_cost = sum([stat['total_computational_cost'] for stat in self.episode_stats])
+        total_computations = sum([stat['n_computations'] for stat in self.episode_stats])
         n_episodes = len(self.episode_stats)
 
         return {
@@ -73,7 +86,9 @@ class ObjectLevelMetrics:
             'ObjectLevelMeanStepsPerEpisode': total_steps / max(1, n_episodes),
             'ObjectLevelEpisodes': n_episodes,
             'ObjectLevelCurrentEpisodeReturn': self.return_val,
-            'ObjectLevelCurrentEpisodeSteps': self.n_steps
+            'ObjectLevelCurrentEpisodeSteps': self.n_steps,
+            'TotalComputationalCost': total_cost,
+            'TotalComputations': total_computations
         }
 
 
@@ -83,6 +98,8 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
     total_episodes = 0
     curr_returns = 0
     curr_n_steps = 0
+    total_cost = 0
+    total_computations = 0
 
     for metric in metrics:
         n_episodes = metric['ObjectLevelEpisodes']
@@ -92,6 +109,8 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
         n_steps += metric['ObjectLevelMeanStepsPerEpisode'] * n_episodes
         curr_returns += metric['ObjectLevelCurrentEpisodeReturn']
         curr_n_steps += metric['ObjectLevelCurrentEpisodeSteps']
+        total_cost += metric['TotalComputationalCost']
+        total_computations += metric['TotalComputations']
         total_episodes += n_episodes
 
     n_envs = len(metrics)
@@ -101,7 +120,9 @@ def aggregate_object_level_metrics(metrics: List[Dict[str, float]]) -> Dict[str,
         'ObjectLevelMeanStepsPerEpisode': n_steps / max(1, total_episodes),
         'ObjectLevelEpisodes': total_episodes,
         'ObjectLevelCurrentEpisodeReturn': curr_returns / max(1, n_envs),
-        'ObjectLevelCurrentEpisodeSteps': curr_n_steps / max(1, n_envs)
+        'ObjectLevelCurrentEpisodeSteps': curr_n_steps / max(1, n_envs),
+        'MeanTotalComputationalCost': total_cost / max(1, n_envs),
+        'MeanTotalComputations': total_computations / max(1, n_envs)
     }
 
 
@@ -172,8 +193,9 @@ class MetaEnv(gym.Env):
         self.finish_on_terminate = finish_on_terminate
         self.compute_meta_rewards = compute_meta_rewards
         self.min_computation_steps = min_computation_steps
-        self.object_level_metrics = ObjectLevelMetrics()
-        self.object_level_transition_observers = [self.object_level_metrics] + (object_level_transition_observers or [])
+        self.object_level_metrics = ObjectLevelMetrics(self)
+        self.object_level_transition_observers = [self.object_level_metrics]\
+              + (object_level_transition_observers or [])
 
         self.random_cost_of_computation = random_cost_of_computation
         self.cost_of_computation_interval = cost_of_computation_interval
@@ -302,6 +324,7 @@ class MetaEnv(gym.Env):
         self.tree = self.get_root_tree()
         self.search_tree_policy = self.make_tree_policy(self.tree)
         self.reset_computation_variables()
+        self.reset_metrics()
         return self.get_observation()
 
     def reset_computation_variables(self):
@@ -313,6 +336,19 @@ class MetaEnv(gym.Env):
         self.steps = 0
         self.cost_of_computation = self.get_next_computation_cost()
         self.update_tree_meta_vars()
+
+    def get_config(self) -> dict:
+        return {
+            'cost_of_computation': self.cost_of_computation,
+            'max_tree_size': self.max_tree_size,
+            'min_computation_steps': self.min_computation_steps,
+        }
+
+    def get_metrics(self) -> dict:
+        return {
+            'n_computations': self.n_computations,
+            **self.get_object_level_metrics()
+        }
 
     def reset_metrics(self):
         self.object_level_metrics.reset()

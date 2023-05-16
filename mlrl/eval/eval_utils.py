@@ -11,21 +11,24 @@ sns.set()
 
 class ResultsAccumulator:
 
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path=None):
         self.results = []
         self.episode_stats = []
         self.results_df = None
         self.episode_stats_df = None
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = Path(output_dir) if output_dir else None
+        if self.output_dir is not None:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, results: dict):
         self.results.append(results)
         self.results_df = pd.DataFrame(self.results)
-        self.results_df.to_csv(self.output_dir / 'results.csv', index=False)
+        if self.output_dir is not None:
+            self.results_df.to_csv(self.output_dir / 'results.csv', index=False)
 
         self.episode_stats_df = pd.DataFrame(self.episode_stats)
-        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
+        if self.output_dir is not None:
+            self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
 
         self.plot_results()
 
@@ -36,9 +39,11 @@ class ResultsAccumulator:
             'Pretrained Percentile': percentile,
             'Number of Steps': stats['steps'],
             'Return': stats['return'],
+            **stats
         })
         self.episode_stats_df = pd.DataFrame(self.episode_stats)
-        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
+        if self.output_dir is not None:
+            self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
 
         self.plot_results()
 
@@ -64,7 +69,8 @@ class ResultsAccumulator:
         plt.ylabel(plot_name)
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
-        plt.savefig(self.output_dir / 'mean-object-return-vs-percentile.png')
+        if self.output_dir is not None:
+            plt.savefig(self.output_dir / 'mean-object-return-vs-percentile.png')
         plt.close()
 
     def plot_object_level_returns(self):
@@ -78,7 +84,8 @@ class ResultsAccumulator:
         plt.ylabel(plot_name)
         plt.title(f'{plot_name} vs Pretrained Percentile')
 
-        plt.savefig(self.output_dir / 'object-return-vs-percentile.png')
+        if self.output_dir is not None:
+            plt.savefig(self.output_dir / 'object-return-vs-percentile.png')
         plt.close()
 
 
