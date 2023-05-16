@@ -1,27 +1,21 @@
-from mlrl.meta.meta_env import MetaEnv, aggregate_object_level_metrics
+from mlrl.meta.meta_env import aggregate_object_level_metrics
 from mlrl.meta.meta_policies.a_star_policy import AStarPolicy
 from mlrl.meta.meta_policies.random_policy import create_random_search_policy_no_terminate
 from mlrl.meta.meta_policies.terminator_policy import TerminatorPolicy
+from mlrl.eval.eval_utils import ResultsAccumulator, MetaPolicyObjectlevelVideoMaker
 from mlrl.train.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
 from mlrl.train.procgen_meta import reset_object_level_metrics
 from mlrl.procgen.time_limit_observer import TimeLimitObserver
-from mlrl.utils.render_utils import save_video
 from mlrl.utils import time_id, clean_for_json
 from mlrl.utils.system import restrict_gpus
-from tf_agents.policies.py_tf_eager_policy import PyTFEagerPolicy
-
-from tensorflow.keras.utils import Progbar
 
 import argparse
 from typing import Dict, Callable
 from pathlib import Path
 import json
-import pandas as pd
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-sns.set()
+from tf_agents.policies.py_tf_eager_policy import PyTFEagerPolicy
+from tensorflow.keras.utils import Progbar
 
 
 def evaluate_meta_policy(create_policy: callable,
@@ -182,6 +176,16 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
 
     results = []
     for policy_name, create_policy in policy_creators.items():
+
+        def on_episode_complete(epsiode_stats):
+            stats = {
+                **args,
+                **object_config,
+                **epsiode_stats,
+            }
+            results_observer.add_episode_stats(
+                run_id, policy_name, percentile, stats)
+
         print(f'Evaluating {policy_name}')
         policy_outputs_dir = outputs_dir / policy_name
         policy_outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -193,7 +197,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             object_config=object_config,
             args=args,
             max_object_level_steps=max_object_level_steps,
-            episode_complete_cb=lambda stats: results_observer.add_episode_stats(run_id, policy_name, percentile, stats),
+            episode_complete_cb=on_episode_complete,
             create_video=create_video
         )
         evaluations['Meta-level Policy'] = policy_name
@@ -201,105 +205,6 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
         results.append(evaluations)
 
     return results
-
-
-class ResultsAccumulator:
-
-    def __init__(self, output_dir: Path):
-        self.results = []
-        self.episode_stats = []
-        self.results_df = None
-        self.episode_stats_df = None
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-
-    def __call__(self, results: dict):
-        self.results.append(results)
-        self.results_df = pd.DataFrame(self.results)
-        self.results_df.to_csv(self.output_dir / 'results.csv', index=False)
-
-        self.episode_stats_df = pd.DataFrame(self.episode_stats)
-        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
-
-        self.plot_results()
-
-    def add_episode_stats(self, run_id: str, policy: str, percentile: float, stats: dict):
-        self.episode_stats.append({
-            'Run ID': run_id or '',
-            'Meta-level Policy': policy,
-            'Pretrained Percentile': percentile,
-            'Number of Steps': stats['steps'],
-            'Return': stats['return'],
-        })
-        self.episode_stats_df = pd.DataFrame(self.episode_stats)
-        self.episode_stats_df.to_csv(self.output_dir / 'episode_stats.csv', index=False)
-
-        self.plot_results()
-
-    def plot_results(self):
-        try:
-            self.episode_stats_df = pd.DataFrame(self.episode_stats)
-            self.results_df = pd.DataFrame(self.results)
-            self.plot_rewritten_returns()
-            self.plot_object_level_returns()
-
-        except Exception:
-            pass
-
-    def plot_rewritten_returns(self):
-        plot_name, plot_key = 'Mean Rewritten Meta Return', 'EvalRewrittenAverageReturn'
-
-        plt.figure(figsize=(15, 10))
-
-        sns.lineplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', alpha=0.25)
-        sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
-
-        plt.xlabel('Pretrained Percentile')
-        plt.ylabel(plot_name)
-        plt.title(f'{plot_name} vs Pretrained Percentile')
-
-        plt.savefig(self.output_dir / 'mean-object-return-vs-percentile.png')
-        plt.close()
-
-    def plot_object_level_returns(self):
-        plot_name, plot_key = 'Mean Object-level Return', 'ObjectLevelMeanReward'
-
-        plt.figure(figsize=(15, 10))
-        sns.lineplot(data=self.episode_stats_df, x='Pretrained Percentile', y='Return', hue='Meta-level Policy', alpha=0.5)
-        sns.scatterplot(data=self.results_df, x='pretrained_percentile', y=plot_key, hue='Meta-level Policy', legend=False)
-
-        plt.xlabel('Pretrained Percentile')
-        plt.ylabel(plot_name)
-        plt.title(f'{plot_name} vs Pretrained Percentile')
-
-        plt.savefig(self.output_dir / 'object-return-vs-percentile.png')
-        plt.close()
-
-
-class MetaPolicyObjectlevelVideoMaker:
-
-    def __init__(self,
-                 output_dir: Path,
-                 meta_env: MetaEnv,
-                 video_name: str = 'object-level-video',
-                 fps: int = 2):
-        self.output_dir = output_dir
-        self.video_name = video_name
-        self.meta_env = meta_env
-        self.fps = fps
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        self.videos_created = 0
-        self.frames = []
-
-    def __call__(self, *_):
-        self.frames.append(self.meta_env.render())
-    
-    def save_video(self, *_):
-        if self.frames:
-            path = str(self.output_dir / f'{self.video_name}-{self.videos_created}')
-            save_video(self.frames, path, fps=self.fps)
-            self.videos_created += 1
-            self.frames = []
 
 
 def create_parser():
@@ -311,7 +216,8 @@ def create_parser():
 
     # Run parameters
     parser.add_argument('--pretrained_runs_folder', type=str, default='runs')
-    parser.add_argument('--pretrained_run', type=str, default='run-16823527592836354')
+    parser.add_argument('--pretrained_run', type=str, default=None)
+    parser.add_argument('--env', type=str, default='bigfish')
     parser.add_argument('--max_tree_size', type=int, default=64)
     parser.add_argument('--n_envs', type=int, default=20)
     parser.add_argument('--n_episodes', type=int, default=20)
@@ -339,6 +245,18 @@ def parse_args():
 
 def main():
     eval_args = parse_args()
+
+    default_pretrained_runs = {
+        'fruitbot': 'run-16833079943304386',
+        'coinrun': 'run-16838619373401126',
+        'bossfight': 'run-16839105526160484',
+        'bigfish': 'run-16823527592836354'
+    }
+
+    if eval_args['pretrained_run'] is None  and eval_args['env'] in default_pretrained_runs:
+        eval_args['pretrained_run'] = default_pretrained_runs[eval_args['env']]
+    else:
+        raise ValueError('Must specify pretrained_run or env')
 
     print('Running with args:')
     for k, v in eval_args.items():
