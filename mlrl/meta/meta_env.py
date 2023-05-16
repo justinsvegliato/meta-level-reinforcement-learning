@@ -56,7 +56,7 @@ class ObjectLevelMetrics:
         self.return_val += np.sum(reward)
         self.n_steps += np.size(reward)
         self.n_computations += self.meta_env.n_computations
-        self.total_computational_cost += self.meta_env.cost_of_computation
+        self.total_computational_cost += self.meta_env.n_computations * self.meta_env.cost_of_computation
     
         if done:
             stats = {
