@@ -101,7 +101,7 @@ def parse_args():
     parser.add_argument('--env', type=str, default='bigfish',
                         help='Environment to evaluate on, one of: "bigfish", "coinrun"')
     parser.add_argument('--smoothing_radius', type=int, default=1)
-    parser.add_argument('--min_computational_steps', type=int, default=30)
+    parser.add_argument('--min_computation_steps', type=int, default=30)
     return vars(parser.parse_args())
 
 
@@ -132,7 +132,8 @@ def main():
         'bigfish': {0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/')},
         'fruitbot': {1.0: Path('outputs/runs/ppo_run_15-48-02-12-05-2023/')},
         'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')},
-        'bossfight': {1.0: Path('outputs/runs/ppo_run_2023-05-15-07-39-48/')}
+        'bossfight': {1.0: Path('outputs/runs/ppo_run_2023-05-15-07-39-48/'),
+                      0.25: Path('outputs/runs/ppo_run_2023-05-15-17-52-00/')}
     }
 
     runs = {
@@ -175,7 +176,7 @@ def main():
         policy_creators = {
             'Learned Meta-Policy': lambda _: run['best_policy']
         }
-        run['run_args']['min_computational_steps'] = eval_args['min_computational_steps']
+        run['run_args']['min_computation_steps'] = eval_args['min_computation_steps']
 
         run_id = run['run_id']
         run_name = run['run'].name

@@ -1,36 +1,4 @@
 Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
-,Random (No Terminate),0.25,12,0.0
-,Random (No Terminate),0.25,17,0.0
-,Random (No Terminate),0.25,23,11.0
-,Random (No Terminate),0.25,25,11.0
-,Random (No Terminate),0.25,31,11.0
-,Random (No Terminate),0.25,33,11.0
-,Random (No Terminate),0.25,58,1.0
-,Random (No Terminate),0.25,74,1.0
-,Random (No Terminate),0.25,74,11.0
-,Random (No Terminate),0.25,76,13.0
-,Random (No Terminate),0.25,94,14.0
-,Random (No Terminate),0.25,95,13.0
-,Random (No Terminate),0.25,107,13.0
-,Random (No Terminate),0.25,107,2.0
-,Random (No Terminate),0.25,108,12.0
-,Random (No Terminate),0.25,111,13.0
-,Random (No Terminate),0.25,116,12.0
-,Random (No Terminate),0.25,117,13.0
-,Random (No Terminate),0.25,130,14.0
-,Random (No Terminate),0.25,132,13.0
-,Random (No Terminate),0.25,143,3.0
-,Random (No Terminate),0.25,157,2.0
-,Random (No Terminate),0.25,177,14.0
-,Random (No Terminate),0.25,184,13.0
-,Random (No Terminate),0.25,188,13.0
-,Random (No Terminate),0.25,196,14.0
-,Random (No Terminate),0.25,216,15.0
-,Random (No Terminate),0.25,236,13.0
-,Random (No Terminate),0.25,252,15.0
-,Random (No Terminate),0.25,299,14.0
-,Random (No Terminate),0.25,300,14.0
-,Random (No Terminate),0.25,390,15.0
 ,AStar,0.25,3,0.0
 ,AStar,0.25,11,0.0
 ,AStar,0.25,13,0.0
@@ -327,3 +295,53 @@ Run ID,Meta-level Policy,Pretrained Percentile,Number of Steps,Return
 ,AStar,1.0,157,4.0
 ,AStar,1.0,25,1.0
 ,AStar,1.0,59,2.0
+,AStar,1.0,34,1.0
+,AStar,1.0,95,13.0
+,AStar,1.0,40,1.0
+,AStar,1.0,24,1.0
+,AStar,1.0,111,3.0
+,AStar,1.0,77,12.0
+,AStar,1.0,64,2.0
+,AStar,1.0,143,14.0
+,AStar,1.0,161,14.0
+,AStar,1.0,167,15.0
+,AStar,1.0,173,15.0
+,AStar,1.0,1,0.0
+,AStar,1.0,120,3.0
+,AStar,1.0,17,0.0
+,AStar,1.0,57,12.0
+,AStar,1.0,1,0.0
+,AStar,1.0,66,12.0
+,AStar,1.0,161,14.0
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,3,0.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,7,0.0
+,Instant Terminate,1.0,27,0.0
+,Instant Terminate,1.0,30,11.0
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,33,11.0
+,Instant Terminate,1.0,40,11.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,35,1.0
+,Instant Terminate,1.0,4,0.0
+,Instant Terminate,1.0,3,0.0
+,Instant Terminate,1.0,11,0.0
+,Instant Terminate,1.0,60,12.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,29,1.0
+,Instant Terminate,1.0,1,0.0
+,Instant Terminate,1.0,2,0.0
+,Instant Terminate,1.0,70,2.0
+,Instant Terminate,1.0,26,1.0
+,Instant Terminate,1.0,47,0.0
+,Instant Terminate,1.0,5,0.0
+,Instant Terminate,1.0,28,1.0
+,Instant Terminate,1.0,25,1.0
+,Instant Terminate,1.0,147,14.0
+,Instant Terminate,1.0,128,3.0
