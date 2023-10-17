@@ -1,4 +1,4 @@
-from rlts.experiments.maze_meta import create_maze_meta_env
+from rlts.train.maze_meta import create_maze_meta_env
 from rlts.maze.maze_state import RestrictedActionsMazeState
 from rlts.meta.meta_env import MetaEnv
 

@@ -1,16 +1,16 @@
-from rlts.train.experiment_utils import create_agent, create_training_run
-from rlts.meta.search_tree import SearchTree
-from rlts.meta.meta_env import MetaEnv
-from rlts.meta.meta_policies.search_networks import SearchQNetwork
-from rlts.chess.chess_env import ChessVsRandom
-from rlts.chess.chess_state import ChessState, ChessQFunction
+# from rlts.train.experiment_utils import create_agent, create_training_run
+# from rlts.meta.search_tree import SearchTree
+# from rlts.meta.meta_env import MetaEnv
+# from rlts.meta.meta_policies.search_networks import SearchQNetwork
+# from rlts.chess.chess_env import ChessVsRandom
+# from rlts.chess.chess_state import ChessState, ChessQFunction
 
 import argparse
 
-from tf_agents.environments.tf_py_environment import TFPyEnvironment
-from tf_agents.environments.gym_wrapper import GymWrapper
+# from tf_agents.environments.tf_py_environment import TFPyEnvironment
+# from tf_agents.environments.gym_wrapper import GymWrapper
 
-import badgyal
+# import badgyal
 
 
 def parse_args():
@@ -63,23 +63,23 @@ def parse_args():
 
 
 def main():
+    raise NotImplementedError('This script is not yet implemented.')
+    # args = parse_args()
 
-    args = parse_args()
+    # object_env = ChessVsRandom()
+    # object_env.reset()
 
-    object_env = ChessVsRandom()
-    object_env.reset()
+    # chess_network = badgyal.BGNet(cuda=True)
+    # q_hat = ChessQFunction(chess_network)
+    # initial_tree = SearchTree(object_env, ChessState.extract_state(object_env), q_hat)
+    # meta_env = MetaEnv(object_env, initial_tree, max_tree_size=10)
+    # tf_env = TFPyEnvironment(GymWrapper(meta_env))
 
-    chess_network = badgyal.BGNet(cuda=True)
-    q_hat = ChessQFunction(chess_network)
-    initial_tree = SearchTree(object_env, ChessState.extract_state(object_env), q_hat)
-    meta_env = MetaEnv(object_env, initial_tree, max_tree_size=10)
-    tf_env = TFPyEnvironment(GymWrapper(meta_env))
-
-    q_net = SearchQNetwork(head_dim=args['transformer_head_dim'],
-                           n_layers=args['transformer_n_layers'])
-    agent = create_agent(tf_env, q_net, **args)
-    run = create_training_run(agent, tf_env, q_net, args, 'chess_dqn')
-    run.execute()
+    # q_net = SearchQNetwork(head_dim=args['transformer_head_dim'],
+    #                        n_layers=args['transformer_n_layers'])
+    # agent = create_agent(tf_env, q_net, **args)
+    # run = create_training_run(agent, tf_env, q_net, args, 'chess_dqn')
+    # run.execute()
 
 
 if __name__ == "__main__":

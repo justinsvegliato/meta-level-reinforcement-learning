@@ -374,7 +374,7 @@ def create_random_meta_policy_video(env: Union[TFEnvironment, PyEnvironment],
     policy = RandomTFPolicy(env.time_step_spec(),
                             env.action_spec(),
                             observation_and_action_constraint_splitter=mask_token_splitter)
-    
+
     return create_and_save_meta_policy_video(policy, env,
                                              filename=filename, max_steps=max_steps,
                                              fps=fps,

@@ -54,6 +54,9 @@ class PPORunner:
                  model_save_metric_comparator: str = 'max',
                  end_of_epoch_callback: Callable[[dict, 'PPORunner'], None] = None,
                  debug_on_crash: bool = False,
+                 wandb_project: str = 'rlts',
+                 wandb_entity: str = 'drcope',
+                 wandb_group: Optional[str] = None,
                  **config):
         self.eval_interval = eval_interval
         self.num_iterations = num_iterations
@@ -64,6 +67,10 @@ class PPORunner:
         self.summary_interval = summary_interval
         self.train_num_steps = math.ceil(collect_steps / self.n_collect_envs)
         self.train_batch_size = train_batch_size
+
+        self.wandb_project = wandb_project
+        self.wandb_entity = wandb_entity
+        self.wandb_group = wandb_group or run_name
 
         self.profile_run = profile_run
         self.config = config
@@ -322,8 +329,12 @@ class PPORunner:
         print(f'Saved value and actor networks to {ckpt_dir}')
 
     def _run(self):
-        self.wandb_run = wandb.init(project='mlrl', entity='drcope', dir=self.root_dir,
-                                    reinit=True, config=self.get_config())
+        self.wandb_run = wandb.init(project=self.wandb_project,
+                                    entity=self.wandb_entity,
+                                    group=self.wandb_group,
+                                    dir=self.root_dir,
+                                    reinit=True,
+                                    config=self.get_config())
 
         for i in range(self.num_iterations):
             iteration_logs = {'iteration': i}

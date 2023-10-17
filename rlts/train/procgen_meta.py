@@ -257,7 +257,7 @@ def end_of_epoch_callback(logs: dict, runner: PPORunner):
     reset_object_level_metrics(runner.eval_env)
 
 
-def create_runner(args):
+def create_runner(args: dict) -> PPORunner:
 
     object_config = load_pretrained_q_network(
         folder=args.get('pretrained_runs_folder', 'runs'),
@@ -273,9 +273,12 @@ def create_runner(args):
         object_config=object_config, **args
     )
 
+    run_group = f'rlts-procgen-{object_env_name}'
     ppo_runner = PPORunner(
-        env, eval_env=eval_env, video_env=video_env,
-        name=f'procgen-{object_env_name}',
+        env,
+        eval_env=eval_env,
+        video_env=video_env,
+        wandb_group=run_group,
         end_of_epoch_callback=end_of_epoch_callback,
         **args
     )
@@ -283,12 +286,12 @@ def create_runner(args):
     return ppo_runner
 
 
-def main(args):
+def main(args: dict):
     ppo_runner = create_runner(args)
     ppo_runner.run()
 
 
-def parse_args():
+def parse_args() -> dict:
     parser = create_parser()
 
     parser.add_argument('--pretrained_percentile', type=float, default=0.75,

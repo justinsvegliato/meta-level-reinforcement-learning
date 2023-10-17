@@ -41,7 +41,7 @@ class SearchTreePolicy(ABC):
     @abstractmethod
     def get_action_probabilities(self, state: ObjectState) -> Dict[int, float]:
         pass
-    
+
     @abstractmethod
     def get_trajectory(self) -> List[SearchTreeNode]:
         pass

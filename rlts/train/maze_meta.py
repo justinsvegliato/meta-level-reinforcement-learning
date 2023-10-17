@@ -9,8 +9,8 @@ from rlts.maze.maze_tree_policy_renderer import render_tree_policy
 
 from typing import Type
 
-from tf_agents.train.gym_wrapper import GymWrapper
-from tf_agents.train.batched_py_environment import BatchedPyEnvironment
+from tf_agents.environments.gym_wrapper import GymWrapper
+from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
 
 def get_maze_name(config: dict) -> str:

@@ -236,7 +236,7 @@ if __name__ == '__main__':
     n_eval_envs = config.get('n_eval_envs', 64)
     env_multithreading = config.get('env_multithreading', True)
 
-    from rlts.experiments.maze_meta import create_batched_maze_envs
+    from rlts.train.maze_meta import create_batched_maze_envs
     eval_env = create_batched_maze_envs(
         n_eval_envs,
         enable_render=False,
