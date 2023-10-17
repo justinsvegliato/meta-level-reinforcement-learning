@@ -6,4 +6,4 @@
 # 	chai/mlrl:latest
 # sudo service docker stop
 
-docker run --gpus all -it --rm --name mlrl_jupyter -v $(pwd):/tf/ -p :8888:8888 -p :5678:5678 --privileged=true chai/mlrl:latest
+docker run --gpus all -it --rm --name rlts_jupyter -v $(pwd):/tf/ -p :8888:8888 -p :5678:5678 --privileged=true chai/rlts:latest
