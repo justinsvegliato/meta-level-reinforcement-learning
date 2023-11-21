@@ -252,11 +252,13 @@ def main():
         'fruitbot': 'run-16833079943304386',
         'coinrun': 'run-16838619373401126',
         'bossfight': 'run-16839105526160484',
-        'bigfish': 'run-16823527592836354'
+        'bigfish': 'run-16823527592836354',
+        'caveflyer': 'run-16947090705703208'
     }
 
-    if eval_args['pretrained_run'] is None and eval_args['env'] in default_pretrained_runs:
-        eval_args['pretrained_run'] = default_pretrained_runs[eval_args['env']]
+    env_name = eval_args['env']
+    if eval_args['pretrained_run'] is None and env_name in default_pretrained_runs:
+        eval_args['pretrained_run'] = default_pretrained_runs[env_name]
     else:
         raise ValueError('Must specify pretrained_run or env')
 
@@ -286,7 +288,7 @@ def main():
     if 'instant_terminate' in eval_args.get('baselines'):
         policy_creators['Instant Terminate'] = TerminatorPolicy
 
-    output_dir = Path('outputs/baseline/procgen') / time_id()
+    output_dir = Path(f'outputs/baseline/procgen/{env_name}') / time_id()
     print(f'Writing results to {output_dir}')
 
     results_accumulator = ResultsAccumulator(output_dir=output_dir)

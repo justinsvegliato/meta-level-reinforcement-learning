@@ -1,7 +1,30 @@
+import os
 from pathlib import Path
 import yaml
 import wandb
 from typing import Optional
+
+
+WANDB_ENV_VAR = "WANDB_API_KEY"
+
+
+def setup_wandb_api_key(api_key_file: str):
+    """
+    Set the WANDB_API_KEY environment variable to the value in the given file.
+
+    Args:
+        api_key_file: The path to the file containing the API key.
+    """
+    api_key_file = Path(api_key_file)
+    if not api_key_file.exists():
+        print(f'Could not find api key file: {api_key_file}. '
+              f'Will prompt user to log-in.')
+        return
+
+    with open(api_key_file) as f:
+        api_key = f.read().strip()
+
+    os.environ[WANDB_ENV_VAR] = api_key
 
 
 def clean_config(config: dict) -> dict:
@@ -25,20 +48,27 @@ def get_wandb_config(wandb_dir) -> Optional[dict]:
 def get_wandb_info(wandb_dir: Path) -> dict:
     wandb_dir = Path(wandb_dir)
 
-    api = wandb.Api()
     config = get_wandb_config(wandb_dir)
     wandb_files = list(wandb_dir.glob('*.wandb'))
     if len(wandb_files) == 0:
         raise ValueError('Could not find wandb file in {}'.format(wandb_dir))
 
     run_id = wandb_files[0].stem.split('-')[1]
-    run = api.run("drcope/rlts/" + run_id)
+    try:
+        api = wandb.Api()
+        run = api.run("drcope/rlts/" + run_id)
+        history = run.history()
+    except Exception as e:
+        print('Failed to get run info from WandB API: ', e)
+        run = None
+        history = None
+
     return {
         'run_id': run_id,
         'run': run,
         'wandb_path': wandb_dir,
         'config': config,
-        'history': run.history()
+        'history': history,
     }
 
 

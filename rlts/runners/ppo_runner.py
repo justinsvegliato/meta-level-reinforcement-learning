@@ -26,6 +26,8 @@ from tf_agents.environments.batched_py_environment import BatchedPyEnvironment
 
 import wandb
 
+from rlts.utils.wandb_utils import setup_wandb_api_key
+
 
 class PPORunner:
     """
@@ -243,7 +245,9 @@ class PPORunner:
 
         if self.evaluator is not None:
             eval_logs = self.evaluator.run()
-            logs.update(eval_logs)
+            logs.update({
+                f'Eval/{k}': v for k, v in eval_logs.items()
+            })
 
         try:
             if self.video_env is not None:
@@ -284,7 +288,7 @@ class PPORunner:
         if self.rewrite_rewards:
             self.reward_rewriter.flush_all()
 
-        return logs
+        return {f'Collect/{k}': v for k, v in logs.items()}
 
     def train(self):
         logs = {}
@@ -313,7 +317,7 @@ class PPORunner:
         })
         logs['TrainTime'] = end_time - start_time
 
-        return logs
+        return {f'Train/{k}': v for k, v in logs.items()}
 
     def save_best(self):
         print(f'Saving new best model with '
@@ -328,13 +332,17 @@ class PPORunner:
         self.value_model.save_weights(os.path.join(ckpt_dir, 'value_network'))
         print(f'Saved value and actor networks to {ckpt_dir}')
 
-    def _run(self):
+    def _init_wandb(self):
+        setup_wandb_api_key('.wandb_key')
+        print(f'Initialising wandb run at {self.wandb_entity}/{self.wandb_project}/{self.wandb_group}')
         self.wandb_run = wandb.init(project=self.wandb_project,
                                     entity=self.wandb_entity,
                                     group=self.wandb_group,
                                     dir=self.root_dir,
-                                    reinit=True,
                                     config=self.get_config())
+
+    def _run(self):
+        self._init_wandb()
 
         for i in range(self.num_iterations):
             iteration_logs = {'iteration': i}
@@ -363,7 +371,7 @@ class PPORunner:
             wandb.log(iteration_logs)
 
             if (self.gc_interval > 0 and i % self.gc_interval == 0) or \
-                    iteration_logs['CollectTime'] + iteration_logs['TrainTime'] > 180:
+                    iteration_logs['Collect/CollectTime'] + iteration_logs['Train/TrainTime'] > 180:
                 gc.collect()
 
     def run(self):

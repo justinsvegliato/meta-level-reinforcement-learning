@@ -165,11 +165,11 @@ def create_parser():
                         help='GPU ids to use. If not specified, all GPUs will be used.')
 
     # Run parameters
-    parser.add_argument('--learning_rate', type=float, default=3e-4,
+    parser.add_argument('--learning_rate', type=float, default=2.5e-4,
                         help='Learning rate for the optimiser.')
     # parser.add_argument('--experience_batch_size', type=int, default=512,
     #                     help='Batch size to use.')
-    parser.add_argument('--train_batch_size', type=int, default=32,
+    parser.add_argument('--train_batch_size', type=int, default=128,
                         help='Train batch size to use in PPO')
     parser.add_argument('--train_num_steps', type=int, default=64,
                         help='Number of steps in each training batch')
@@ -183,11 +183,11 @@ def create_parser():
     #                     help='Number of episodes to evaluate for.')
     parser.add_argument('--eval_steps', type=int, default=1024,
                         help='Number of steps to evaluate for.')
-    parser.add_argument('--eval_interval', type=int, default=15,
+    parser.add_argument('--eval_interval', type=int, default=25,
                         help='How often to evaluate trained agent.')
     parser.add_argument('--n_eval_envs', type=int, default=32,
                         help='Number evaluation environments to run in parallel.')
-    parser.add_argument('--video_steps', type=int, default=100,
+    parser.add_argument('--video_steps', type=int, default=50,
                         help='Number of steps to record a video for.')
     parser.add_argument('--n_video_envs', type=int, default=2,
                         help='Number of video environments to record.')

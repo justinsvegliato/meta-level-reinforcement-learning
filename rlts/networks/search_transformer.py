@@ -23,9 +23,11 @@ class SearchTransformer(tf.keras.Model):
                                                     activation='relu')
 
         self.transformer_layers = [
-            Transformer(n_heads, d_model, 'relu',
-                        dropout_rate=0.1,
-                        attention_dropout_rate=0.1)
+            Transformer(
+                n_heads, d_model, 'relu',
+                # dropout_rate=0.1,
+                # attention_dropout_rate=0.1
+            )
             for _ in range(n_layers)
         ]
 

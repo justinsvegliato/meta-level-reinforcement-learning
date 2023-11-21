@@ -1,14 +1,16 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
+import json
 from pathlib import Path
 from typing import List
-import json
+import re
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from rlts.meta.meta_policies.search_ppo_agent import load_ppo_agent
 from rlts.train.procgen_meta import create_batched_procgen_meta_envs, load_pretrained_q_network
 from rlts.eval.procgen_baseline_meta import test_policies_with_pretrained_model, ResultsAccumulator, create_parser
-from rlts.utils.system import restrict_gpus
+from rlts.utils.system import restrict_gpus, get_most_recently_modified_directory
 from rlts.utils.wandb_utils import get_wandb_info_from_run_dir
 from rlts.utils import time_id
 
@@ -41,6 +43,17 @@ def load_meta_policy_from_checkpoint(run: dict, epoch: int, override_run_args: d
     agent = load_ppo_agent(batched_meta_env, run_args, ckpt_dir)
 
     return agent.policy
+
+
+def load_most_recent_meta_policy(run: List[dict]):
+
+    ckpts_dir = run['root_dir'] / f'network_checkpoints/'
+    ckpt_dir = get_most_recently_modified_directory(ckpts_dir)
+    match = re.search(r'step_(\d+)$', ckpt_dir.stem)
+    model_epoch = int(match.group(1))
+
+    run['model_epoch'] = model_epoch
+    run['best_policy'] = load_meta_policy_from_checkpoint(run, model_epoch)
 
 
 def load_best_meta_policy(run: List[dict],
@@ -100,9 +113,10 @@ def parse_args():
     parser.add_argument('--model_selection', type=str, default='best',
                         help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
     parser.add_argument('--smoothing_radius', type=int, default=1)
-    parser.add_argument('--env', type=str, default='bigfish',
-                        help='Environment to evaluate on, one of: "bigfish", "coinrun"')
+    # parser.add_argument('--env', type=str, default='bigfish',
+    #                     help='Environment to evaluate on, one of: "bigfish", "coinrun"')
     parser.add_argument('--min_computation_steps', type=int, default=30)
+    parser.add_argument('--load_epoch', type=int, default=None)
     return vars(parser.parse_args())
 
 
@@ -118,11 +132,15 @@ def main():
         restrict_gpus(eval_args['gpus'])
 
     meta_policy_model_paths = {
-        'bigfish': {0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/')},
+        'bigfish': {
+            0.1: Path('outputs/runs/ppo_run_06-55-11-09-05-2023/'),
+            0.75: Path('outputs/runs/ppo_run_2023-11-19-23-13-50/'),
+        },
         'fruitbot': {1.0: Path('outputs/runs/ppo_run_15-48-02-12-05-2023/')},
         'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')},
         'bossfight': {1.0: Path('outputs/runs/ppo_run_2023-05-15-07-39-48/'),
-                      0.25: Path('outputs/runs/ppo_run_2023-05-15-17-52-00/')}
+                      0.25: Path('outputs/runs/ppo_run_2023-05-15-17-52-00/')},
+        'caveflyer': {0.1: Path('outputs/runs/ppo_run_2023-10-30-22-21-17/')},
     }
 
     runs = {
@@ -141,11 +159,21 @@ def main():
         json.dump(runs, f, default=lambda _: '<not serializable>')
 
     for run in runs.values():
-        run_name = run['run'].name
-        print(f'Loading best meta policy for run {run_name}')
-        output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
-        load_best_meta_policy(run, output_path, eval_args['model_selection'],
-                              eval_args['smoothing_radius'])
+        if eval_args['load_epoch'] is not None:
+            load_meta_policy_from_checkpoint(run, eval_args['load_epoch'])
+            continue
+
+        loaded_from_wandb = run['run'] is not None
+        load_best = eval_args['model_selection'] != 'last'
+        if loaded_from_wandb and load_best:
+            run_name = run['run'].name
+            print(f'Loading best meta policy for run {run_name}')
+            output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
+            load_best_meta_policy(run, output_path, eval_args['model_selection'],
+                                  eval_args['smoothing_radius'])
+        else:
+            print('Loading most recent meta policy')
+            load_most_recent_meta_policy(run)
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)
@@ -168,7 +196,7 @@ def main():
         run['run_args']['min_computation_steps'] = eval_args['min_computation_steps']
 
         run_id = run['run_id']
-        run_name = run['run'].name
+        run_name = run['run'].name if run['run'] is not None else '<unknown>'
         print(f'Evaluating on with pretrained model at percentile {percentile} [{run_id}/{run_name}]')
         test_policies_with_pretrained_model(policy_creators,
                                             percentile=percentile,

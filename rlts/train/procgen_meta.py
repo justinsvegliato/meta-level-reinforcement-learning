@@ -163,13 +163,15 @@ def parse_model_weights_string(path: str) -> Tuple[int, float]:
     return None
 
 
-def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]], percentile: float) -> Tuple[str, int, float]:
+def get_model_at_return_percentile(model_paths: List[Tuple[str, int, float]],
+                                   percentile: float) -> Tuple[str, int, float]:
     sorted_paths = sorted(model_paths, key=lambda x: x[2])
     index = round(len(sorted_paths) * percentile)
     return sorted_paths[max(0, min(len(sorted_paths) - 1, index))]
 
 
-def get_model_at_epoch(model_paths: List[Tuple[str, int, float]], epoch: float) -> Tuple[str, int, float]:
+def get_model_at_epoch(model_paths: List[Tuple[str, int, float]],
+                       epoch: float) -> Tuple[str, int, float]:
     for path, e, ret_val in model_paths:
         if e == epoch:
             return path, ret_val
@@ -181,6 +183,12 @@ def load_pretrained_q_network(folder: str,
                               percentile: float = 1.0,
                               epoch: int = None,
                               verbose: bool = True):
+    """
+    Loads the pretrained Q-network from a run and returns the config used to train it.
+    The Q-network is passed to the ProcgenProcessing class and stored as a static variable
+    so that it can be used to compute Q-values and encode environment states.
+    The ProcgenState class is also updated to use the correct action space.
+    """
     folder = f'{folder}/categorical_dqn_agent/{run}'
 
     with open(folder + '/config.json') as f:
