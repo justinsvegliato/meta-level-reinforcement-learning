@@ -102,11 +102,14 @@ class NodeTokeniser(TreeTokeniser):
         trying all possible actions, thus it does not include information about
         an action to expand the node with.
 
-        Token contains the following information:
+        A Token encodes the following information:
             - Attention mask. Whether the token contains valid information or is padding.
             - Can expand. Whether the node can be expanded. Used to mask out invalid actions.
             - Antecedent action vector. Vector encoding the action that was taken to get to this node.
             - Reward. The reward given for the antecendent action.
+            - Expected root return. The expected return from the root for a trajectory passing through node.
+            - Path return. The sum of rewards from the root to the node.
+            - Value. The value of the node state.
             - State vector. The state vector of the node.
             - ID: The id of the node.
             - Parent ID: The id of the parent node.
