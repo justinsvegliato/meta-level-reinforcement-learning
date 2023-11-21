@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import tensorflow as tf
 
@@ -8,6 +9,8 @@ def restrict_gpus(restricted_gpus: list):
     Args:
         restricted: list of gpus not to use
     """
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in restricted_gpus])
 
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:

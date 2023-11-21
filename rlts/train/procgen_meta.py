@@ -90,8 +90,10 @@ def create_procgen_meta_env(object_config: dict,
         return s.q_values[a]
 
     return create_meta_env(
-        object_env, ProcgenState.extract_state(object_env),
-        q_hat, meta_config,
+        object_env,
+        ProcgenState.extract_state(object_env),
+        q_hat,
+        meta_config,
         tree_policy_renderer=render_tree_policy if render_plans else None,
         min_computation_steps=min_computation_steps
     )

@@ -165,6 +165,8 @@ class MetaEnv(gym.Env):
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
                  object_level_transition_observers: Optional[List[TransitionObserver]] = None,
+                 ablate_state_tokens: bool = False,
+                 ablate_struc_tokens: bool = False,
                  verbose: bool = False,
                  reset_on_crash: bool = True,
                  dump_debug_images: bool = True):
@@ -258,7 +260,9 @@ class MetaEnv(gym.Env):
 
             self.tree_tokeniser = NodeTokeniser(self.max_tree_size,
                                                 self.action_vec_dim,
-                                                self.state_vec_dim)
+                                                self.state_vec_dim,
+                                                include_state_info=not ablate_state_tokens,
+                                                include_structure_info=not ablate_struc_tokens)
         else:
             # 2 * max_tree_size because we include the id of the corresponding node
             # and the id of the parent node

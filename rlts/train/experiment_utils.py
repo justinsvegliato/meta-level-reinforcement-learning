@@ -58,7 +58,9 @@ def create_meta_env(object_env: gym.Env,
                        cost_of_computation_interval=cost_of_computation_interval,
                        cost_of_computation=config.get('cost_of_computation', 0.001),
                        object_level_transition_observers=config.get('object_level_transition_observers'),
-                       tree_policy_renderer=tree_policy_renderer)
+                       tree_policy_renderer=tree_policy_renderer,
+                       ablate_state_tokens=config.get('ablate_state_tokenise', False),
+                       ablate_struc_tokens=config.get('ablate_struc_tokenise', False))
 
     if config.get('meta_time_limit', None):
         return gym.wrappers.time_limit.TimeLimit(meta_env, config['meta_time_limit'])
@@ -216,6 +218,11 @@ def create_parser():
                         help='Whether to finish meta-level episode on computational terminate action.')
     parser.add_argument('--min_train_computation_steps', type=int, default=5,
                         help='Minimum number of computational steps to train on.')
+    parser.add_argument('--ablate_state_tokenise', default=False, action='store_true',
+                        help='Whether to remove state vectors from node tokens.')
+    parser.add_argument('--ablate_struc_tokenise', default=False, action='store_true',
+                        help='Whether to remove structure vectors from node tokens.')
+    
 
     # Object-level environment parameters
     parser.add_argument('--object_discount', type=float, default=0.99,
