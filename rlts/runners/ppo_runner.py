@@ -46,6 +46,7 @@ class PPORunner:
                  policy_save_interval: int = 1,
                  eval_steps: int = 1000,
                  eval_interval: int = 5,
+                 ckpt_interval: Optional[int] = None,
                  video_steps: int = 60,
                  num_iterations: int = 1000,
                  run_name: str = None,
@@ -61,6 +62,7 @@ class PPORunner:
                  wandb_group: Optional[str] = None,
                  **config):
         self.eval_interval = eval_interval
+        self.ckpt_interval = ckpt_interval or eval_interval
         self.num_iterations = num_iterations
         self.eval_steps = eval_steps
         self.n_collect_envs = collect_env.batch_size or 1
@@ -350,13 +352,15 @@ class PPORunner:
 
             iteration_logs['TrainStep'] = self.train_step_counter.numpy()
 
+            iteration_logs.update(self.collect())
+            iteration_logs.update(self.train())
+
             if self.eval_interval > 0 and i % self.eval_interval == 0:
                 eval_logs = self.run_evaluation(i)
                 iteration_logs.update(eval_logs)
+            
+            if self.ckpt_interval > 0 and i % self.ckpt_interval == 0:
                 self.checkpoint_networks()
-
-            iteration_logs.update(self.collect())
-            iteration_logs.update(self.train())
 
             if self.model_save_metric in iteration_logs:
                 val = iteration_logs[self.model_save_metric]

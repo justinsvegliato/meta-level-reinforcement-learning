@@ -187,11 +187,11 @@ def create_parser():
                         help='Number of steps to evaluate for.')
     parser.add_argument('--eval_interval', type=int, default=25,
                         help='How often to evaluate trained agent.')
-    parser.add_argument('--n_eval_envs', type=int, default=32,
+    parser.add_argument('--n_eval_envs', type=int, default=0,
                         help='Number evaluation environments to run in parallel.')
     parser.add_argument('--video_steps', type=int, default=50,
                         help='Number of steps to record a video for.')
-    parser.add_argument('--n_video_envs', type=int, default=2,
+    parser.add_argument('--n_video_envs', type=int, default=0,
                         help='Number of video environments to record.')
     parser.add_argument('--profile_run', type=bool, default=False,
                         help='Whether to run profiling tools.')
@@ -212,12 +212,13 @@ def create_parser():
                         help='Whether to use computational rewards.')
     parser.add_argument('--max_cost_of_computation', type=float, default=0.005,
                         help='Max computational cost.')
-    parser.add_argument('--rewrite_rewards', type=bool, default=True,
-                        help='Whether to rewrite computational rewards.')
     parser.add_argument('--finish_on_terminate', type=bool, default=True,
                         help='Whether to finish meta-level episode on computational terminate action.')
     parser.add_argument('--min_train_computation_steps', type=int, default=5,
                         help='Minimum number of computational steps to train on.')
+
+    parser.add_argument('--no_rewrite_rewards', action='store_true', default=False,
+                        help='Whether to rewrite computational rewards.')
     parser.add_argument('--ablate_state_tokenise', default=False, action='store_true',
                         help='Whether to remove state vectors from node tokens.')
     parser.add_argument('--ablate_struc_tokenise', default=False, action='store_true',

@@ -129,7 +129,9 @@ def create_batched_procgen_meta_envs(
 
 def create_runner_envs(
         object_config: dict,
-        n_collect_envs=16, n_video_envs=2, n_eval_envs=8,
+        n_collect_envs=16,
+        n_video_envs=2,
+        n_eval_envs=8,
         min_train_computation_steps=0,
         env_multithreading=True, **config):
 
@@ -139,15 +141,21 @@ def create_runner_envs(
         env_multithreading=env_multithreading,
         **config)
 
-    eval_env = create_batched_procgen_meta_envs(
-        n_eval_envs, object_config,
-        env_multithreading=env_multithreading,
-        **config)
+    if n_eval_envs > 0:
+        eval_env = create_batched_procgen_meta_envs(
+            n_eval_envs, object_config,
+            env_multithreading=env_multithreading,
+            **config)
+    else:
+        eval_env = None
 
-    video_env = create_batched_procgen_meta_envs(
-        n_video_envs, object_config,
-        env_multithreading=env_multithreading,
-        **config)
+    if n_video_envs > 0:
+        video_env = create_batched_procgen_meta_envs(
+            n_video_envs, object_config,
+            env_multithreading=env_multithreading,
+            **config)
+    else:
+        video_env = None
 
     return env, eval_env, video_env
 
@@ -260,11 +268,11 @@ def end_of_epoch_callback(logs: dict, runner: PPORunner):
         logs[f'Collect{metric}'] = value
     reset_object_level_metrics(runner.collect_env)
 
-    if any('Eval' in k for k in logs):
+    if runner.eval_env is not None and any('Eval' in k for k in logs):
         eval_object_level_metrics = get_object_level_metrics(runner.eval_env)
         for metric, value in eval_object_level_metrics.items():
             logs[f'Eval{metric}'] = value
-    reset_object_level_metrics(runner.eval_env)
+        reset_object_level_metrics(runner.eval_env)
 
 
 def create_runner(args: dict) -> PPORunner:
@@ -290,6 +298,7 @@ def create_runner(args: dict) -> PPORunner:
         video_env=video_env,
         wandb_group=run_group,
         end_of_epoch_callback=end_of_epoch_callback,
+        rewrite_rewards=not args.get('no_rewrite_rewards', False),
         **args
     )
 
