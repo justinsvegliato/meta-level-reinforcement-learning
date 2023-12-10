@@ -1,7 +1,7 @@
 from rlts.meta.search_tree import ObjectState
 from rlts.utils import one_hot
 
-from typing import List
+from typing import List, Tuple
 from time import time
 
 import tensorflow as tf
@@ -29,7 +29,7 @@ class ProcgenProcessing:
         return ProcgenProcessing.__instance.agent
 
     @staticmethod
-    def call(observation) -> np.ndarray:
+    def call(observation) -> Tuple[np.ndarray, np.ndarray]:
         processor = ProcgenProcessing.__instance
         categorical_q_net = processor.categorical_q_net
         n_actions = categorical_q_net._num_actions
