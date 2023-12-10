@@ -1,8 +1,9 @@
 from rlts.meta.meta_env import MetaEnv
-from rlts.meta.search_tree import SearchTreeNode
+from rlts.meta.search_tree import SearchTree, SearchTreeNode
 from rlts.procgen.procgen_state import ProcgenProcessing, ProcgenState
 from rlts.procgen.procgen_env import make_vectorised_procgen
 
+from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional, Dict
 
 from multiprocessing import dummy as mp_threads
@@ -18,18 +19,71 @@ from tf_agents.typing import types
 from tf_agents.utils import nest_utils
 
 
-class NodeExpansionRequest:
+class ProcgenProcessingRequest(ABC):
+
+    def __init__(self,
+                 node: SearchTreeNode[ProcgenState],
+                 action: int):
+        self.node = node
+        self.action = action
+
+    def get_state(self) -> bytes:
+        return self.node.state.state[0]
+
+    @abstractmethod
+    def process_result(self, state_vec, q_value, new_state, obs, reward, done):
+        pass
+
+
+class NodeExpansionRequest(ProcgenProcessingRequest):
 
     def __init__(self,
                  node: SearchTreeNode[ProcgenState],
                  child_node: SearchTreeNode[ProcgenState],
                  action: int):
-        self.node = node
-        self.action = action
+        super().__init__(node, action)
         self.child_node = child_node
 
-    def get_state(self) -> bytes:
-        return self.node.state.state[0]
+    def process_result(self, state_vec, q_value, new_state, obs, reward, done):
+        self.child_node.reward = reward
+        self.child_node.is_terminal_state = done
+        self.child_node.state.set_variables([new_state], state_vec, obs, q_value)
+
+
+class TerminateProcessRequest(ProcgenProcessingRequest):
+
+    def __init__(self, meta_env: MetaEnv):
+        super().__init__(
+            meta_env.tree.root_node,
+            meta_env.get_best_object_action()
+        )
+        self.meta_env = meta_env
+
+    def process_result(self, state_vec, q_value, new_state, obs, reward, done):
+        """
+        Recreates the logic in MetaEnv.terminate but with data from batched
+        ProcgenProcessing
+        """
+        new_tree = SearchTree(
+            self.meta_env.object_env,
+            ProcgenState(),
+            self.meta_env.tree.q_function,
+            deterministic=self.meta_env.tree.deterministic,
+            discount=self.meta_env.tree.discount
+        )
+        new_tree.root_node.state.set_variables([new_state], state_vec, obs, q_value)
+        new_tree.root_node.is_terminal_state = done
+
+        self.meta_env.tree = new_tree
+        self.meta_env.last_object_level_reward = reward
+
+        # Notify observers and update variables
+        for observer in self.meta_env.object_level_transition_observers:
+            observer(obs, self.action, reward, done, {})
+
+        self.meta_env.search_tree_policy = self.meta_env.make_tree_policy(self.meta_env.tree)
+
+        self.meta_env.reset_computation_variables()
 
 
 class BatchedProcgenMetaEnv(PyEnvironment):
@@ -43,6 +97,8 @@ class BatchedProcgenMetaEnv(PyEnvironment):
                  match_obs_space_dtype: bool = True,
                  discount: types.Float = 0.99,
                  multithreading: bool = True,
+                 patch_terminates: bool = True,
+                 patch_expansions: bool = True,
                  auto_reset: bool = True):
         super(BatchedProcgenMetaEnv, self).__init__(auto_reset)
 
@@ -67,10 +123,15 @@ class BatchedProcgenMetaEnv(PyEnvironment):
                                                 simplify_box_bounds,
                                                 'action')
 
-        self.expansion_requests: List[NodeExpansionRequest] = []
+        self.expansion_requests: List[ProcgenProcessingRequest] = []
         self.discount = discount
         self.match_obs_space_dtype = match_obs_space_dtype
         self.multithreading = multithreading
+
+        self.patch_terminates = patch_terminates
+        self.patch_expansions = patch_expansions
+
+        self.states = None
 
         if multithreading:
             self._pool = mp_threads.Pool(self.n_meta_envs)
@@ -137,22 +198,33 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
         node.create_child = patched_create_child
 
-    def collect_expansion_requests(self, env: MetaEnv, meta_action: int):
+    def patch_terminate(self, meta_env: MetaEnv):
 
-        for node in env.tree.node_list:
-            self.patch_node(node)
+        def patched_terminate():
+            self.expansion_requests.append(TerminateProcessRequest(meta_env))
+    
+        meta_env.terminate = patched_terminate
 
-        env.act(meta_action)
+    def collect_expansion_requests(self, meta_env: MetaEnv, meta_action: int):
+
+        if self.patch_expansions:
+            for node in meta_env.tree.node_list:
+                self.patch_node(node)
+
+        if self.patch_terminates:
+            self.patch_terminate(meta_env)
+
+        meta_env.act(meta_action)
 
     def handle_requests(self):
 
-        states = self.object_envs.env.get_state()
+        self.states = self.states or self.object_envs.env.get_state()
         object_action = np.array([0] * self.n_object_envs)
         for i, request in enumerate(self.expansion_requests):
-            states[i] = request.get_state()
+            self.states[i] = request.get_state()
             object_action[i] = request.action
 
-        self.object_envs.env.set_state(states)
+        self.object_envs.env.set_state(self.states)
         ts = self.object_envs.step(object_action)
         new_states = self.object_envs.env.get_state()
 
@@ -168,9 +240,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
                       ts.is_last())
 
         for req, state_vec, q_value, new_state, obs, reward, done in results:
-            req.child_node.reward = reward
-            req.child_node.is_terminal_state = done
-            req.child_node.state.set_variables([new_state], state_vec, obs, q_value)
+            req.process_result(state_vec, q_value, new_state, obs, reward, done)
 
     def _step(self, meta_actions: List[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
         self.expansion_requests.clear()

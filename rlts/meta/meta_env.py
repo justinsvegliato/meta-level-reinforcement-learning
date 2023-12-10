@@ -161,6 +161,7 @@ class MetaEnv(gym.Env):
                  random_cost_of_computation: bool = True,
                  cost_of_computation_interval: Tuple[float, float] = (0.0, 0.05),
                  compute_meta_rewards: bool = True,
+                 create_intermediate_search_policies: bool = True,
                  break_q_value_ties_randomly: bool = False,
                  min_computation_steps: int = 0,
                  open_debug_server_on_fail: bool = False,
@@ -194,7 +195,9 @@ class MetaEnv(gym.Env):
         self.root_based_computational_rewards = root_based_computational_rewards
         self.finish_on_terminate = finish_on_terminate
         self.compute_meta_rewards = compute_meta_rewards
+        self.create_intermediate_search_policies = create_intermediate_search_policies
         self.min_computation_steps = min_computation_steps
+
         self.object_level_metrics = ObjectLevelMetrics(self)
         self.object_level_transition_observers = [self.object_level_metrics] \
             + (object_level_transition_observers or [])
@@ -435,6 +438,8 @@ class MetaEnv(gym.Env):
         # would be the index of the uci move object in the action space.
         # """
         root_state = self.tree.get_root().get_state()
+        if self.search_tree_policy is None:
+            self.search_tree_policy = self.make_tree_policy(self.tree)
         return self.search_tree_policy.get_action(root_state)
 
     # def get_best_object_action(self):
@@ -534,11 +539,16 @@ class MetaEnv(gym.Env):
 
             self.perform_computational_action(computational_action)
 
-            self.search_tree_policy = self.make_tree_policy(self.tree)
+            if self.create_intermediate_search_policies or self.computational_rewards:
+                self.search_tree_policy = self.make_tree_policy(self.tree)
 
-            meta_reward = -self.cost_of_computation
-            if self.computational_rewards:
-                meta_reward += self.get_computational_reward()
+            if self.compute_meta_rewards:
+                meta_reward = -self.cost_of_computation
+                if self.computational_rewards:
+                    meta_reward += self.get_computational_reward()
+
+            else:
+                meta_reward = 0.0
 
             # Set the environment to the state of the root node for inter-step consistency
             self.set_environment_to_root_state()
@@ -662,11 +672,18 @@ class MetaEnv(gym.Env):
             if self.done:
                 return self.observe_terminate()
 
-            self.search_tree_policy = self.make_tree_policy(self.tree)
+            meta_reward = 0
 
-            meta_reward = -self.cost_of_computation
-            if self.computational_rewards:
-                meta_reward += self.get_computational_reward()
+            if self.create_intermediate_search_policies:
+                self.search_tree_policy = self.make_tree_policy(self.tree)
+            else:
+                self.search_tree_policy = None
+
+            if self.compute_meta_rewards:
+                meta_reward = -self.cost_of_computation
+                if self.computational_rewards:
+                    meta_reward += self.get_computational_reward()
+
             self.last_meta_reward = meta_reward
 
             # Set the environment to the state of the root node for inter-step consistency
