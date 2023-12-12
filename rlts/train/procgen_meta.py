@@ -106,7 +106,8 @@ def create_batched_procgen_meta_envs(
         max_object_level_steps: int = 500,
         patch_terminates: bool = True,
         patch_expansions: bool = True,
-        env_multithreading=True, **config) -> BatchedPyEnvironment:
+        env_multithreading=True,
+        **config) -> BatchedPyEnvironment:
 
     if n_envs == 0:
         raise ValueError('n_envs must be > 0')

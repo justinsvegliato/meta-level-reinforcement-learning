@@ -271,6 +271,7 @@ class PPORunner:
 
         logs = {}
 
+        self.collect_env.reset()
         start_time = time.time()
         self.collect_actor.run()
         end_time = time.time()

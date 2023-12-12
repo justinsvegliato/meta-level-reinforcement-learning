@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import copy
 from functools import cached_property
 from typing import Generic, List, Optional, Tuple, Dict, TypeVar, Union
+import logging
 
 import gym
 import numpy as np
@@ -522,9 +523,14 @@ class SearchTree(Generic[StateType]):
         node_idx = int(node_idx)
 
         if node_idx >= len(self.node_list):
-            raise Exception(
-                f"Node index out of bounds: {node_idx=}, {len(self.node_list)=}"
+            # raise Exception(
+            #     f"Node index out of bounds: {node_idx=}, {len(self.node_list)=}"
+            # )
+            logging.warning(
+                f'Node index out of bounds: {node_idx=}, {len(self.node_list)=}. '
+                'Attempted expansion failed.'
             )
+            return
 
         node = self.node_list[node_idx]
         for action_idx in range(len(node.state.get_actions())):

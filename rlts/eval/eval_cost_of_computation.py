@@ -45,7 +45,7 @@ def main():
         run_args['cost_of_computation'] = cost_of_computation
         print('Testing with cost of computation', cost_of_computation)
         test_policies_with_pretrained_model({'RLTS': lambda _: policy},
-                                            args=run_args,
+                                            meta_config=run_args,
                                             n_envs=eval_args['n_envs'],
                                             n_object_level_episodes=eval_args['n_episodes'],
                                             max_object_level_steps=eval_args['max_steps'],

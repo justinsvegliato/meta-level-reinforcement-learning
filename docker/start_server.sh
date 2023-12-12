@@ -7,4 +7,5 @@
 # sudo service docker stop
 
 # docker run --gpus all -it --rm --name rlts_jupyter -v $(pwd):/tf/ -p :8989:8888 -p :5678:5678 --privileged=true chai/rlts:latest
-docker run --gpus all -it --rm --name rlts_jupyter -v $(pwd):/tf/ -p :8989:8989 -p :5678:5678 --entrypoint /bin/bash --privileged=true chai/rlts:latest -c "jupyter server --port=8989 --no-browser --ip=0.0.0.0 --allow-root --ServerApp.token='' --ServerApp.password=''"
+# docker run --gpus all --rm --name rlts_jupyter -v $(pwd):/tf/ -p :8989:8989 -p :5678:5678 --entrypoint /bin/bash --privileged=true chai/rlts:latest -c "jupyter server --port=8989 --no-browser --ip=0.0.0.0 --allow-root --ServerApp.token='' --ServerApp.password='asdf'"
+docker run --gpus all --rm --name rlts_jupyter -v $(pwd):/tf/ -p :8989:8989 -p :5678:5678 --entrypoint /bin/bash --privileged=true chai/rlts:latest -c "jupyter server --port=8989 --no-browser --ip=0.0.0.0 --allow-root"

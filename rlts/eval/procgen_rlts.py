@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import re
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -17,7 +18,9 @@ from rlts.utils import time_id
 sns.set()
 
 
-def load_meta_policy_from_checkpoint(run: dict, epoch: int, override_run_args: dict = None):
+def load_meta_policy_from_checkpoint(run: dict,
+                                     epoch: int,
+                                     override_run_args: dict = None):
 
     ckpt_dir = run['root_dir'] / f'network_checkpoints/step_{epoch}'
 
@@ -56,18 +59,48 @@ def load_most_recent_meta_policy(run: List[dict]):
     run['best_policy'] = load_meta_policy_from_checkpoint(run, model_epoch)
 
 
+def determine_metric_for_best(df: pd.DataFrame):
+    if 'EvalRewrittenAverageReturn' in df.columns:
+        return 'EvalRewrittenAverageReturn'
+    if 'Eval/RewrittenAverageReturn' in df.columns:
+        return 'Eval/RewrittenAverageReturn'
+    if 'Collect/RewrittenAverageReturn' in df.columns:
+        return 'Collect/RewrittenAverageReturn'
+    if 'Collect/AverageReturn' in df.columns:
+        return 'Collect/AverageReturn'
+
+    raise ValueError('Could not determine metric for best model. '
+                     'Please specify manually.')
+
+
 def load_best_meta_policy(run: List[dict],
                           output_path: Path = None,
                           selection_method: str = 'best',
                           override_run_args: dict = None,
+                          metric_for_best: Optional[str] = None,
+                          max_load_epoch: Optional[int] = None,
                           smoothing_radius: int = 1):
 
     _, ax = plt.subplots()
     wanbd_run = run['run']
     df = run['history']
     df.sort_values(by='TrainStep', inplace=True)
-    df = df[df['EvalRewrittenAverageReturn'].notna()]
-    y = df['EvalRewrittenAverageReturn'].array
+
+    steps_with_ckpts = [
+        int(p.stem[5:])
+        for p in (run['root_dir'] / 'network_checkpoints').glob(r'step_*')
+    ]
+
+    df = df[df['TrainStep'].isin(steps_with_ckpts)]
+
+    if max_load_epoch is not None:
+        df = df[df['TrainStep'] <= max_load_epoch]
+
+    if metric_for_best is None:
+        metric_for_best = determine_metric_for_best(df)
+
+    df = df[df[metric_for_best].notna()]
+    y = df[metric_for_best].array
     smooth_d = 1 + 2 * smoothing_radius
     y_smooth = np.concatenate([
         [y[0]] * smoothing_radius,
@@ -200,7 +233,7 @@ def main():
         print(f'Evaluating on with pretrained model at percentile {percentile} [{run_id}/{run_name}]')
         test_policies_with_pretrained_model(policy_creators,
                                             percentile=percentile,
-                                            args=run['run_args'],
+                                            meta_config=run['run_args'],
                                             outputs_dir=output_dir,
                                             results_observer=results_accumulator,
                                             video_args=video_args,

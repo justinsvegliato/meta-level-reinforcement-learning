@@ -22,19 +22,32 @@ def evaluate_meta_policy(create_policy: callable,
                          n_envs: int,
                          n_object_level_episodes: int,
                          object_config: dict,
-                         args: dict,
+                         meta_config: dict,
                          outputs_dir: Path = '.',
                          max_object_level_steps: int = 500,
                          episode_complete_cb: Callable[[dict], None] = None,
                          remove_envs_on_completion: bool = True,
+                         compute_meta_rewards: bool = False,
+                         no_cost_of_computation: bool = False,
                          create_video: bool = False):
     if create_video:
-        args['env_multithreading'] = False
+        meta_config['env_multithreading'] = False
+
+    if not compute_meta_rewards:
+        # turning off all parameters related to meta rewards
+        # to optimise performance
+        meta_config['compute_meta_rewards'] = False
+        meta_config['computational_rewards'] = False
+        meta_config['create_intermediate_search_policies'] = False
+
+    if no_cost_of_computation:
+        meta_config['cost_of_computation'] = 0.0
+        meta_config['random_cost_of_computation'] = False
 
     batched_meta_env = create_batched_procgen_meta_envs(
         n_envs=n_envs,
         object_config=object_config,
-        **args
+        **meta_config
     )
 
     policy = create_policy(batched_meta_env)
@@ -134,7 +147,7 @@ def evaluate_meta_policy(create_policy: callable,
 
 
 def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
-                                        args: dict,
+                                        meta_config: dict,
                                         outputs_dir: Path = None,
                                         percentile=None,
                                         n_object_level_episodes=10,
@@ -147,23 +160,23 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
     n_envs = min(n_envs, n_object_level_episodes)
     results_observer = results_observer or ResultsAccumulator()
 
-    args.update({
+    meta_config.update({
         'expand_all_actions': True,
         'finish_on_terminate': True,
     })
 
     if percentile is not None:
-        args['pretrained_percentile'] = percentile
+        meta_config['pretrained_percentile'] = percentile
     else:
-        percentile = args['pretrained_percentile']
+        percentile = meta_config['pretrained_percentile']
 
-    if 'n_envs' in args:
-        args.pop('n_envs')
+    if 'n_envs' in meta_config:
+        meta_config.pop('n_envs')
 
     object_config = load_pretrained_q_network(
-        folder=args['pretrained_runs_folder'],
-        run=args['pretrained_run'],
-        percentile=args['pretrained_percentile'],
+        folder=meta_config['pretrained_runs_folder'],
+        run=meta_config['pretrained_run'],
+        percentile=meta_config['pretrained_percentile'],
         verbose=False
     )
 
@@ -177,7 +190,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
 
         def on_episode_complete(epsiode_stats):
             stats = {
-                **args,
+                **meta_config,
                 **object_config,
                 **epsiode_stats
             }
@@ -197,7 +210,7 @@ def test_policies_with_pretrained_model(policy_creators: Dict[str, callable],
             n_object_level_episodes=n_object_level_episodes,
             outputs_dir=policy_outputs_dir,
             object_config=object_config,
-            args=args,
+            meta_config=meta_config,
             max_object_level_steps=max_object_level_steps,
             episode_complete_cb=on_episode_complete,
             create_video=create_video

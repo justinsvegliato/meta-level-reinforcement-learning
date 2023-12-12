@@ -103,7 +103,7 @@ def main():
 
             print(f'Running evaluations on {env} with run {run_name} ({run_id}) and max tree size {max_tree_size}')
             test_policies_with_pretrained_model(policy_creators,
-                                                args=run_args,
+                                                meta_config=run_args,
                                                 outputs_dir=output_dir / env / f'max_tree_size_{max_tree_size}',
                                                 results_observer=results_accumulator,
                                                 video_args=video_args,

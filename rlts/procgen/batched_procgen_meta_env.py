@@ -97,7 +97,7 @@ class BatchedProcgenMetaEnv(PyEnvironment):
                  match_obs_space_dtype: bool = True,
                  discount: types.Float = 0.99,
                  multithreading: bool = True,
-                 patch_terminates: bool = True,
+                 patch_terminates: bool = False,
                  patch_expansions: bool = True,
                  auto_reset: bool = True):
         super(BatchedProcgenMetaEnv, self).__init__(auto_reset)
@@ -130,8 +130,6 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
         self.patch_terminates = patch_terminates
         self.patch_expansions = patch_expansions
-
-        self.states = None
 
         if multithreading:
             self._pool = mp_threads.Pool(self.n_meta_envs)
@@ -218,13 +216,13 @@ class BatchedProcgenMetaEnv(PyEnvironment):
 
     def handle_requests(self):
 
-        self.states = self.states or self.object_envs.env.get_state()
+        states = self.object_envs.env.get_state()
         object_action = np.array([0] * self.n_object_envs)
         for i, request in enumerate(self.expansion_requests):
-            self.states[i] = request.get_state()
+            states[i] = request.get_state()
             object_action[i] = request.action
 
-        self.object_envs.env.set_state(self.states)
+        self.object_envs.env.set_state(states)
         ts = self.object_envs.step(object_action)
         new_states = self.object_envs.env.get_state()
 
