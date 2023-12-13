@@ -138,7 +138,7 @@ def evaluate_meta_policy(create_policy: callable,
     object_level_results = get_metrics()
 
     evaluations = {
-        **args,
+        **meta_config,
         **object_config,
         **eval_results,
         **object_level_results

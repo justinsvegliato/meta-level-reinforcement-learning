@@ -14,7 +14,7 @@ def parse_args():
                         help='Which model to use for evaluation, one of: "best", "last", "best_smoothed"')
     parser.add_argument('--smoothing_radius', type=int, default=1)
     parser.add_argument('--min_computation_steps', type=int, default=0)
-    parser.add_argument('--max_epoch_for_loading', type=int, default=250)
+    parser.add_argument('--max_epoch_for_loading', type=int, default=500)
     return vars(parser.parse_args())
 
 
@@ -23,9 +23,9 @@ def main():
 
     env_run_paths = {
         'bigfish': {
-            'ablate-struc': Path('outputs/runs/ppo_run_2023-12-07-15-48-59/'),
-            'ablate-state': Path('outputs/runs/ppo_run_2023-11-22-23-57-41/'),
-            'ablate-rewards': Path('outputs/runs/ppo_run_2023-12-11-18-13-32/'),
+            # 'ablate-struc': Path('outputs/runs/ppo_run_2023-12-07-15-48-59/'),
+            # 'ablate-state': Path('outputs/runs/ppo_run_2023-11-22-23-57-41/'),
+            # 'ablate-rewards': Path('outputs/runs/ppo_run_2023-12-11-18-13-32/'),
             'no-ablation': Path('outputs/runs/ppo_run_2023-11-21-14-31-14/'),
         }
     }
@@ -42,7 +42,7 @@ def main():
         run_args = run['run_args']
         run_args['min_computation_steps'] = eval_args['min_computation_steps']
 
-        output_dir = Path('outputs/eval/procgen/cost') / time_id()
+        output_dir = Path('outputs/eval/procgen/ablation') / time_id()
         output_dir.mkdir(parents=True, exist_ok=True)
         print(f'Writing results to {output_dir}')
 

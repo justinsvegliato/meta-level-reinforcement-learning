@@ -24,6 +24,8 @@ def load_meta_policy_from_checkpoint(run: dict,
 
     ckpt_dir = run['root_dir'] / f'network_checkpoints/step_{epoch}'
 
+    print(f'Loading meta policy from checkpoint: {ckpt_dir}')
+
     exclude_keys = ['learning_rate', 'name']
     run_args = {
         k: v for k, v in run['config'].items()
