@@ -170,7 +170,7 @@ def load_runs(output_dir: Optional[Path] = None,
         'coinrun': {1.0: Path('outputs/runs/ppo_run_52-06-02-13-05-2023/')},
         'bossfight': {1.0: Path('outputs/runs/ppo_run_2023-05-15-07-39-48/'),
                       0.25: Path('outputs/runs/ppo_run_2023-05-15-17-52-00/')},
-        'caveflyer': {0.1: Path('outputs/runs/ppo_run_2023-10-30-22-21-17/')},
+        'caveflyer': {0.1: Path('outputs/runs/ppo_run_2024-01-09-15-35-14/')},
     }
 
     if isinstance(env, str):
@@ -238,6 +238,7 @@ def main():
 
     object_env = eval_args['env']
     output_dir = Path('outputs/eval/procgen') / object_env / time_id()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     runs = load_runs(output_dir=output_dir, **eval_args)
 
