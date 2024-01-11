@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 import re
 
 import numpy as np
@@ -155,16 +155,11 @@ def parse_args():
     return vars(parser.parse_args())
 
 
-def main():
-
-    eval_args = parse_args()
-
-    print('Running with args:')
-    for k, v in eval_args.items():
-        print(f'\t- {k}: {v}')
-
-    if eval_args.get('gpus'):
-        restrict_gpus(eval_args['gpus'])
+def load_runs(output_dir: Optional[Path] = None,
+              model_selection: str = 'best',
+              env: Union[Optional[List[str]], str] = None,
+              percentiles: Union[Optional[List[float]], float] = None,
+              **eval_args):
 
     meta_policy_model_paths = {
         'bigfish': {
@@ -178,37 +173,76 @@ def main():
         'caveflyer': {0.1: Path('outputs/runs/ppo_run_2023-10-30-22-21-17/')},
     }
 
-    runs = {
-        percentile: get_wandb_info_from_run_dir(root_dir)
-        for env, env_model_paths in meta_policy_model_paths.items()
-        if env == eval_args['env']
+    if isinstance(env, str):
+        env = [env]
+
+    if env is None or len(env) == 0:
+        env = meta_policy_model_paths.keys()
+
+    if isinstance(percentiles, float):
+        percentiles = [percentiles]
+
+    if percentiles is None or len(percentiles) == 0:
+        percentiles = set([
+            percentile
+            for env_name, env_model_paths in meta_policy_model_paths.items()
+            if env_name in env
+            for percentile in env_model_paths.keys()
+        ])
+
+    runs = [
+        get_wandb_info_from_run_dir(root_dir)
+        for env_name, env_model_paths in meta_policy_model_paths.items()
+        if env_name in env
         for percentile, root_dir in env_model_paths.items()
-        if percentile in eval_args['percentiles']
-    }
+        if percentile in percentiles
+    ]
 
-    object_env = eval_args['env']
-    output_dir = Path('outputs/eval/procgen') / object_env / time_id()
-    results_accumulator = ResultsAccumulator(output_dir=output_dir)
-
-    with open(output_dir / 'wandb_runs_info.json', 'w') as f:
-        json.dump(runs, f, default=lambda _: '<not serializable>')
-
-    for run in runs.values():
-        if eval_args['load_epoch'] is not None:
+    for run in runs:
+        if eval_args.get('load_epoch', None) is not None:
             load_meta_policy_from_checkpoint(run, eval_args['load_epoch'])
             continue
 
         loaded_from_wandb = run['run'] is not None
-        load_best = eval_args['model_selection'] != 'last'
+        load_best = model_selection != 'last'
         if loaded_from_wandb and load_best:
             run_name = run['run'].name
             print(f'Loading best meta policy for run {run_name}')
-            output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
-            load_best_meta_policy(run, output_path, eval_args['model_selection'],
-                                  eval_args['smoothing_radius'])
+
+            if output_dir is not None:
+                output_path = output_dir / f'meta_policy_training_curve_{run_name}.png'
+            else:
+                output_path = None
+
+            load_best_meta_policy(run,
+                                  output_path,
+                                  model_selection,
+                                  smoothing_radius=eval_args.get('smoothing_radius', 1))
         else:
             print('Loading most recent meta policy')
             load_most_recent_meta_policy(run)
+
+    return runs
+
+
+def main():
+
+    eval_args = parse_args()
+
+    print('Running with args:')
+    for k, v in eval_args.items():
+        print(f'\t- {k}: {v}')
+
+    if eval_args.get('gpus'):
+        restrict_gpus(eval_args['gpus'])
+
+    object_env = eval_args['env']
+    output_dir = Path('outputs/eval/procgen') / object_env / time_id()
+
+    runs = load_runs(output_dir=output_dir, **eval_args)
+
+    with open(output_dir / 'wandb_runs_info.json', 'w') as f:
+        json.dump(runs, f, default=lambda _: '<not serializable>')
 
     n_object_level_episodes = eval_args.get('n_episodes', 10)
     max_object_level_steps = eval_args.get('max_steps', 500)
@@ -221,10 +255,11 @@ def main():
     else:
         video_args = None
 
+    results_accumulator = ResultsAccumulator(output_dir=output_dir)
     print(f'Writing results to {output_dir}')
 
-    for percentile, run in runs.items():
-
+    for run in runs:
+        percentile = run['config']['pretrained_percentile']
         policy_creators = {
             'Learned Meta-Policy': lambda _: run['best_policy']
         }
