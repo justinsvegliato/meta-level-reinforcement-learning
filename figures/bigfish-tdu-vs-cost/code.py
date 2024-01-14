@@ -52,6 +52,8 @@ def create_cost_of_computation_fig(tdu_df):
     # tdu_df.to_csv('figures/data/bigfish-tdu.csv', index=False)
     ax.legend(fontsize=15, loc="lower left")
     ax.set_xlabel("Cost of Computation")
+    # ax.set_ylim([-40, 40])
+    ax.set_yticks([-35, -20, 0, 20, 35])
 
 
 def reproduce_figure():
