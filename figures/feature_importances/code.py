@@ -42,11 +42,12 @@ def create_importance_scores_fig(max_importances_df):
         .sort_values("score", ascending=False)
         .index
     )
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(7, 5))
     ax = sns.barplot(
         data=max_importances_df, x="score", y="Features", order=order, capsize=0.2
     )
     ax.set_xlabel("Importance")
+    ax.set_ylabel("")
 
 
 def reproduce_figure():
