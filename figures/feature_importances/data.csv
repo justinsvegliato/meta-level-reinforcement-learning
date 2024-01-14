@@ -1,0 +1,85 @@
+run,pretrained_percentile,env,group,score,Features
+,0.1,bigfish,state,0.018734625,State Features
+,0.1,bigfish,parent_id,0.009906048,Parent ID Features
+,0.1,bigfish,id,0.009906048,ID Features
+,0.1,bigfish,exp_value,0.008142947,Expected Value at Node State
+,0.1,bigfish,action,0.007578291,Action Features
+,0.1,bigfish,exp_root_return,0.006610776,Expected Reward from Root
+,0.1,bigfish,meta_cost_of_computation,0.005179736,Cost of Computation
+,0.1,bigfish,attn_mask,0.0043885703,
+,0.1,bigfish,path_return,0.004302619,Sum of Rewards to Node
+,0.1,bigfish,$\perp$,0.0020206505,
+,0.1,bigfish,reward,0.0016281772,Reward at Node
+,0.1,bigfish,can_expand,0.00012355018,
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,parent_id,0.016897496,Parent ID Features
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,id,0.016897496,ID Features
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,state,0.01600392,State Features
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,action,0.011527378,Action Features
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,attn_mask,0.007876664,
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,can_expand,0.006223289,
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,$\perp$,0.0049125478,
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,meta_cost_of_computation,0.0040875347,Cost of Computation
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,reward,0.003069115,Reward at Node
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,exp_root_return,0.0023483569,Expected Reward from Root
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,exp_value,0.0005804974,Expected Value at Node State
+<Run drcope/rlts/60o7u3vm (finished)>,0.75,bigfish,path_return,0.00034715547,Sum of Rewards to Node
+,1.0,fruitbot,state,0.019280894,State Features
+,1.0,fruitbot,id,0.014449689,ID Features
+,1.0,fruitbot,parent_id,0.011862877,Parent ID Features
+,1.0,fruitbot,exp_root_return,0.010600011,Expected Reward from Root
+,1.0,fruitbot,action,0.010189645,Action Features
+,1.0,fruitbot,meta_cost_of_computation,0.008390126,Cost of Computation
+,1.0,fruitbot,can_expand,0.004170049,
+,1.0,fruitbot,path_return,0.0027322723,Sum of Rewards to Node
+,1.0,fruitbot,reward,0.0024098475,Reward at Node
+,1.0,fruitbot,$\perp$,0.0020539754,
+,1.0,fruitbot,exp_value,0.0018439568,Expected Value at Node State
+,1.0,fruitbot,attn_mask,0.00028388514,
+,1.0,coinrun,state,0.022880115,State Features
+,1.0,coinrun,reward,0.013959457,Reward at Node
+,1.0,coinrun,id,0.009865916,ID Features
+,1.0,coinrun,can_expand,0.0075691394,
+,1.0,coinrun,exp_value,0.0075399727,Expected Value at Node State
+,1.0,coinrun,action,0.0059572007,Action Features
+,1.0,coinrun,attn_mask,0.0053750016,
+,1.0,coinrun,parent_id,0.005221564,Parent ID Features
+,1.0,coinrun,path_return,0.0032273177,Sum of Rewards to Node
+,1.0,coinrun,$\perp$,0.0009032798,
+,1.0,coinrun,meta_cost_of_computation,0.00088686665,Cost of Computation
+,1.0,coinrun,exp_root_return,0.00053775095,Expected Reward from Root
+,1.0,bossfight,state,0.01804133,State Features
+,1.0,bossfight,parent_id,0.011806172,Parent ID Features
+,1.0,bossfight,id,0.011806172,ID Features
+,1.0,bossfight,path_return,0.00952505,Sum of Rewards to Node
+,1.0,bossfight,action,0.008983289,Action Features
+,1.0,bossfight,can_expand,0.008980611,
+,1.0,bossfight,meta_cost_of_computation,0.005869802,Cost of Computation
+,1.0,bossfight,exp_value,0.0049960646,Expected Value at Node State
+,1.0,bossfight,attn_mask,0.0021569019,
+,1.0,bossfight,reward,0.0020753716,Reward at Node
+,1.0,bossfight,exp_root_return,0.0009043434,Expected Reward from Root
+,1.0,bossfight,$\perp$,0.00035314527,
+,0.25,bossfight,state,0.01639352,State Features
+,0.25,bossfight,action,0.013389508,Action Features
+,0.25,bossfight,id,0.011082549,ID Features
+,0.25,bossfight,exp_root_return,0.007949606,Expected Reward from Root
+,0.25,bossfight,parent_id,0.0075867004,Parent ID Features
+,0.25,bossfight,reward,0.0052299337,Reward at Node
+,0.25,bossfight,path_return,0.0040921825,Sum of Rewards to Node
+,0.25,bossfight,$\perp$,0.0032957587,
+,0.25,bossfight,meta_cost_of_computation,0.0030707105,Cost of Computation
+,0.25,bossfight,can_expand,0.0029568775,
+,0.25,bossfight,attn_mask,0.0012209205,
+,0.25,bossfight,exp_value,2.5048232e-05,Expected Value at Node State
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,state,0.01826339,State Features
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,meta_cost_of_computation,0.012325492,Cost of Computation
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,exp_value,0.010433505,Expected Value at Node State
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,parent_id,0.01010895,Parent ID Features
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,id,0.01010895,ID Features
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,action,0.009267886,Action Features
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,reward,0.007010156,Reward at Node
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,attn_mask,0.005833486,
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,exp_root_return,0.0057551353,Expected Reward from Root
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,$\perp$,0.0030485697,
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,can_expand,0.0023587267,
+<Run drcope/rlts/tbx2477d (finished)>,0.1,caveflyer,path_return,0.0013075994,Sum of Rewards to Node
