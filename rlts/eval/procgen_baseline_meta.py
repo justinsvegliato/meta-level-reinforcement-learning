@@ -124,6 +124,15 @@ def evaluate_meta_policy(create_policy: callable,
 
     eval_results = dict()
     batched_meta_env.reset()
+    import debugpy
+    # 5678 is the default attach port in the VS Code debug configurations.
+    # 0.0.0.0 is used to allow remote debugging through docker.
+    debugpy.listen(('0.0.0.0', 5678))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
+    debugpy.breakpoint()
+    print('Breakpoint reached')
     while not completed_n_object_level_episodes():
         # create_time_step handles envs being removed dynamically
         time_step = batched_meta_env.create_time_step()
